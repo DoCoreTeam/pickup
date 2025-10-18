@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#111827" />
+    <title>우리 가게 바로가기</title>
+    <meta name="description" content="전화 한 번, 앱 한 번으로 우리 가게에 바로 연결!" />
+    
+    <!-- 네이버지도 API -->
+    <script type="text/javascript" src="https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=rgh3p2kjuo&submodules=geocoder"></script>
+
+    <style>
+      :root {
+        --bg: #f7f7f8;
+        --card: #ffffff;
+        --fg: #111827;
+        --muted: #6b7280;
+        --primary: #0ea5e9; /* 상단 전화 버튼 색 (시안 블루) */
+        --focus: 2px solid #11182744;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Apple SD Gothic Neo, "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+        line-height: 1.5;
+      }
+
+      .container {
+        max-width: 480px;
+        margin: 0 auto;
+        padding: 20px 16px 32px;
+      }
+
+      header { text-align: center; margin: 12px 0 20px; }
+      
+      /* 로고 스타일 */
+      .logo-container {
+        margin-bottom: 16px;
+        display: flex;
+        justify-content: center;
+      }
+      
+      .logo {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        box-shadow: 0 4px 16px rgba(237, 28, 36, 0.3);
+        transition: transform 0.2s ease;
+        overflow: hidden;
+      }
+      
+      .logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 50%;
+      }
+      
+      .logo:hover {
+        transform: scale(1.05);
+      }
+      
+      header h1 { font-size: 22px; margin: 4px 0; }
+      header p { margin: 0; color: var(--muted); font-size: 14px; }
+
+      .grid { display: grid; gap: 12px; }
+
+      .btn {
+        display: flex; align-items: center; gap: 12px;
+        padding: 18px 16px; border-radius: 16px; text-decoration: none; color: #fff;
+        background: #111827; box-shadow: 0 6px 20px rgba(0,0,0,.08);
+        min-height: 64px; border: 1px solid #00000010;
+      }
+      .btn:focus-visible { outline: var(--focus); }
+      .btn:hover { transform: translateY(-1px); transition: transform .15s ease; }
+
+      .btn .icon { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; }
+      .btn .label { font-weight: 700; font-size: 18px; letter-spacing: 0.2px; }
+      .btn .sub { margin-left: auto; font-size: 13px; opacity: .95; }
+
+      /* 각 버튼 색상 - 서비스 아이덴티티 컬러 반영 */
+      .btn-call { background: linear-gradient(135deg, #22c55e, #16a34a); } /* 전화 - 초록색 유지 */
+      .btn-ttaeng { background: linear-gradient(135deg, #ff3e00, #e63900); } /* 땡겨요 - 주황/빨강 */
+      .btn-baemin { background: linear-gradient(135deg, #00c73c, #00a73c); } /* 배달의민족 - 민트그린 */
+      .btn-coupang { background: linear-gradient(135deg, #ff6b35, #ff8c42); } /* 쿠팡이츠 - 오렌지 */
+
+      /* 준비중 버튼 스타일 */
+      .btn-disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        pointer-events: none;
+        position: relative;
+      }
+
+      .btn-disabled::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%);
+        animation: shimmer 2s infinite;
+        pointer-events: none;
+      }
+
+      @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+
+      .card {
+        background: var(--card);
+        border-radius: 16px; padding: 12px 14px; border: 1px solid #0000000f;
+        color: var(--muted); font-size: 13px; text-align: center;
+      }
+
+      /* 할인 카드 스타일 */
+      .discount-card {
+        background: linear-gradient(135deg, #fef3c7, #fde68a);
+        border: 2px solid #f59e0b;
+        border-radius: 16px;
+        padding: 16px;
+        margin: 8px 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
+        position: relative;
+        overflow: hidden;
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      /* 반짝거리는 효과 */
+      .discount-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        animation: shine 3s ease-in-out infinite;
+        pointer-events: none;
+      }
+
+      /* 펄스 애니메이션 */
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+      }
+
+      /* 반짝임 애니메이션 */
+      @keyframes shine {
+        0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+        50% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+      }
+
+      .discount-icon {
+        font-size: 24px;
+        flex-shrink: 0;
+      }
+
+      .discount-content {
+        flex: 1;
+      }
+
+      .discount-title {
+        font-weight: 700;
+        font-size: 16px;
+        color: #92400e;
+        margin-bottom: 4px;
+      }
+
+      .discount-desc {
+        font-size: 14px;
+        color: #a16207;
+        line-height: 1.4;
+      }
+
+      .discount-desc strong {
+        color: #92400e;
+        font-weight: 700;
+        animation: highlight 1.5s ease-in-out infinite;
+        text-shadow: 0 0 8px rgba(146, 64, 14, 0.3);
+      }
+
+      /* 강조 텍스트 애니메이션 */
+      @keyframes highlight {
+        0%, 100% { 
+          color: #92400e;
+          text-shadow: 0 0 8px rgba(146, 64, 14, 0.3);
+        }
+        50% { 
+          color: #dc2626;
+          text-shadow: 0 0 12px rgba(220, 38, 38, 0.5);
+        }
+      }
+
+      /* 픽업 장소 카드 스타일 */
+      .pickup-card {
+        background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+        border: 2px solid #0ea5e9;
+        border-radius: 16px;
+        padding: 16px;
+        margin: 8px 0;
+        box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
+      }
+
+      .pickup-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .pickup-icon {
+        font-size: 20px;
+      }
+
+      .pickup-title {
+        font-weight: 700;
+        font-size: 16px;
+        color: #0369a1;
+      }
+
+      .pickup-content {
+        color: #0c4a6e;
+        line-height: 1.5;
+      }
+
+      .pickup-address {
+        font-size: 15px;
+        margin-bottom: 8px;
+        color: #0369a1;
+      }
+
+      .pickup-detail {
+        font-size: 14px;
+        margin-bottom: 8px;
+        color: #0c4a6e;
+      }
+
+      .pickup-note {
+        font-size: 13px;
+        color: #0369a1;
+        font-style: italic;
+        background: rgba(14, 165, 233, 0.1);
+        padding: 6px 8px;
+        border-radius: 8px;
+        margin-top: 8px;
+      }
+
+      /* 지도 버튼 스타일 */
+      .pickup-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+        flex-wrap: wrap;
+      }
+
+      .map-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        flex: 1;
+        min-width: 140px;
+        justify-content: center;
+      }
+
+      .map-naver {
+        background: linear-gradient(135deg, #03c75a, #00a651);
+        color: white;
+        border: 1px solid #00a651;
+      }
+
+      .map-naver:hover {
+        background: linear-gradient(135deg, #00a651, #008f47);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(3, 199, 90, 0.3);
+      }
+
+      .map-tmap {
+        background: linear-gradient(135deg, #ff6b35, #ff8c42);
+        color: white;
+        border: 1px solid #ff8c42;
+      }
+
+      .map-tmap:hover {
+        background: linear-gradient(135deg, #ff8c42, #ff6b35);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(255, 107, 53, 0.3);
+      }
+
+      .map-icon {
+        font-size: 16px;
+      }
+
+      /* 지도 컨테이너 스타일 */
+      .map-container {
+        margin: 12px 0;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e5e7eb;
+      }
+
+      .map-container iframe {
+        display: block;
+        width: 100%;
+        height: 200px;
+        border: none;
+      }
+
+      /* 픽업 토글 버튼 스타일 */
+      .pickup-toggle-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 8px;
+        padding: 8px 12px;
+        margin-top: 12px;
+        color: #92400e;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        width: 100%;
+        justify-content: center;
+      }
+
+      .pickup-toggle-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: translateY(-1px);
+      }
+
+      .pickup-toggle-icon {
+        font-size: 14px;
+      }
+
+      .pickup-toggle-arrow {
+        font-size: 12px;
+        transition: transform 0.2s ease;
+      }
+
+      .pickup-toggle-btn.active .pickup-toggle-arrow {
+        transform: rotate(180deg);
+      }
+
+      footer { margin-top: 16px; text-align: center; color: var(--muted); font-size: 12px; }
+
+      @media (prefers-reduced-motion: reduce) {
+        .btn:hover { transform: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <header>
+        <!-- 미친제육 로고 -->
+        <div class="logo-container">
+          <div class="logo">
+            <img src="images/mcjy.png" alt="미친제육 로고" width="80" height="80">
+          </div>
+        </div>
+        <h1>미친제육</h1>
+        <p>전화·앱 한 번으로 바로 주문하세요</p>
+      </header>
+
+      <section class="grid" aria-label="빠른 연결">
+        <!-- 1) 가장 잘 보이는 상단: 전화걸기 -->
+        <!-- TODO: 전화번호를 변경하세요 (하이픈 포함 가능). -->
+        <a class="btn btn-call" href="tel:031-569-1011" aria-label="가게로 전화하기 031-569-1011">
+          <span class="icon" aria-hidden="true">
+            <!-- phone icon -->
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 4c0-1.1.9-2 2-2h2.2c.9 0 1.7.6 1.9 1.5l.7 2.7c.2.7 0 1.5-.5 2L6.8 9.7a14.5 14.5 0 0 0 7.5 7.5l1.5-1.5c.5-.5 1.3-.7 2-.5l2.7.7c.9.2 1.5 1 1.5 1.9V20c0 1.1-.9 2-2 2h-1C9.7 22 2 14.3 2 5v-1Z" fill="white"/>
+            </svg>
+          </span>
+          <span class="label">가게로 전화하기</span>
+          <span class="sub">031-569-1011</span>
+        </a>
+
+        <!-- 전화 주문 할인 안내 -->
+        <div class="discount-card">
+          <div class="discount-icon">🎉</div>
+          <div class="discount-content">
+            <div class="discount-title">전화 주문 특가!</div>
+            <div class="discount-desc">가게 전화로 포장 주문 시 <strong>압도적 2,000원 할인</strong>해드려요</div>
+            <button class="pickup-toggle-btn" onclick="togglePickupInfo()">
+              <span class="pickup-toggle-icon">📍</span>
+              <span>픽업 안내 보기</span>
+              <span class="pickup-toggle-arrow">▼</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2) 땡겨요 바로가기 (준비중) -->
+        <div class="btn btn-ttaeng btn-disabled" aria-label="땡겨요 서비스 준비중">
+          <span class="icon" aria-hidden="true">
+            <!-- 땡겨요 로고 -->
+            <img src="images/dgy.svg" alt="땡겨요 로고" width="28" height="28">
+          </span>
+          <span class="label">땡겨요 바로가기</span>
+          <span class="sub">준비중</span>
+        </div>
+
+        <!-- 3) 배달의민족 (배민) 바로가기
+             TODO: href 를 본인 점포 공유 링크로 바꾸세요.  예: https://baemin.page.link/XXXX -->
+        <a class="btn btn-baemin" href="https://s.baemin.com/Qk000syLXjuxl" target="_blank" rel="noopener" aria-label="배민에서 우리 가게 바로가기">
+          <span class="icon" aria-hidden="true">
+            <!-- 배민 로고 -->
+            <img src="images/bm.svg" alt="배민 로고" width="28" height="28">
+          </span>
+          <span class="label">배달의민족 바로가기</span>
+          <span class="sub">앱/웹 열기</span>
+        </a>
+
+        <!-- 4) 쿠팡이츠 바로가기
+             TODO: href 를 본인 점포 공유 링크로 바꾸세요.  예: https://link.coupangeats.com/XXXX -->
+        <a class="btn btn-coupang" href="https://web.coupangeats.com/share?storeId=907487&dishId&key=91041190-074e-4f03-a897-b5a109ffc76a" target="_blank" rel="noopener" aria-label="쿠팡이츠에서 우리 가게 바로가기">
+          <span class="icon" aria-hidden="true">
+            <!-- 쿠팡이츠 로고 -->
+            <img src="images/cpeat.png" alt="쿠팡이츠 로고" width="28" height="28">
+          </span>
+          <span class="label">쿠팡이츠 바로가기</span>
+          <span class="sub">앱/웹 열기</span>
+        </a>
+      </section>
+
+      <section style="margin-top:14px;" aria-label="안내">
+        <div class="card">앱이 설치되어 있다면 앱이 열리고, 없다면 웹으로 연결될 수 있습니다.</div>
+      </section>
+
+      <!-- 픽업 장소 안내 (토글) -->
+      <section id="pickup-info" style="margin-top:16px; display:none;" aria-label="픽업 장소 안내">
+        <div class="pickup-card">
+          <div class="pickup-header">
+            <span class="pickup-icon">📍</span>
+            <span class="pickup-title">픽업 장소 안내</span>
+          </div>
+          <div class="pickup-content">
+            <div class="pickup-address">
+              <strong>남양시장 바로 옆 골목 첫 블록, 1층 101호</strong>
+            </div>
+            <div class="pickup-detail">
+              경기도 구리시 검배로60번길 27, 1층 101호<br>
+              (지번: 구리시 수택동 474-1)
+            </div>
+            <div class="pickup-note">
+              💡 두 주소 모두 내비/지도에서 인식됩니다
+            </div>
+            <!-- 네이버지도 API -->
+            <div class="map-container">
+              <div id="naver-map" style="width: 100%; height: 200px;"></div>
+            </div>
+            
+            <div class="pickup-actions">
+              <a href="https://map.naver.com/v5/search/구리시 검배로60번길 27" target="_blank" class="map-btn map-naver">
+                <span class="map-icon">🗺️</span>
+                <span>네이버지도로 길찾기</span>
+              </a>
+              <a href="https://tmapapi.sktelecom.com/main/app/web/routes?goalx=127.123456&goaly=37.123456&goalname=미친제육" target="_blank" class="map-btn map-tmap">
+                <span class="map-icon">🚗</span>
+                <span>T맵으로 길찾기</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <div>© <span id="year"></span> 디스크밤 컴퍼니. All rights reserved.</div>
+      </footer>
+    </main>
+
+    <script>
+      // 연도 자동 반영
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      // 네이버지도 API 초기화
+      function initNaverMap() {
+        try {
+          // 네이버지도 API가 로드되었는지 확인
+          if (typeof naver === 'undefined' || !naver.maps) {
+            console.log('네이버지도 API가 로드되지 않았습니다. 대체 지도를 표시합니다.');
+            showFallbackMap();
+            return;
+          }
+
+          // 구리시 검배로60번길 27 좌표 (대략적인 위치)
+          const mapOptions = {
+            center: new naver.maps.LatLng(37.6038, 127.1434), // 구리시 중심 좌표
+            zoom: 15
+          };
+
+          const map = new naver.maps.Map('naver-map', mapOptions);
+
+          // 마커 추가
+          const marker = new naver.maps.Marker({
+            position: new naver.maps.LatLng(37.6038, 127.1434),
+            map: map,
+            title: '미친제육'
+          });
+
+          // 정보창 추가
+          const infoWindow = new naver.maps.InfoWindow({
+            content: '<div style="padding: 10px;"><strong>미친제육</strong><br>구리시 검배로60번길 27, 1층 101호</div>'
+          });
+
+          // 마커 클릭 시 정보창 표시
+          naver.maps.Event.addListener(marker, 'click', function() {
+            infoWindow.open(map, marker);
+          });
+
+        } catch (error) {
+          console.log('네이버지도 API 오류:', error);
+          showFallbackMap();
+        }
+      }
+
+      // 대체 지도 표시 (API 실패 시)
+      function showFallbackMap() {
+        const mapContainer = document.getElementById('naver-map');
+        mapContainer.innerHTML = `
+          <div style="
+            width: 100%; 
+            height: 200px; 
+            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+            border: 2px solid #0ea5e9;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #0369a1;
+            text-align: center;
+            padding: 20px;
+          ">
+            <div style="font-size: 24px; margin-bottom: 10px;">📍</div>
+            <div style="font-weight: bold; margin-bottom: 8px;">미친제육</div>
+            <div style="font-size: 14px; margin-bottom: 12px;">구리시 검배로60번길 27, 1층 101호</div>
+            <div style="font-size: 12px; color: #0c4a6e;">
+              지도 로딩 중... 아래 버튼을 이용해주세요
+            </div>
+          </div>
+        `;
+      }
+
+      // 픽업 안내 토글 함수
+      function togglePickupInfo() {
+        const pickupInfo = document.getElementById('pickup-info');
+        const toggleBtn = document.querySelector('.pickup-toggle-btn');
+        const arrow = document.querySelector('.pickup-toggle-arrow');
+        
+        if (pickupInfo.style.display === 'none') {
+          pickupInfo.style.display = 'block';
+          toggleBtn.classList.add('active');
+          toggleBtn.querySelector('span:nth-child(2)').textContent = '픽업 안내 숨기기';
+          
+          // 픽업 안내 섹션으로 부드럽게 스크롤
+          setTimeout(() => {
+            pickupInfo.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'start' 
+            });
+            // 지도 초기화 (토글 시에만)
+            if (typeof naver !== 'undefined') {
+              initNaverMap();
+            }
+          }, 100);
+        } else {
+          pickupInfo.style.display = 'none';
+          toggleBtn.classList.remove('active');
+          toggleBtn.querySelector('span:nth-child(2)').textContent = '픽업 안내 보기';
+        }
+      }
+    </script>
+  </body>
+</html>
