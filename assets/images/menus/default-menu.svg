@@ -1,0 +1,39 @@
+<svg width="400" height="300" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="menuGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f8fafc;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e2e8f0;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- 배경 -->
+  <rect width="400" height="300" fill="url(#menuGradient)" rx="12"/>
+  
+  <!-- 테두리 -->
+  <rect x="4" y="4" width="392" height="292" fill="none" stroke="#cbd5e1" stroke-width="2" rx="8"/>
+  
+  <!-- 제목 -->
+  <text x="200" y="40" font-family="Arial, sans-serif" font-size="28" font-weight="bold" text-anchor="middle" fill="#1e293b">
+    메뉴 이미지
+  </text>
+  
+  <!-- 아이콘들 -->
+  <circle cx="120" cy="120" r="25" fill="#3b82f6" opacity="0.7"/>
+  <text x="120" y="128" font-family="Arial, sans-serif" font-size="16" font-weight="bold" text-anchor="middle" fill="white">🍽️</text>
+  
+  <circle cx="200" cy="120" r="25" fill="#10b981" opacity="0.7"/>
+  <text x="200" y="128" font-family="Arial, sans-serif" font-size="16" font-weight="bold" text-anchor="middle" fill="white">🍕</text>
+  
+  <circle cx="280" cy="120" r="25" fill="#f59e0b" opacity="0.7"/>
+  <text x="280" y="128" font-family="Arial, sans-serif" font-size="16" font-weight="bold" text-anchor="middle" fill="white">🍔</text>
+  
+  <!-- 설명 텍스트 -->
+  <text x="200" y="180" font-family="Arial, sans-serif" font-size="16" text-anchor="middle" fill="#64748b">
+    메뉴 이미지를 업로드해주세요
+  </text>
+  
+  <text x="200" y="200" font-family="Arial, sans-serif" font-size="14" text-anchor="middle" fill="#94a3b8">
+    드래그 앤 드롭 또는 클릭하여 선택
+  </text>
+</svg>
+

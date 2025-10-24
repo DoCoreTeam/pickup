@@ -1,0 +1,67 @@
+name: 🛡️ 호환성 검증 (Compatibility Guardian)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 2 * * *'  # 매일 새벽 2시 자동 검증
+
+jobs:
+  compatibility-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 코드 체크아웃
+      uses: actions/checkout@v4
+      
+    - name: 🐍 Python 설정
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: 📦 의존성 설치
+      run: |
+        # 필요한 도구 설치
+        sudo apt-get update
+        sudo apt-get install -y jq curl bc
+        
+    - name: 🚀 서버 시작
+      run: |
+        # HTTP 서버 시작
+        cd src/frontend && python3 -m http.server 8080 &
+        echo $! > /tmp/http_server.pid
+        
+        # API 서버 시작
+        cd ../.. && python3 src/backend/api_server.py &
+        echo $! > /tmp/api_server.pid
+        
+        # 서버 시작 대기
+        sleep 5
+        
+    - name: 🛡️ 호환성 검증 실행
+      run: |
+        chmod +x scripts/compatibility-check.sh
+        ./scripts/compatibility-check.sh
+        
+    - name: 🧹 서버 정리
+      if: always()
+      run: |
+        # 서버 프로세스 정리
+        if [ -f /tmp/http_server.pid ]; then
+          kill $(cat /tmp/http_server.pid) 2>/dev/null || true
+        fi
+        if [ -f /tmp/api_server.pid ]; then
+          kill $(cat /tmp/api_server.pid) 2>/dev/null || true
+        fi
+        
+    - name: 📊 결과 업로드
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: compatibility-check-results
+        path: |
+          /tmp/http_server.pid
+          /tmp/api_server.pid
+        retention-days: 1
