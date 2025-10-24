@@ -571,6 +571,14 @@
       }
 
       function getStoreIdFromUrl() {
+        // URL 파라미터에서 storeId 확인
+        const urlParams = new URLSearchParams(window.location.search);
+        const storeIdFromParam = urlParams.get('storeId');
+        if (storeIdFromParam) {
+          return storeIdFromParam;
+        }
+        
+        // 기존 경로 기반 파싱 (하위 호환성)
         const path = window.location.pathname;
         const match = path.match(/\/store\/([^\/]+)/);
         return match ? match[1] : null;
