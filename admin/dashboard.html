@@ -1494,7 +1494,7 @@
         // 활동 로그 로드
         async function loadActivityLogs() {
             try {
-                const response = await fetch('/api/activity-logs');
+                const response = await fetch(`${API_BASE}/activity-logs`);
                 const data = await response.json();
                 
                 if (data.logs) {
