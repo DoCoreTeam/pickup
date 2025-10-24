@@ -961,6 +961,47 @@
             window.location.href = 'login.html';
         }
 
+        // 가게 페이지 새로고침 알림
+        function notifyStorePageRefresh() {
+            // 현재 선택된 가게의 페이지 URL 생성
+            const currentStoreId = getCurrentStoreId();
+            if (currentStoreId) {
+                const storePageUrl = `/store/${currentStoreId}`;
+                showToast('설정이 저장되었습니다! 가게 페이지에서 변경사항을 확인하세요.', 'success', '설정 저장 완료');
+                
+                // 새 탭에서 가게 페이지 열기 버튼 추가
+                setTimeout(() => {
+                    const refreshButton = document.createElement('button');
+                    refreshButton.innerHTML = '가게 페이지 확인하기';
+                    refreshButton.style.cssText = `
+                        position: fixed;
+                        top: 80px;
+                        right: 20px;
+                        background: #2196f3;
+                        color: white;
+                        border: none;
+                        padding: 8px 16px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        z-index: 10001;
+                        font-size: 12px;
+                    `;
+                    refreshButton.onclick = () => {
+                        window.open(storePageUrl, '_blank');
+                        refreshButton.remove();
+                    };
+                    document.body.appendChild(refreshButton);
+                    
+                    // 5초 후 자동 제거
+                    setTimeout(() => {
+                        if (refreshButton.parentNode) {
+                            refreshButton.remove();
+                        }
+                    }, 5000);
+                }, 1000);
+            }
+        }
+
         // 토스트 알림 시스템
         function showToast(message, type = 'info', title = '', duration = 4000) {
             const container = document.getElementById('toastContainer');
@@ -1333,6 +1374,7 @@
                 }
                 
                 showStatus('가게명, 하단 텍스트, 전화번호, 주소가 저장되었습니다!', 'success');
+                notifyStorePageRefresh();
                 
                 // 가게 목록 다시 로드하여 변경사항 반영
                 await loadStoreList();
@@ -1362,6 +1404,7 @@
                 updateAllDeliveryStatuses();
                 
                 showStatus('배달앱 URL 설정이 저장되었습니다!', 'success');
+                notifyStorePageRefresh();
             } catch (error) {
                 console.error('배달앱 URL 저장 실패:', error);
                 showStatus('배달앱 URL 저장에 실패했습니다.', 'error');
@@ -1546,6 +1589,7 @@
                 
                 await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`, 'POST', settings);
                 showStatus('할인 설정이 저장되었습니다!', 'success');
+                notifyStorePageRefresh();
             } catch (error) {
                 console.error('할인 설정 저장 실패:', error);
                 showStatus('할인 설정 저장에 실패했습니다.', 'error');
@@ -1566,6 +1610,7 @@
                 
                 await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`, 'POST', settings);
                 showStatus('픽업 설정이 저장되었습니다!', 'success');
+                notifyStorePageRefresh();
             } catch (error) {
                 console.error('픽업 설정 저장 실패:', error);
                 showStatus('픽업 설정 저장에 실패했습니다.', 'error');
@@ -1599,6 +1644,7 @@
                     updateImagePreview(imageType, imageData);
                     
                     showStatus(`${imageType === 'mainLogo' ? '로고' : '메뉴판'} 이미지가 업로드되어 저장되었습니다!`, 'success');
+                    notifyStorePageRefresh();
                 } catch (error) {
                     console.error('이미지 저장 오류:', error);
                     showStatus('이미지 저장에 실패했습니다.', 'error');

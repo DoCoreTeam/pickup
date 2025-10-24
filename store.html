@@ -1035,8 +1035,31 @@
         }
       }
 
+      // 설정 변경 감지 및 페이지 자동 새로고침
+      function startSettingsPolling() {
+        setInterval(async () => {
+          if (currentStoreId && !isLoading) {
+            try {
+              const newSettings = await loadSettings(currentStoreId);
+              // 설정이 변경된 경우 페이지 다시 렌더링
+              if (JSON.stringify(newSettings) !== JSON.stringify(settings)) {
+                log('INFO', '설정 변경 감지, 페이지 다시 렌더링');
+                settings = newSettings;
+                renderStorePage();
+              }
+            } catch (error) {
+              log('ERROR', '설정 폴링 실패', error);
+            }
+          }
+        }, 2000); // 2초마다 확인
+      }
+
       // 페이지 로드 시 초기화
-      document.addEventListener('DOMContentLoaded', initialize);
+      document.addEventListener('DOMContentLoaded', () => {
+        initialize().then(() => {
+          startSettingsPolling();
+        });
+      });
 
       // 모바일 확대/축소 방지
       function preventZoom() {
