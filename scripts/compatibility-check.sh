@@ -32,7 +32,6 @@ test_check() {
 
 # 서버 상태 확인
 echo -e "\n${BLUE}📡 서버 상태 확인${NC}"
-test_check "HTTP 서버 (포트 8080)" "curl -s http://localhost:8080/ | grep -q '관리자 페이지'"
 test_check "API 서버 (포트 8081)" "curl -s http://localhost:8081/api/data | jq . > /dev/null"
 
 # API 엔드포인트 테스트
@@ -54,13 +53,13 @@ test_check "settings 객체" "curl -s http://localhost:8081/api/data | jq '.sett
 
 # URL 라우팅 테스트
 echo -e "\n${BLUE}🛣️ URL 라우팅 테스트${NC}"
-test_check "루트 경로 리다이렉트" "curl -s http://localhost:8080/ | grep -q '관리자 페이지'"
-test_check "관리자 페이지 접근" "curl -s http://localhost:8080/admin/dashboard.html | grep -q '관리자 메뉴'"
-test_check "로그인 페이지 접근" "curl -s http://localhost:8080/admin/login.html | grep -q '슈퍼어드민 로그인'"
+test_check "루트 경로 (가게 탐색)" "curl -s http://localhost:8081/ | grep -q '가게를 선택하고'"
+test_check "관리자 페이지 접근" "curl -s http://localhost:8081/admin/ | grep -q '관리자 페이지'"
+test_check "로그인 페이지 접근" "curl -s http://localhost:8081/admin/login.html | grep -q '슈퍼어드민 로그인'"
 
 # 가게 페이지 테스트
 echo -e "\n${BLUE}🏪 가게 페이지 테스트${NC}"
-test_check "가게 페이지 접근" "curl -s 'http://localhost:8080/?store=store_1761193456474_iu7rvfvcr' | grep -q '가게 정보 로딩 중'"
+test_check "가게 페이지 접근" "curl -s http://localhost:8081/store/test | grep -q '가게 정보를 불러오는 중'"
 
 # POST 요청 테스트 (슈퍼어드민 로그인)
 echo -e "\n${BLUE}🔐 인증 테스트${NC}"

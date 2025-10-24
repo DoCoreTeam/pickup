@@ -266,6 +266,13 @@ class DataHandler(BaseHTTPRequestHandler):
                 # 가게별 페이지 서빙
                 self.serve_static_file('/store.html')
             
+            elif parsed_path.path == '/admin':
+                # /admin을 /admin/으로 리다이렉트
+                self.send_response(301)
+                self.send_header('Location', '/admin/')
+                self.end_headers()
+                return
+            
             else:
                 # 정적 파일 서빙 (API가 아닌 경우)
                 self.serve_static_file(parsed_path.path)
