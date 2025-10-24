@@ -429,6 +429,90 @@
             background: #3498db;
         }
 
+        /* 테이블 스타일 */
+        .table-container {
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+
+        .store-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .store-table th {
+            background: #f8f9fa;
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .store-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #dee2e6;
+            vertical-align: middle;
+        }
+
+        .store-row {
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .store-row:hover {
+            background-color: #f8f9fa;
+        }
+
+        .store-row.selected {
+            background-color: #e3f2fd;
+            border-left: 4px solid #2196f3;
+        }
+
+        .store-row.selected:hover {
+            background-color: #e3f2fd;
+        }
+
+        .store-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .table-actions {
+            white-space: nowrap;
+        }
+
+        .table-actions .btn {
+            margin-right: 8px;
+        }
+
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+
+        /* 반응형 테이블 */
+        @media (max-width: 768px) {
+            .store-table {
+                font-size: 14px;
+            }
+            
+            .store-table th,
+            .store-table td {
+                padding: 8px 12px;
+            }
+            
+            .table-actions .btn {
+                margin-right: 4px;
+                padding: 2px 6px;
+                font-size: 11px;
+            }
+        }
+
         .store-list {
             list-style: none;
         }
@@ -1130,75 +1214,156 @@
                 const storeList = document.getElementById('storeList');
                 const currentStoreId = await getCurrentStoreId();
                 
-                storeList.innerHTML = '';
+                // 테이블 구조로 변경
+                storeList.innerHTML = `
+                    <div class="table-container">
+                        <table class="store-table">
+                            <thead>
+                                <tr>
+                                    <th>가게명</th>
+                                    <th>부제목</th>
+                                    <th>전화번호</th>
+                                    <th>주소</th>
+                                    <th>작업</th>
+                                </tr>
+                            </thead>
+                            <tbody id="storeTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                
+                const tbody = document.getElementById('storeTableBody');
                 
                 stores.forEach(store => {
-                    const li = document.createElement('li');
-                    li.className = 'store-item';
-                    li.innerHTML = `
-                        <div class="store-info">
-                            <h4>${store.name || '이름 없음'}</h4>
-                            <p>${store.subtitle || '부제목 없음'}</p>
-                        </div>
-                        <div class="store-actions">
-                            <button onclick="switchStore('${store.id}')" class="btn btn-primary">선택</button>
-                            <button onclick="deleteStore('${store.id}')" class="btn btn-danger">삭제</button>
-                        </div>
+                    const tr = document.createElement('tr');
+                    tr.className = 'store-row';
+                    tr.setAttribute('data-store-id', store.id);
+                    
+                    // 현재 선택된 가게인지 확인
+                    if (currentStoreId === store.id) {
+                        tr.classList.add('selected');
+                    }
+                    
+                    tr.innerHTML = `
+                        <td class="store-name">${store.name || '이름 없음'}</td>
+                        <td>${store.subtitle || '부제목 없음'}</td>
+                        <td>${store.phone || '전화번호 없음'}</td>
+                        <td>${store.address || '주소 없음'}</td>
+                        <td class="table-actions">
+                            <button onclick="viewStorePage('${store.id}')" class="btn btn-sm btn-info">페이지 보기</button>
+                            <button onclick="deleteStore('${store.id}')" class="btn btn-sm btn-danger">삭제</button>
+                        </td>
                     `;
-                    storeList.appendChild(li);
+                    
+                    // 행 클릭 이벤트 (버튼 클릭 제외)
+                    tr.addEventListener('click', (e) => {
+                        // 버튼 클릭이 아닌 경우에만 가게 선택
+                        if (!e.target.closest('.table-actions')) {
+                            selectStore(store.id);
+                        }
+                    });
+                    
+                    tbody.appendChild(tr);
                 });
                 
-                // 현재 선택된 가게 정보 표시
+                // 현재 선택된 가게 정보 표시 및 시각적 표시
                 if (currentStoreId) {
-                    const currentStore = stores.find(store => store.id === currentStoreId);
+                    const currentStore = stores.find(s => s.id === currentStoreId);
                     if (currentStore) {
+                        // 메인 영역의 현재 가게 정보 표시
                         document.getElementById('currentStoreInfo').innerHTML = `
                             <strong>${currentStore.name}</strong><br>
-                            <small>${currentStore.subtitle}</small>
+                            <small>${currentStore.subtitle || '부제목 없음'}</small>
                         `;
+                        
+                        // 사이드바의 선택된 가게 정보 표시
+                        const sidebarInfo = document.getElementById('sidebarStoreInfo');
+                        if (sidebarInfo) {
+                            sidebarInfo.innerHTML = `
+                                <div class="store-name">${currentStore.name}</div>
+                                <div class="store-subtitle">${currentStore.subtitle || '부제목 없음'}</div>
+                            `;
+                        }
                     }
                 }
                 
             } catch (error) {
                 console.error('가게 목록 로드 실패:', error);
-                showStatus('가게 목록을 불러오는데 실패했습니다.', 'error');
+                showToast('가게 목록을 불러오는데 실패했습니다.', 'error', '오류');
             }
         }
 
-        // 가게 전환
-        async function switchStore(storeId) {
+        // 가게 선택 (영역 클릭)
+        async function selectStore(storeId) {
             if (isLoading) return;
             isLoading = true;
             
             try {
-                // 현재 데이터 로드
-                const data = await apiRequest(`${API_BASE}/data`);
+                // 현재 가게 설정
+                await apiRequest(`${API_BASE}/current-store`, 'POST', { storeId });
                 
-                // currentStoreId 업데이트
-                data.currentStoreId = storeId;
+                // 선택된 가게 시각적 표시 업데이트
+                updateSelectedStoreVisual(storeId);
                 
-                // 업데이트된 데이터 저장
-                await apiRequest(`${API_BASE}/data`, 'POST', data);
+                // 현재 가게 정보 업데이트
+                await updateCurrentStoreInfo(storeId);
                 
-                // 선택된 가게 카드 업데이트
-                updateSelectedStoreCard(storeId);
+                // 설정 로드
+                await loadSettings();
                 
-                // 가게 정보 가져와서 토스트 알림 표시
-                const store = data.stores.find(s => s.id === storeId);
-                if (store) {
-                    showToast(`${store.name} 가게가 선택되었습니다.`, 'success', '가게 선택');
-                } else {
-                    showStatus('가게가 전환되었습니다!', 'success');
+                // 토스트 알림
+                const stores = await apiRequest(`${API_BASE}/stores`);
+                const selectedStore = stores.find(s => s.id === storeId);
+                if (selectedStore) {
+                    showToast(`${selectedStore.name} 가게가 선택되었습니다.`, 'success', '가게 선택');
                 }
                 
-                // 가게 목록과 설정 다시 로드
-                await loadStoreList();
-                await loadSettings();
             } catch (error) {
-                console.error('가게 전환 실패:', error);
-                showStatus('가게 전환에 실패했습니다.', 'error');
+                console.error('가게 선택 실패:', error);
+                showToast('가게 선택에 실패했습니다.', 'error', '오류');
             } finally {
                 isLoading = false;
+            }
+        }
+
+        // 선택된 가게 시각적 표시 업데이트
+        function updateSelectedStoreVisual(selectedStoreId) {
+            // 모든 행에서 selected 클래스 제거
+            document.querySelectorAll('.store-row').forEach(row => {
+                row.classList.remove('selected');
+            });
+            
+            // 선택된 행에 selected 클래스 추가
+            const selectedRow = document.querySelector(`[data-store-id="${selectedStoreId}"]`);
+            if (selectedRow) {
+                selectedRow.classList.add('selected');
+            }
+        }
+
+        // 현재 선택된 가게 정보 업데이트
+        async function updateCurrentStoreInfo(storeId) {
+            try {
+                const stores = await apiRequest(`${API_BASE}/stores`);
+                const currentStore = stores.find(s => s.id === storeId);
+                if (currentStore) {
+                    // 메인 영역의 현재 가게 정보 업데이트
+                    document.getElementById('currentStoreInfo').innerHTML = `
+                        <strong>${currentStore.name}</strong><br>
+                        <small>${currentStore.subtitle || '부제목 없음'}</small>
+                    `;
+                    
+                    // 사이드바의 선택된 가게 정보 업데이트
+                    const sidebarInfo = document.getElementById('sidebarStoreInfo');
+                    if (sidebarInfo) {
+                        sidebarInfo.innerHTML = `
+                            <div class="store-name">${currentStore.name}</div>
+                            <div class="store-subtitle">${currentStore.subtitle || '부제목 없음'}</div>
+                        `;
+                    }
+                }
+            } catch (error) {
+                console.error('현재 가게 정보 업데이트 실패:', error);
             }
         }
 
