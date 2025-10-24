@@ -84,6 +84,53 @@ class DataHandler(BaseHTTPRequestHandler):
         except Exception as e:
             log_error(f"데이터 파일 저장 실패: {self.data_file}", e)
     
+    def serve_static_file(self, path):
+        """정적 파일 서빙"""
+        import mimetypes
+        import os
+        
+        # 루트 경로 처리
+        if path == '/':
+            path = '/index.html'
+        
+        # 파일 경로 생성
+        file_path = '.' + path
+        
+        # 보안 검사: 상위 디렉토리 접근 방지
+        if '..' in path or not os.path.exists(file_path) or not os.path.isfile(file_path):
+            log(LogLevel.WARN, f"파일을 찾을 수 없음: {path}")
+            self.send_response(404)
+            self.send_header('Content-Type', 'text/html')
+            self.end_headers()
+            self.wfile.write(b'<h1>404 - File Not Found</h1>')
+            return
+        
+        try:
+            # MIME 타입 결정
+            mime_type, _ = mimetypes.guess_type(file_path)
+            if mime_type is None:
+                mime_type = 'application/octet-stream'
+            
+            # 파일 읽기
+            with open(file_path, 'rb') as f:
+                content = f.read()
+            
+            # 응답 전송
+            self.send_response(200)
+            self.send_header('Content-Type', mime_type)
+            self.send_header('Content-Length', str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            
+            log(LogLevel.INFO, f"정적 파일 서빙: {path} ({mime_type})")
+            
+        except Exception as e:
+            log_error(f"정적 파일 서빙 실패: {path}", e)
+            self.send_response(500)
+            self.send_header('Content-Type', 'text/html')
+            self.end_headers()
+            self.wfile.write(b'<h1>500 - Internal Server Error</h1>')
+    
     def send_json_response(self, data, status=200):
         """JSON 응답 전송"""
         self.send_response(status)
@@ -211,8 +258,8 @@ class DataHandler(BaseHTTPRequestHandler):
                 self.send_json_response(superadmin_info)
             
             else:
-                log(LogLevel.WARN, f"알 수 없는 GET 경로: {parsed_path.path}")
-                self.send_json_response({"error": "Not Found"}, 404)
+                # 정적 파일 서빙 (API가 아닌 경우)
+                self.serve_static_file(parsed_path.path)
                 
         except Exception as e:
             log_error(f"GET 요청 처리 중 오류: {parsed_path.path}", e)
@@ -472,9 +519,12 @@ def main():
     """메인 함수"""
     log(LogLevel.INFO, "API 서버 시작 중...")
     
+    # Railway 환경 변수에서 포트 가져오기
+    port = int(os.environ.get('PORT', 8081))
+    
     try:
-        server = HTTPServer(('', 8081), DataHandler)
-        log(LogLevel.INFO, "API 서버가 포트 8081에서 시작되었습니다.")
+        server = HTTPServer(('', port), DataHandler)
+        log(LogLevel.INFO, f"API 서버가 포트 {port}에서 시작되었습니다.")
         log(LogLevel.INFO, "서버 로그가 실시간으로 표시됩니다.")
         log(LogLevel.INFO, "서버 중지: Ctrl+C")
         print("=" * 60)
