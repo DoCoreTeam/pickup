@@ -245,6 +245,51 @@
             background: #3498db;
         }
 
+        .selected-store-card {
+            background: #34495e;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid #4a5f7a;
+        }
+
+        .selected-store-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .selected-store-icon {
+            width: 24px;
+            height: 24px;
+            background: #27ae60;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 8px;
+            font-size: 12px;
+            color: white;
+        }
+
+        .selected-store-label {
+            font-size: 12px;
+            color: #bdc3c7;
+            font-weight: 500;
+        }
+
+        .selected-store-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #ecf0f1;
+            margin-bottom: 5px;
+        }
+
+        .selected-store-subtitle {
+            font-size: 12px;
+            color: #95a5a6;
+        }
+
         .store-list {
             list-style: none;
         }
@@ -463,6 +508,17 @@
         <div class="admin-sidebar">
             <div style="padding: 0 20px;">
                 <h2 style="margin-bottom: 30px; color: #ecf0f1;">관리자 메뉴</h2>
+                
+                <!-- 선택된 가게 카드 -->
+                <div id="selectedStoreCard" class="selected-store-card" style="display: none;">
+                    <div class="selected-store-header">
+                        <div class="selected-store-icon">🏪</div>
+                        <div class="selected-store-label">선택된 가게</div>
+                    </div>
+                    <div class="selected-store-name" id="selectedStoreName">가게명</div>
+                    <div class="selected-store-subtitle" id="selectedStoreSubtitle">부제목</div>
+                </div>
+                
                 <div class="menu-item" onclick="showSection('stores')">
                     <span>🏬</span> 가게 관리
                 </div>
@@ -855,6 +911,9 @@
                 // 업데이트된 데이터 저장
                 await apiRequest(`${API_BASE}/data`, 'POST', data);
                 
+                // 선택된 가게 카드 업데이트
+                updateSelectedStoreCard(storeId);
+                
                 showStatus('가게가 전환되었습니다!', 'success');
                 
                 // 가게 목록과 설정 다시 로드
@@ -865,6 +924,29 @@
                 showStatus('가게 전환에 실패했습니다.', 'error');
             } finally {
                 isLoading = false;
+            }
+        }
+
+        // 선택된 가게 카드 업데이트
+        async function updateSelectedStoreCard(storeId) {
+            try {
+                const stores = await apiRequest(`${API_BASE}/stores`);
+                const selectedStore = stores.find(store => store.id === storeId);
+                
+                if (selectedStore) {
+                    const card = document.getElementById('selectedStoreCard');
+                    const nameElement = document.getElementById('selectedStoreName');
+                    const subtitleElement = document.getElementById('selectedStoreSubtitle');
+                    
+                    nameElement.textContent = selectedStore.name || '이름 없음';
+                    subtitleElement.textContent = selectedStore.subtitle || '부제목 없음';
+                    
+                    card.style.display = 'block';
+                } else {
+                    document.getElementById('selectedStoreCard').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('선택된 가게 카드 업데이트 실패:', error);
             }
         }
 
@@ -1500,6 +1582,12 @@
                 await loadSettings();
                 await loadSuperAdminInfo();
                 await loadActivityLogs(); // 활동 로그 로드 추가
+                
+                // 현재 선택된 가게 카드 표시
+                const currentStoreId = await getCurrentStoreId();
+                if (currentStoreId) {
+                    await updateSelectedStoreCard(currentStoreId);
+                }
                 
                 // 배달앱 URL 입력 필드 이벤트 리스너 추가
                 setupDeliveryUrlEventListeners();
