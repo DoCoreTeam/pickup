@@ -165,6 +165,69 @@
             margin-top: 15px;
         }
 
+        .activity-logs-list {
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: #f9f9f9;
+        }
+
+        .log-entry {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+            background: white;
+            margin-bottom: 2px;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .log-action {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .log-time {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .log-description {
+            color: #555;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .log-details {
+            font-size: 12px;
+            color: #777;
+            background: #f5f5f5;
+            padding: 5px 8px;
+            border-radius: 3px;
+            margin-top: 5px;
+        }
+
+        .log-type-store { border-left: 4px solid #3498db; }
+        .log-type-settings { border-left: 4px solid #9b59b6; }
+        .log-type-image { border-left: 4px solid #e67e22; }
+        .log-type-system { border-left: 4px solid #95a5a6; }
+
+        .loading-message {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-style: italic;
+        }
+
         .menu-item {
             padding: 12px 20px;
             cursor: pointer;
@@ -418,6 +481,9 @@
                 <div class="menu-item" onclick="showSection('pickup')">
                     <span>📦</span> 픽업 안내
                 </div>
+                <div class="menu-item" onclick="showSection('activity-logs')">
+                    <span>📋</span> 활동 로그
+                </div>
                 <div class="menu-item" onclick="showSection('superadmin')">
                     <span>👤</span> 슈퍼어드민
                 </div>
@@ -615,6 +681,31 @@
                 <div class="form-group">
                     <label for="pickupDescription">픽업 설명</label>
                     <textarea id="pickupDescription" class="form-input" rows="3" placeholder="픽업 설명을 입력하세요" onblur="savePickupSettings()"></textarea>
+                </div>
+            </div>
+
+            <!-- 활동 로그 -->
+            <div class="admin-section" id="activity-logs">
+                <h2 class="section-title">
+                    <span>📋</span>
+                    활동 로그
+                </h2>
+                
+                <div class="form-group">
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                        <select id="logFilter" class="form-input" style="flex: 1;" onchange="loadActivityLogs()">
+                            <option value="">전체 로그</option>
+                            <option value="store">가게 관리</option>
+                            <option value="settings">설정 변경</option>
+                            <option value="image">이미지 관리</option>
+                            <option value="system">시스템</option>
+                        </select>
+                        <button onclick="loadActivityLogs()" class="btn btn-primary">새로고침</button>
+                    </div>
+                </div>
+
+                <div id="activityLogsList" class="activity-logs-list">
+                    <div class="loading-message">활동 로그를 불러오는 중...</div>
                 </div>
             </div>
 
@@ -1285,6 +1376,11 @@
             // 선택된 섹션 표시
             document.getElementById(sectionId).style.display = 'block';
             
+            // 활동 로그 섹션인 경우 로그 다시 로드
+            if (sectionId === 'activity-logs') {
+                loadActivityLogs();
+            }
+            
             // 메뉴 활성화
             const menuItems = document.querySelectorAll('.menu-item');
             menuItems.forEach(item => item.classList.remove('active'));
@@ -1313,6 +1409,80 @@
             statusDiv.style.display = 'block';
         }
 
+        // 활동 로그 로드
+        async function loadActivityLogs() {
+            try {
+                const response = await fetch('/api/activity-logs');
+                const data = await response.json();
+                
+                if (data.logs) {
+                    const filter = document.getElementById('logFilter').value;
+                    let filteredLogs = data.logs;
+                    
+                    // 프론트엔드에서 필터링
+                    if (filter) {
+                        filteredLogs = data.logs.filter(log => {
+                            switch(filter) {
+                                case 'store':
+                                    return log.type === 'store';
+                                case 'settings':
+                                    return log.type === 'settings';
+                                case 'image':
+                                    return log.action.includes('이미지');
+                                case 'system':
+                                    return log.type === 'system';
+                                default:
+                                    return true;
+                            }
+                        });
+                    }
+                    
+                    displayActivityLogs(filteredLogs);
+                } else {
+                    showStatus('활동 로그를 불러오는데 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                console.error('활동 로그 로드 실패:', error);
+                showStatus('활동 로그를 불러오는데 실패했습니다.', 'error');
+            }
+        }
+
+        // 활동 로그 표시
+        function displayActivityLogs(logs) {
+            const container = document.getElementById('activityLogsList');
+            
+            if (!logs || logs.length === 0) {
+                container.innerHTML = '<div class="loading-message">활동 로그가 없습니다.</div>';
+                return;
+            }
+            
+            const logsHtml = logs.map(log => {
+                const time = new Date(log.timestamp).toLocaleString('ko-KR');
+                const typeClass = `log-type-${log.type}`;
+                
+                let detailsHtml = '';
+                if (log.details) {
+                    const details = Object.entries(log.details)
+                        .map(([key, value]) => `${key}: ${value}`)
+                        .join(', ');
+                    detailsHtml = `<div class="log-details">${details}</div>`;
+                }
+                
+                return `
+                    <div class="log-entry ${typeClass}">
+                        <div class="log-header">
+                            <span class="log-action">${log.action}</span>
+                            <span class="log-time">${time}</span>
+                        </div>
+                        <div class="log-description">${log.description}</div>
+                        ${detailsHtml}
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = logsHtml;
+        }
+
         // 로딩 상태 관리
         let isLoading = false;
         
@@ -1329,6 +1499,7 @@
                 await loadStoreList();
                 await loadSettings();
                 await loadSuperAdminInfo();
+                await loadActivityLogs(); // 활동 로그 로드 추가
                 
                 // 배달앱 URL 입력 필드 이벤트 리스너 추가
                 setupDeliveryUrlEventListeners();

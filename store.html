@@ -84,6 +84,24 @@
         text-align: center;
       }
 
+      .store-logo {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 16px;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        background: #f0f0f0;
+        border: 2px solid #ddd;
+      }
+
+      .store-logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        background: white;
+      }
+
       .store-name {
         font-size: 24px;
         font-weight: 700;
@@ -191,35 +209,197 @@
       .delivery-btn {
         background: #f8fafc;
         border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 12px;
-        text-align: center;
+        border-radius: 12px;
+        padding: 16px;
+        text-align: left;
         cursor: pointer;
         transition: all 0.2s ease;
         text-decoration: none;
         color: var(--fg);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 60px;
+      }
+
+      /* 배달앱별 기본 브랜드 색상 */
+      .delivery-btn[onclick*="baemin"] {
+        background: #1FCFCD;
+        border-color: #1FCFCD;
+        color: white;
+      }
+
+      .delivery-btn[onclick*="yogiyo"] {
+        background: #FA004F;
+        border-color: #FA004F;
+        color: white;
+      }
+
+      .delivery-btn[onclick*="coupang"] {
+        background: #935227;
+        border-color: #935227;
+        color: white;
+      }
+
+      .delivery-btn[onclick*="ttaeng"] {
+        background: #EB5027;
+        border-color: #EB5027;
+        color: white;
       }
 
       .delivery-btn:hover {
-        background: #f1f5f9;
-        border-color: var(--primary);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
       }
 
       .delivery-logo {
-        width: 32px;
-        height: 32px;
-        margin: 0 auto 8px;
-        background: #e2e8f0;
-        border-radius: 4px;
+        width: 40px;
+        height: 40px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 16px;
+        flex-shrink: 0;
+      }
+
+      .delivery-logo img {
+        width: 32px;
+        height: 32px;
+        object-fit: contain;
       }
 
       .delivery-name {
-        font-size: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        flex: 1;
+      }
+
+      .pickup-section {
+        background: var(--card);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border-left: 4px solid #10b981;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .pickup-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #10b981;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .pickup-info {
+        margin-top: 16px;
+        padding: 16px;
+        background: #f8fafc;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+      }
+
+      .pickup-tips {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .pickup-description {
+        font-size: 14px;
+        color: var(--muted);
+        line-height: 1.6;
         font-weight: 500;
+      }
+
+      .tip-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 8px 0;
+      }
+
+      .tip-icon {
+        font-size: 16px;
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+
+      .tip-text {
+        font-size: 14px;
+        color: var(--muted);
+        line-height: 1.5;
+        font-weight: 500;
+      }
+
+      .discount-section {
+        background: linear-gradient(135deg, #fef3c7, #fde68a);
+        border: 2px solid #f59e0b;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
+        position: relative;
+        overflow: hidden;
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      /* 반짝거리는 효과 */
+      .discount-section::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        animation: shine 3s ease-in-out infinite;
+        pointer-events: none;
+      }
+
+      /* 펄스 애니메이션 */
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+      }
+
+      /* 반짝임 애니메이션 */
+      @keyframes shine {
+        0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+        50% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+      }
+
+      .discount-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: #92400e;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        text-shadow: 0 0 8px rgba(146, 64, 14, 0.3);
+        animation: highlight 1.5s ease-in-out infinite;
+      }
+
+      .discount-description {
+        color: #a16207;
+        line-height: 1.6;
+        font-size: 16px;
+        font-weight: 500;
+      }
+
+      /* 강조 텍스트 애니메이션 */
+      @keyframes highlight {
+        0%, 100% { 
+          color: #92400e;
+          text-shadow: 0 0 8px rgba(146, 64, 14, 0.3);
+        }
+        50% { 
+          color: #dc2626;
+          text-shadow: 0 0 12px rgba(220, 38, 38, 0.5);
+        }
       }
 
       .address-section {
@@ -241,6 +421,7 @@
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 12px;
+        margin-top: 20px;
       }
 
       .map-btn {
@@ -351,6 +532,8 @@
         ? 'http://localhost:8081/api' 
         : '/api';
       let currentStore = null;
+      let currentStoreId = null;
+      let settings = {};
       let isLoading = true;
 
       // ========================================
@@ -405,6 +588,13 @@
           if (data && data.stores && Array.isArray(data.stores)) {
             const store = data.stores.find(s => s.id === storeId);
             if (store) {
+              // 가게가 중지된 경우 중지 페이지로 리다이렉트
+              if (store.isPaused) {
+                log('WARN', '가게가 중지됨, 중지 페이지로 리다이렉트', { storeId });
+                window.location.href = '/paused.html';
+                return;
+              }
+              
               currentStore = store;
               log('INFO', '가게 정보 로딩 완료', store);
               return store;
@@ -418,6 +608,82 @@
           log('ERROR', '가게 정보 로딩 실패', error);
           throw error;
         }
+      }
+
+      async function loadSettings(storeId) {
+        try {
+          log('INFO', '설정 로딩 시작', { storeId });
+          const settingsData = await apiRequest(`${API_BASE}/settings?storeId=${storeId}`);
+          
+          // API 응답이 직접 설정 데이터인 경우
+          if (settingsData && (settingsData.images || settingsData.pickupTitle)) {
+            settings = settingsData;
+            log('INFO', '설정 로딩 완료', settings);
+            return settings;
+          }
+          // API 응답이 {success: true, data: {...}} 형태인 경우
+          else if (settingsData && settingsData.success && settingsData.data) {
+            settings = settingsData.data;
+            log('INFO', '설정 로딩 완료', settings);
+            return settings;
+          }
+          // 설정 데이터가 없는 경우
+          else {
+            log('WARN', '설정 데이터가 없음, 빈 객체 사용');
+            settings = {};
+            return settings;
+          }
+        } catch (error) {
+          log('ERROR', '설정 로딩 실패', error);
+          settings = {};
+          return settings;
+        }
+      }
+
+      function renderDeliveryApps() {
+        const deliveryGrid = document.getElementById('deliveryGrid');
+        if (!deliveryGrid) return;
+
+        const appConfigs = {
+          baemin: { name: '배달의민족', icon: '/assets/images/icons/bm.svg' },
+          yogiyo: { name: '요기요', icon: '/assets/images/icons/yogiyo.png' },
+          coupang: { name: '쿠팡이츠', icon: '/assets/images/icons/cpeat.png' },
+          ttaeng: { name: '땡겨요', icon: '/assets/images/icons/dgy.svg' }
+        };
+
+        // 설정에서 배달앱 순서와 URL 가져오기
+        const deliveryOrder = settings?.delivery?.deliveryOrder || ['ttaeng', 'baemin', 'coupang', 'yogiyo'];
+        
+        // URL이 있는 배달앱만 필터링
+        const activeApps = deliveryOrder.filter(appId => {
+          const url = settings?.delivery?.[`${appId}Url`] || '';
+          return url && url.trim() !== '';
+        });
+
+        deliveryGrid.innerHTML = '';
+
+        activeApps.forEach(appId => {
+          const config = appConfigs[appId];
+          if (!config) return;
+
+          const deliveryBtn = document.createElement('a');
+          deliveryBtn.href = '#';
+          deliveryBtn.className = 'delivery-btn';
+          deliveryBtn.setAttribute('onclick', `openDeliveryApp('${appId}')`);
+          deliveryBtn.onclick = (e) => {
+            e.preventDefault();
+            openDeliveryApp(appId);
+          };
+
+          deliveryBtn.innerHTML = `
+            <div class="delivery-logo">
+              <img src="${config.icon}" alt="${config.name}" />
+            </div>
+            <div class="delivery-name">${config.name}</div>
+          `;
+
+          deliveryGrid.appendChild(deliveryBtn);
+        });
       }
 
       function renderStorePage() {
@@ -447,8 +713,14 @@
         // 페이지 제목 업데이트
         document.title = `${currentStore.name} - 픽업`;
 
+        // 설정에서 로고 이미지 가져오기
+        const logoImage = settings?.images?.mainLogo || '/assets/images/logos/default-logo.svg';
+
         contentDiv.innerHTML = `
           <div class="store-info">
+            <div class="store-logo">
+              <img src="${logoImage}" alt="${currentStore.name} 로고" />
+            </div>
             <div class="store-name">${currentStore.name || '가게명 없음'}</div>
             <div class="store-subtitle">${currentStore.subtitle || '전화·앱 한 번으로 바로 주문하세요'}</div>
           </div>
@@ -472,33 +744,49 @@
             </button>
           </div>
 
+          <!-- 할인 정보 섹션 -->
+          ${settings?.discount?.discountEnabled ? `
+          <div class="discount-section">
+            <div class="discount-title">
+              🎉 ${settings.discount.discountTitle || '할인 이벤트'}
+            </div>
+            <div class="discount-description">
+              ${settings.discount.discountDescription || '할인 내용을 입력하세요'}
+            </div>
+          </div>
+          ` : ''}
+
           <div class="delivery-section">
             <div class="section-title">🚚 배달 주문</div>
-            <div class="delivery-grid">
-              <a href="#" class="delivery-btn" onclick="openDeliveryApp('baemin')">
-                <div class="delivery-logo">🟢</div>
-                <div class="delivery-name">배달의민족</div>
-              </a>
-              <a href="#" class="delivery-btn" onclick="openDeliveryApp('yogiyo')">
-                <div class="delivery-logo">🟡</div>
-                <div class="delivery-name">요기요</div>
-              </a>
-              <a href="#" class="delivery-btn" onclick="openDeliveryApp('coupang')">
-                <div class="delivery-logo">🔵</div>
-                <div class="delivery-name">쿠팡이츠</div>
-              </a>
-              <a href="#" class="delivery-btn" onclick="openDeliveryApp('ddangyo')">
-                <div class="delivery-logo">🟣</div>
-                <div class="delivery-name">땡겨요</div>
-              </a>
+            <div class="delivery-grid" id="deliveryGrid">
+              <!-- 동적으로 생성됩니다 -->
             </div>
           </div>
 
           <div class="address-section">
-            <div class="section-title">📍 픽업 장소 안내</div>
+            <div class="section-title">📍 ${settings?.pickupTitle || '픽업 장소 안내'}</div>
             <div class="address-text">
               ${currentStore.address || '주소가 등록되지 않았습니다.'}
             </div>
+            ${settings?.pickupDescription ? `
+            <div class="pickup-info">
+              <div class="pickup-description">
+                ${settings.pickupDescription}
+              </div>
+            </div>
+            ` : ''}
+            ${currentStore.address && settings?.pickupTips && settings.pickupTips.length > 0 ? `
+            <div class="pickup-info">
+              <div class="pickup-tips">
+                ${settings.pickupTips.map(tip => `
+                <div class="tip-item">
+                  <span class="tip-icon">💡</span>
+                  <span class="tip-text">${tip}</span>
+                </div>
+                `).join('')}
+              </div>
+            </div>
+            ` : ''}
             <div class="map-buttons">
               <button class="map-btn" onclick="openNaverMap()">
                 🗺️ 네이버지도로 길찾기
@@ -509,19 +797,155 @@
             </div>
           </div>
         `;
-      }
 
-      function callStore() {
-        if (currentStore && currentStore.phone && currentStore.phone !== '전화번호 없음') {
-          log('INFO', '전화 걸기', { phone: currentStore.phone });
-          window.location.href = `tel:${currentStore.phone}`;
-        } else {
-          alert('전화번호가 등록되지 않았습니다.');
-        }
+        // 배달앱 렌더링
+        renderDeliveryApps();
       }
 
       function showMenu() {
-        alert('메뉴 기능은 준비 중입니다.');
+        // 설정에서 메뉴 이미지 가져오기
+        const menuImage = settings?.images?.menuImage;
+        
+        if (menuImage) {
+          // 메뉴 이미지가 있으면 현재 페이지에 모달로 표시
+          log('INFO', '메뉴 이미지 표시', { menuImage });
+          showMenuModal(menuImage);
+        } else {
+          // 메뉴 이미지가 없으면 알림 표시
+          alert('메뉴 이미지가 등록되지 않았습니다. 관리자 페이지에서 메뉴 이미지를 업로드해주세요.');
+        }
+      }
+
+      function showMenuModal(imageSrc) {
+        // 기존 모달이 있으면 제거
+        const existingModal = document.getElementById('menuModal');
+        if (existingModal) {
+          existingModal.remove();
+        }
+
+        // 모달 생성
+        const modal = document.createElement('div');
+        modal.id = 'menuModal';
+        modal.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.8);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          cursor: pointer;
+        `;
+
+        const modalContent = document.createElement('div');
+        modalContent.style.cssText = `
+          max-width: 90%;
+          max-height: 90%;
+          background: white;
+          border-radius: 12px;
+          padding: 20px;
+          position: relative;
+          cursor: default;
+          display: flex;
+          flex-direction: column;
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.cssText = `
+          position: absolute;
+          top: 10px;
+          right: 15px;
+          background: none;
+          border: none;
+          font-size: 24px;
+          cursor: pointer;
+          color: #666;
+          z-index: 10;
+        `;
+
+        const menuImg = document.createElement('img');
+        menuImg.src = imageSrc;
+        menuImg.style.cssText = `
+          max-width: 100%;
+          max-height: 70vh;
+          object-fit: contain;
+          border-radius: 8px;
+          margin-bottom: 20px;
+        `;
+
+        // 전화하기 버튼 컨테이너
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = `
+          display: flex;
+          justify-content: center;
+          margin-top: auto;
+        `;
+
+        const callButton = document.createElement('button');
+        callButton.innerHTML = '📞 전화하기';
+        callButton.style.cssText = `
+          background: var(--primary);
+          color: white;
+          border: none;
+          border-radius: 8px;
+          padding: 12px 24px;
+          font-size: 16px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        `;
+
+        // 호버 효과
+        callButton.onmouseover = () => {
+          callButton.style.background = '#1e40af';
+          callButton.style.transform = 'translateY(-2px)';
+        };
+        callButton.onmouseout = () => {
+          callButton.style.background = 'var(--primary)';
+          callButton.style.transform = 'translateY(0)';
+        };
+
+        // 전화하기 버튼 클릭 이벤트
+        callButton.onclick = () => {
+          if (currentStore && currentStore.phone) {
+            window.location.href = `tel:${currentStore.phone}`;
+          } else {
+            alert('전화번호가 등록되지 않았습니다.');
+          }
+        };
+
+        buttonContainer.appendChild(callButton);
+        modalContent.appendChild(closeBtn);
+        modalContent.appendChild(menuImg);
+        modalContent.appendChild(buttonContainer);
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+
+        // 닫기 이벤트
+        const closeModal = () => {
+          modal.remove();
+        };
+
+        closeBtn.onclick = closeModal;
+        modal.onclick = (e) => {
+          if (e.target === modal) closeModal();
+        };
+
+        // ESC 키로 닫기
+        const handleKeydown = (e) => {
+          if (e.key === 'Escape') {
+            closeModal();
+            document.removeEventListener('keydown', handleKeydown);
+          }
+        };
+        document.addEventListener('keydown', handleKeydown);
       }
 
       function showLocation() {
@@ -581,8 +1005,14 @@
             throw new Error('가게 ID가 없습니다');
           }
           
-          // 가게 정보 로딩
-          await loadStoreInfo(storeId);
+          currentStoreId = storeId;
+          
+          // 가게 정보와 설정 동시 로딩
+          const [storeData] = await Promise.all([
+            loadStoreInfo(storeId),
+            loadSettings(storeId)
+          ]);
+          
           isLoading = false;
           
           // 렌더링

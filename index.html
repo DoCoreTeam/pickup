@@ -9,7 +9,7 @@
     <meta http-equiv="Expires" content="0" />
     <title>픽업 - 가게 탐색</title>
     <meta name="description" content="전화 한 번, 앱 한 번으로 우리 가게에 바로 연결!" />
-    
+
     <style>
       :root {
         --bg: #f7f7f8;
@@ -48,7 +48,7 @@
         text-align: center; 
         margin: 12px 0 32px; 
       }
-
+      
       .logo {
         font-size: 28px;
         font-weight: 700;
@@ -229,7 +229,7 @@
           <div class="loading-spinner"></div>
           <div>가게 목록을 불러오는 중...</div>
         </div>
-      </div>
+          </div>
 
       <a href="/admin/" class="admin-link">관리자</a>
     </div>
@@ -245,11 +245,11 @@
         : '/api';
       let stores = [];
       let isLoading = true;
-
+      
       // ========================================
       // 🔧 유틸리티 함수들
       // ========================================
-
+      
       function log(level, message, data = null) {
         const timestamp = new Date().toISOString();
         if (data) {
@@ -268,18 +268,18 @@
             },
             ...options
           });
-
+          
           if (!response.ok) {
             throw new Error(`HTTP 오류: ${response.status}`);
           }
-
+          
           return await response.json();
         } catch (error) {
           log('ERROR', 'API 요청 실패', { url, error: error.message });
           throw error;
         }
       }
-
+      
       // ========================================
       // 🏪 가게 관련 함수들
       // ========================================
@@ -315,17 +315,24 @@
           `;
           return;
         }
-
+        
         if (stores.length === 0) {
           contentDiv.innerHTML = `
             <div class="empty-state">
               <div class="empty-icon">🏪</div>
               <h3>등록된 가게가 없습니다</h3>
               <p>관리자 페이지에서 가게를 추가해주세요.</p>
-            </div>
-          `;
+          </div>
+        `;
           return;
         }
+
+        // 가게 목록을 순서대로 정렬
+        stores.sort((a, b) => {
+          const orderA = a.order || 999;
+          const orderB = b.order || 999;
+          return orderA - orderB;
+        });
 
         const storesHTML = stores.map(store => `
           <div class="store-card" onclick="openStore('${store.id}')">
@@ -336,7 +343,7 @@
                 <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
               </svg>
               <span>${store.phone || '전화번호 없음'}</span>
-            </div>
+              </div>
             <div class="store-actions">
               <button class="btn btn-primary" onclick="event.stopPropagation(); callStore('${store.phone}')">
                 📞 전화하기
@@ -344,16 +351,16 @@
               <button class="btn btn-secondary" onclick="event.stopPropagation(); openStore('${store.id}')">
                 🍽️ 주문하기
               </button>
-            </div>
+              </div>
           </div>
         `).join('');
 
         contentDiv.innerHTML = `
           <div class="store-grid">
             ${storesHTML}
-          </div>
-        `;
-      }
+              </div>
+            `;
+          }
 
       function openStore(storeId) {
         log('INFO', '가게 페이지로 이동', { storeId });
@@ -365,7 +372,7 @@
         if (phoneNumber && phoneNumber !== '전화번호 없음') {
           log('INFO', '전화 걸기', { phoneNumber });
           window.location.href = `tel:${phoneNumber}`;
-        } else {
+            } else {
           alert('전화번호가 등록되지 않았습니다.');
         }
       }
@@ -378,6 +385,16 @@
         try {
           log('INFO', '페이지 초기화 시작');
           
+          // URL 파라미터에서 store ID 확인
+        const urlParams = new URLSearchParams(window.location.search);
+          const storeId = urlParams.get('store');
+          
+          if (storeId) {
+            log('INFO', 'URL 파라미터에서 가게 ID 발견, 가게 페이지로 이동', { storeId });
+            window.location.href = `/store/${storeId}`;
+          return;
+        }
+        
           // 가게 목록 로딩
           await loadStores();
           isLoading = false;

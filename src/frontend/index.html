@@ -1397,20 +1397,20 @@
           // 할인 섹션 표시/숨김
           const discountSection = document.querySelector('.discount-section');
           if (discountSection) {
-            const shouldShowDiscount = discount.enabled && discount.title;
+            const shouldShowDiscount = discount.discountEnabled && discount.discountTitle;
             discountSection.style.display = shouldShowDiscount ? 'block' : 'none';
           }
           
           // 할인 제목 업데이트
           const discountTitle = document.querySelector('.discount-title');
-          if (discountTitle && discount.title) {
-            discountTitle.textContent = discount.title;
+          if (discountTitle && discount.discountTitle) {
+            discountTitle.textContent = discount.discountTitle;
           }
           
           // 할인 설명 업데이트
           const discountDesc = document.querySelector('.discount-desc');
-          if (discountDesc && discount.description) {
-            discountDesc.innerHTML = discount.description;
+          if (discountDesc && discount.discountDescription) {
+            discountDesc.innerHTML = discount.discountDescription;
           }
         },
 
