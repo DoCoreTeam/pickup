@@ -574,6 +574,7 @@
         // URL 파라미터에서 storeId 확인
         const urlParams = new URLSearchParams(window.location.search);
         const storeIdFromParam = urlParams.get('storeId');
+        
         if (storeIdFromParam) {
           return storeIdFromParam;
         }
