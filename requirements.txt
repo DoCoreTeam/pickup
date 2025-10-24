@@ -1,2 +1,2 @@
-flask==2.3.3
-gunicorn==21.2.0
+# Python HTTP 서버용 의존성 (실제로는 Flask가 아닌 내장 HTTP 서버 사용)
+# Railway 배포를 위한 최소 의존성
