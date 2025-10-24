@@ -262,6 +262,10 @@ class DataHandler(BaseHTTPRequestHandler):
                 superadmin_info = data.get('superadmin', {})
                 self.send_json_response(superadmin_info)
             
+            elif parsed_path.path.startswith('/store/'):
+                # 가게별 페이지 서빙
+                self.serve_static_file('/store.html')
+            
             else:
                 # 정적 파일 서빙 (API가 아닌 경우)
                 self.serve_static_file(parsed_path.path)
