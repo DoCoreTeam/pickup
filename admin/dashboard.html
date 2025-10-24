@@ -1690,22 +1690,22 @@
             }
         }
 
-        // 상태 메시지 표시
-        function showStatus(message, type) {
-            const statusDiv = document.getElementById('statusMessage');
-            const statusText = document.getElementById('statusText');
-            
-            const now = new Date();
-            const timeString = now.toLocaleTimeString('ko-KR', { 
-                hour: '2-digit', 
-                minute: '2-digit', 
-                second: '2-digit' 
-            });
-            
-            statusText.innerHTML = `${message} <span style="opacity: 0.7; font-size: 12px;">(${timeString})</span>`;
-            statusDiv.className = `status-message status-${type}`;
-            statusDiv.style.display = 'block';
-        }
+        // 상태 메시지 표시 (토스트 알림으로 대체됨)
+        // function showStatus(message, type) {
+        //     const statusDiv = document.getElementById('statusMessage');
+        //     const statusText = document.getElementById('statusText');
+        //     
+        //     const now = new Date();
+        //     const timeString = now.toLocaleTimeString('ko-KR', { 
+        //         hour: '2-digit', 
+        //         minute: '2-digit', 
+        //         second: '2-digit' 
+        //     });
+        //     
+        //     statusText.innerHTML = `${message} <span style="opacity: 0.7; font-size: 12px;">(${timeString})</span>`;
+        //     statusDiv.className = `status-message status-${type}`;
+        //     statusDiv.style.display = 'block';
+        // }
 
         // 활동 로그 로드
         async function loadActivityLogs() {
