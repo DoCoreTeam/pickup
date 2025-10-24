@@ -93,6 +93,11 @@ class DataHandler(BaseHTTPRequestHandler):
         if path == '/':
             path = '/index.html'
         
+        # 디렉토리 경로 처리 (index.html 자동 추가)
+        if path.endswith('/'):
+            # /admin/ -> /admin/index.html
+            path = path + 'index.html'
+        
         # 파일 경로 생성
         file_path = '.' + path
         
