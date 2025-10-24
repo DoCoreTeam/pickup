@@ -290,6 +290,143 @@
             color: #95a5a6;
         }
 
+        /* 토스트 알림 시스템 */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: white;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            border-left: 4px solid #3498db;
+            min-width: 300px;
+            max-width: 400px;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+            pointer-events: auto;
+            position: relative;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .toast.success {
+            border-left-color: #27ae60;
+        }
+
+        .toast.error {
+            border-left-color: #e74c3c;
+        }
+
+        .toast.warning {
+            border-left-color: #f39c12;
+        }
+
+        .toast.info {
+            border-left-color: #3498db;
+        }
+
+        .toast-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .toast-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-size: 12px;
+            color: white;
+        }
+
+        .toast.success .toast-icon {
+            background: #27ae60;
+        }
+
+        .toast.error .toast-icon {
+            background: #e74c3c;
+        }
+
+        .toast.warning .toast-icon {
+            background: #f39c12;
+        }
+
+        .toast.info .toast-icon {
+            background: #3498db;
+        }
+
+        .toast-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: #2c3e50;
+            flex: 1;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            font-size: 18px;
+            color: #95a5a6;
+            cursor: pointer;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .toast-close:hover {
+            color: #7f8c8d;
+        }
+
+        .toast-message {
+            font-size: 13px;
+            color: #7f8c8d;
+            line-height: 1.4;
+        }
+
+        .toast-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 0 0 8px 8px;
+            transition: width linear;
+        }
+
+        .toast.success .toast-progress {
+            background: #27ae60;
+        }
+
+        .toast.error .toast-progress {
+            background: #e74c3c;
+        }
+
+        .toast.warning .toast-progress {
+            background: #f39c12;
+        }
+
+        .toast.info .toast-progress {
+            background: #3498db;
+        }
+
         .store-list {
             list-style: none;
         }
@@ -504,6 +641,9 @@
 </head>
 <body>
     <div class="admin-container">
+        <!-- 토스트 알림 컨테이너 -->
+        <div id="toastContainer" class="toast-container"></div>
+        
         <!-- 사이드바 -->
         <div class="admin-sidebar">
             <div style="padding: 0 20px;">
@@ -803,6 +943,76 @@
             window.location.href = 'login.html';
         }
 
+        // 토스트 알림 시스템
+        function showToast(message, type = 'info', title = '', duration = 4000) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icons = {
+                success: '✓',
+                error: '✕',
+                warning: '⚠',
+                info: 'ℹ'
+            };
+
+            const titles = {
+                success: title || '성공',
+                error: title || '오류',
+                warning: title || '경고',
+                info: title || '알림'
+            };
+
+            toast.innerHTML = `
+                <div class="toast-header">
+                    <div class="toast-icon">${icons[type]}</div>
+                    <div class="toast-title">${titles[type]}</div>
+                    <button class="toast-close" onclick="removeToast(this.parentElement.parentElement)">&times;</button>
+                </div>
+                <div class="toast-message">${message}</div>
+                <div class="toast-progress"></div>
+            `;
+
+            container.appendChild(toast);
+
+            // 애니메이션을 위해 약간의 지연 후 show 클래스 추가
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 10);
+
+            // 진행 바 애니메이션
+            const progressBar = toast.querySelector('.toast-progress');
+            progressBar.style.width = '100%';
+            progressBar.style.transitionDuration = `${duration}ms`;
+
+            // 자동 제거
+            setTimeout(() => {
+                removeToast(toast);
+            }, duration);
+        }
+
+        function removeToast(toast) {
+            if (!toast) return;
+            
+            toast.classList.remove('show');
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.parentElement.removeChild(toast);
+                }
+            }, 300);
+        }
+
+        // 기존 showStatus 함수를 토스트 알림으로 대체
+        function showStatus(message, type = 'info') {
+            const toastType = type === 'success' ? 'success' : 
+                             type === 'error' ? 'error' : 
+                             type === 'warning' ? 'warning' : 'info';
+            
+            showToast(message, toastType);
+        }
+
         // API 요청 함수 (타임아웃 및 재시도 포함)
         async function apiRequest(url, method = 'GET', data = null, retries = 3) {
             for (let attempt = 1; attempt <= retries; attempt++) {
@@ -914,7 +1124,13 @@
                 // 선택된 가게 카드 업데이트
                 updateSelectedStoreCard(storeId);
                 
-                showStatus('가게가 전환되었습니다!', 'success');
+                // 가게 정보 가져와서 토스트 알림 표시
+                const store = data.stores.find(s => s.id === storeId);
+                if (store) {
+                    showToast(`${store.name} 가게가 선택되었습니다.`, 'success', '가게 선택');
+                } else {
+                    showStatus('가게가 전환되었습니다!', 'success');
+                }
                 
                 // 가게 목록과 설정 다시 로드
                 await loadStoreList();
