@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관리자 페이지</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+
+        .admin-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .admin-sidebar {
+            width: 250px;
+            background: #2c3e50;
+            color: white;
+            padding: 20px 0;
+        }
+
+        .admin-header {
+            background: white;
+            padding: 20px 30px;
+            border-bottom: 1px solid #e1e5e9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-info h1 {
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .header-info p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .admin-content {
+            flex: 1;
+            padding: 30px;
+        }
+
+        .status-message {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            padding: 12px 20px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .admin-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: none; /* 초기에는 모든 섹션 숨김 */
+        }
+
+        .section-title {
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .menu-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            transition: background 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .menu-item:hover {
+            background: #34495e;
+        }
+
+        .menu-item.active {
+            background: #3498db;
+        }
+
+        .store-list {
+            list-style: none;
+        }
+
+        .store-item {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .store-info h4 {
+            margin-bottom: 5px;
+        }
+
+        .store-info p {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .store-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .delivery-status {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        /* 이미지 업로드 영역 스타일 */
+        .image-upload-area {
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .image-upload-area:hover {
+            border-color: #007bff;
+            background-color: #f8f9fa;
+        }
+
+        .image-upload-area.drag-over {
+            border-color: #007bff;
+            background-color: #e3f2fd;
+        }
+
+        .drag-drop-text {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .drag-drop-text span {
+            font-size: 2em;
+            opacity: 0.6;
+        }
+
+        .drag-drop-text p {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .file-input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .current-image {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .image-upload-area.has-image .drag-drop-text {
+            display: none;
+        }
+
+        /* 배달앱 순서 설정 스타일 */
+        .delivery-order-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .delivery-order-section h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 1.2em;
+        }
+
+        .order-description {
+            margin: 0 0 20px 0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .delivery-order-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .delivery-order-item {
+            display: flex;
+            align-items: center;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .delivery-order-item .app-info {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .delivery-order-item .app-icon {
+            font-size: 1.5em;
+        }
+
+        .delivery-order-item .app-name {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .delivery-order-item .app-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .delivery-order-item .order-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .order-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.3s ease;
+        }
+
+        .order-btn:hover {
+            background: #0056b3;
+        }
+
+        .order-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        @media (max-width: 768px) {
+            .admin-container {
+                flex-direction: column;
+            }
+            
+            .admin-sidebar {
+                width: 100%;
+            }
+            
+            .admin-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <!-- 사이드바 -->
+        <div class="admin-sidebar">
+            <div style="padding: 0 20px;">
+                <h2 style="margin-bottom: 30px; color: #ecf0f1;">관리자 메뉴</h2>
+                <div class="menu-item" onclick="showSection('stores')">
+                    <span>🏬</span> 가게 관리
+                </div>
+                <div class="menu-item" onclick="showSection('basic')">
+                    <span>🏪</span> 기본 정보
+                </div>
+                <div class="menu-item" onclick="showSection('delivery')">
+                    <span>🚚</span> 배달앱 설정
+                </div>
+                <div class="menu-item" onclick="showSection('images')">
+                    <span>🖼️</span> 이미지 관리
+                </div>
+                <div class="menu-item" onclick="showSection('discount')">
+                    <span>💰</span> 할인 설정
+                </div>
+                <div class="menu-item" onclick="showSection('pickup')">
+                    <span>📦</span> 픽업 안내
+                </div>
+                <div class="menu-item" onclick="showSection('superadmin')">
+                    <span>👤</span> 슈퍼어드민
+                </div>
+            </div>
+        </div>
+
+        <!-- 메인 콘텐츠 -->
+        <div class="admin-content">
+            <!-- 헤더 -->
+            <div class="admin-header">
+                <div class="header-info">
+                    <h1>픽업 - 관리자 페이지</h1>
+                    <p>가게 정보와 설정을 관리하세요</p>
+                </div>
+                <div class="header-actions">
+                    <a href="javascript:void(0)" onclick="openMainPage()" class="btn btn-primary">페이지 보기</a>
+                    <button onclick="logout()" class="btn btn-secondary">로그아웃</button>
+                </div>
+            </div>
+
+            <!-- 상태 메시지 -->
+            <div id="statusMessage" class="status-message" style="display: none;">
+                <span id="statusText"></span>
+            </div>
+
+            <!-- 가게 관리 -->
+            <div class="admin-section" id="stores">
+                <h2 class="section-title">
+                    <span>🏬</span>
+                    가게 관리
+                </h2>
+                
+                <div class="form-group">
+                    <label>현재 선택된 가게</label>
+                    <div id="currentStoreInfo" style="padding: 10px; background: #f8f9fa; border-radius: 4px; margin-bottom: 15px;">
+                        로딩 중...
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>가게 목록</label>
+                    <ul id="storeList" class="store-list">
+                        <li>로딩 중...</li>
+                    </ul>
+                </div>
+
+                <div class="button-group">
+                    <button onclick="addNewStore()" class="btn btn-primary">새 가게 추가</button>
+                </div>
+            </div>
+
+            <!-- 기본 정보 -->
+            <div class="admin-section" id="basic">
+                <h2 class="section-title">
+                    <span>🏪</span>
+                    기본 정보
+                </h2>
+                
+                <div class="form-group">
+                    <label for="storeName">가게명</label>
+                    <input type="text" id="storeName" class="form-input" placeholder="가게명을 입력하세요" onblur="saveBasicInfo()">
+                </div>
+                
+                <div class="form-group">
+                    <label for="storeSubtitle">하단 텍스트</label>
+                    <input type="text" id="storeSubtitle" class="form-input" placeholder="하단 텍스트를 입력하세요" onblur="saveBasicInfo()">
+                </div>
+                
+                <div class="form-group">
+                    <label for="storePhone">전화번호</label>
+                    <input type="text" id="storePhone" class="form-input" placeholder="전화번호를 입력하세요" onblur="saveBasicInfo()">
+                </div>
+                
+                <div class="form-group">
+                    <label for="storeAddress">주소</label>
+                    <textarea id="storeAddress" class="form-input" rows="3" placeholder="주소를 입력하세요" onblur="saveBasicInfo()"></textarea>
+                </div>
+            </div>
+
+            <!-- 배달앱 설정 -->
+            <div class="admin-section" id="delivery">
+                <h2 class="section-title">
+                    <span>🚚</span>
+                    배달앱 설정
+                </h2>
+                
+                <div class="delivery-order-section">
+                    <h3>배달앱 표시 순서</h3>
+                    <p class="order-description">아래 순서대로 메인 페이지에 표시됩니다. 위아래 버튼으로 순서를 변경할 수 있습니다.</p>
+                    
+                    <div class="delivery-order-list" id="deliveryOrderList">
+                        <!-- 동적으로 생성됩니다 -->
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="ttaengUrl">땡겨요 URL</label>
+                    <input type="url" id="ttaengUrl" class="form-input" placeholder="땡겨요 URL을 입력하세요" onblur="saveDeliveryUrls()" oninput="updateDeliveryStatus('ttaeng')">
+                    <div id="ttaengStatus" class="delivery-status status-inactive">준비중</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="baeminUrl">배달의민족 URL</label>
+                    <input type="url" id="baeminUrl" class="form-input" placeholder="배달의민족 URL을 입력하세요" onblur="saveDeliveryUrls()" oninput="updateDeliveryStatus('baemin')">
+                    <div id="baeminStatus" class="delivery-status status-inactive">준비중</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="coupangUrl">쿠팡이츠 URL</label>
+                    <input type="url" id="coupangUrl" class="form-input" placeholder="쿠팡이츠 URL을 입력하세요" onblur="saveDeliveryUrls()" oninput="updateDeliveryStatus('coupang')">
+                    <div id="coupangStatus" class="delivery-status status-inactive">준비중</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="yogiyoUrl">요기요 URL</label>
+                    <input type="url" id="yogiyoUrl" class="form-input" placeholder="요기요 URL을 입력하세요" onblur="saveDeliveryUrls()" oninput="updateDeliveryStatus('yogiyo')">
+                    <div id="yogiyoStatus" class="delivery-status status-inactive">준비중</div>
+                </div>
+            </div>
+
+            <!-- 이미지 관리 -->
+            <div class="admin-section" id="images">
+                <h2 class="section-title">
+                    <span>🖼️</span>
+                    이미지 관리
+                </h2>
+                
+                <div class="form-group">
+                    <label for="mainLogo">메인 로고</label>
+                    <div class="image-upload-area" id="mainLogoArea" ondrop="handleDrop(event, 'mainLogo')" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+                        <div class="drag-drop-text">
+                            <span>📁</span>
+                            <p>이미지를 드래그하여 놓거나 클릭하여 선택하세요</p>
+                        </div>
+                        <img id="mainLogoPreview" class="current-image" style="display: none;">
+                        <input type="file" id="mainLogo" class="file-input" accept="image/*" onchange="handleImageUpload('mainLogo', 'mainLogo')">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="menuImage">메뉴 이미지</label>
+                    <div class="image-upload-area" id="menuImageArea" ondrop="handleDrop(event, 'menuImage')" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+                        <div class="drag-drop-text">
+                            <span>📁</span>
+                            <p>이미지를 드래그하여 놓거나 클릭하여 선택하세요</p>
+                        </div>
+                        <img id="menuImagePreview" class="current-image" style="display: none;">
+                        <input type="file" id="menuImage" class="file-input" accept="image/*" onchange="handleImageUpload('menuImage', 'menuImage')">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 할인 설정 -->
+            <div class="admin-section" id="discount">
+                <h2 class="section-title">
+                    <span>💰</span>
+                    할인 설정
+                </h2>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="discountEnabled" onchange="saveDiscountSettings()"> 할인 안내 활성화
+                    </label>
+                </div>
+                
+                <div class="form-group">
+                    <label for="discountTitle">할인 제목</label>
+                    <input type="text" id="discountTitle" class="form-input" placeholder="할인 제목을 입력하세요" onblur="saveDiscountSettings()">
+                </div>
+                
+                <div class="form-group">
+                    <label for="discountDescription">할인 설명</label>
+                    <textarea id="discountDescription" class="form-input" rows="3" placeholder="할인 설명을 입력하세요" onblur="saveDiscountSettings()"></textarea>
+                </div>
+            </div>
+
+            <!-- 픽업 안내 -->
+            <div class="admin-section" id="pickup">
+                <h2 class="section-title">
+                    <span>📦</span>
+                    픽업 안내
+                </h2>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="pickupEnabled" onchange="savePickupSettings()"> 픽업 안내 활성화
+                    </label>
+                </div>
+                
+                <div class="form-group">
+                    <label for="pickupTitle">픽업 제목</label>
+                    <input type="text" id="pickupTitle" class="form-input" placeholder="픽업 제목을 입력하세요" onblur="savePickupSettings()">
+                </div>
+                
+                <div class="form-group">
+                    <label for="pickupDescription">픽업 설명</label>
+                    <textarea id="pickupDescription" class="form-input" rows="3" placeholder="픽업 설명을 입력하세요" onblur="savePickupSettings()"></textarea>
+                </div>
+            </div>
+
+            <!-- 슈퍼어드민 계정 관리 -->
+            <div class="admin-section" id="superadmin">
+                <h2 class="section-title">
+                    <span>👤</span>
+                    슈퍼어드민 계정관리
+                </h2>
+                
+                <div class="form-group">
+                    <label for="adminUsername">계정명</label>
+                    <input type="text" id="adminUsername" class="form-input" placeholder="계정명을 입력하세요">
+                </div>
+                
+                <div class="form-group">
+                    <label for="adminPassword">새 비밀번호</label>
+                    <input type="password" id="adminPassword" class="form-input" placeholder="새 비밀번호를 입력하세요">
+                </div>
+                
+                <div class="form-group">
+                    <label for="adminPasswordConfirm">비밀번호 확인</label>
+                    <input type="password" id="adminPasswordConfirm" class="form-input" placeholder="비밀번호를 다시 입력하세요">
+                </div>
+                
+                <div class="button-group">
+                    <button onclick="updateSuperAdminAccount()" class="btn btn-primary">계정 정보 수정</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8081/api';
+
+        // 로그인 상태 확인
+        const isLoggedIn = sessionStorage.getItem('superadmin_logged_in') === 'true';
+        if (!isLoggedIn) {
+            window.location.href = 'login.html';
+        }
+
+        // API 요청 함수 (타임아웃 및 재시도 포함)
+        async function apiRequest(url, method = 'GET', data = null, retries = 3) {
+            for (let attempt = 1; attempt <= retries; attempt++) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃
+                    
+                    const options = {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        signal: controller.signal
+                    };
+                    
+                    if (data) {
+                        options.body = JSON.stringify(data);
+                    }
+                    
+                    const response = await fetch(url, options);
+                    clearTimeout(timeoutId);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    return await response.json();
+                } catch (error) {
+                    console.error(`API 요청 실패 (시도 ${attempt}/${retries}):`, error);
+                    
+                    if (attempt === retries) {
+                        throw error;
+                    }
+                    
+                    // 재시도 전 잠시 대기
+                    await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                }
+            }
+        }
+
+        // 현재 가게 ID 가져오기
+        async function getCurrentStoreId() {
+            try {
+                const data = await apiRequest(`${API_BASE}/data`);
+                return data.currentStoreId || null;
+            } catch (error) {
+                console.error('현재 가게 ID 조회 실패:', error);
+                return null;
+            }
+        }
+
+        // 가게 목록 로드
+        async function loadStoreList() {
+            try {
+                const stores = await apiRequest(`${API_BASE}/stores`);
+                const storeList = document.getElementById('storeList');
+                const currentStoreId = await getCurrentStoreId();
+                
+                storeList.innerHTML = '';
+                
+                stores.forEach(store => {
+                    const li = document.createElement('li');
+                    li.className = 'store-item';
+                    li.innerHTML = `
+                        <div class="store-info">
+                            <h4>${store.name || '이름 없음'}</h4>
+                            <p>${store.subtitle || '부제목 없음'}</p>
+                        </div>
+                        <div class="store-actions">
+                            <button onclick="switchStore('${store.id}')" class="btn btn-primary">선택</button>
+                            <button onclick="deleteStore('${store.id}')" class="btn btn-danger">삭제</button>
+                        </div>
+                    `;
+                    storeList.appendChild(li);
+                });
+                
+                // 현재 선택된 가게 정보 표시
+                if (currentStoreId) {
+                    const currentStore = stores.find(store => store.id === currentStoreId);
+                    if (currentStore) {
+                        document.getElementById('currentStoreInfo').innerHTML = `
+                            <strong>${currentStore.name}</strong><br>
+                            <small>${currentStore.subtitle}</small>
+                        `;
+                    }
+                }
+                
+            } catch (error) {
+                console.error('가게 목록 로드 실패:', error);
+                showStatus('가게 목록을 불러오는데 실패했습니다.', 'error');
+            }
+        }
+
+        // 가게 전환
+        async function switchStore(storeId) {
+            if (isLoading) return;
+            isLoading = true;
+            
+            try {
+                // 현재 데이터 로드
+                const data = await apiRequest(`${API_BASE}/data`);
+                
+                // currentStoreId 업데이트
+                data.currentStoreId = storeId;
+                
+                // 업데이트된 데이터 저장
+                await apiRequest(`${API_BASE}/data`, 'POST', data);
+                
+                showStatus('가게가 전환되었습니다!', 'success');
+                
+                // 가게 목록과 설정 다시 로드
+                await loadStoreList();
+                await loadSettings();
+            } catch (error) {
+                console.error('가게 전환 실패:', error);
+                showStatus('가게 전환에 실패했습니다.', 'error');
+            } finally {
+                isLoading = false;
+            }
+        }
+
+        // 새 가게 추가
+        async function addNewStore() {
+            const storeName = prompt('새 가게명을 입력하세요:');
+            if (!storeName) return;
+            
+            try {
+                const newStore = {
+                    name: storeName,
+                    subtitle: '',
+                    phone: '',
+                    address: ''
+                };
+                
+                // 개별 가게 객체를 POST로 전송
+                const result = await apiRequest(`${API_BASE}/stores`, 'POST', newStore);
+                console.log('가게 추가 결과:', result);
+                console.log('result.store:', result.store);
+                console.log('result.store.id:', result.store?.id);
+                
+                // 새로 추가된 가게를 현재 선택된 가게로 설정
+                if (result && result.store && result.store.id) {
+                    console.log('새 가게 자동 선택 시작:', result.store.id);
+                    await switchStore(result.store.id);
+                    console.log('새 가게 자동 선택 완료');
+                    showStatus('새 가게가 추가되고 선택되었습니다!', 'success');
+                } else {
+                    console.log('새 가게 자동 선택 실패 - 응답 구조:', result);
+                    showStatus('새 가게가 추가되었습니다!', 'success');
+                }
+                
+                await loadStoreList();
+            } catch (error) {
+                console.error('가게 추가 실패:', error);
+                showStatus('가게 추가에 실패했습니다.', 'error');
+            }
+        }
+
+        // 가게 삭제
+        async function deleteStore(storeId) {
+            const storeName = await getStoreNameById(storeId);
+            if (!confirm(`"${storeName}" 가게를 삭제하시겠습니까?`)) return;
+            
+            try {
+                await apiRequest(`${API_BASE}/stores/${storeId}`, 'DELETE');
+                showStatus('가게가 삭제되었습니다!', 'success');
+                await loadStoreList();
+            } catch (error) {
+                console.error('가게 삭제 실패:', error);
+                showStatus('가게 삭제에 실패했습니다.', 'error');
+            }
+        }
+
+        // 가게명으로 ID 찾기
+        async function getStoreNameById(storeId) {
+            try {
+                console.log('가게명 조회 요청:', storeId);
+                const stores = await apiRequest(`${API_BASE}/stores`);
+                console.log('가게 목록:', stores);
+                const store = stores.find(s => s.id === storeId);
+                console.log('찾은 가게:', store);
+                return store ? store.name : '알 수 없는 가게';
+            } catch (error) {
+                console.error('가게명 조회 실패:', error);
+                return '알 수 없는 가게';
+            }
+        }
+
+        // 설정 로드
+        async function loadSettings() {
+            try {
+                const currentStoreId = await getCurrentStoreId();
+                if (!currentStoreId) {
+                    showStatus('가게를 먼저 선택해주세요.', 'error');
+                    return;
+                }
+                
+                const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                
+                // 기본 정보
+                document.getElementById('storeName').value = settings.basic?.storeName || '';
+                document.getElementById('storeSubtitle').value = settings.basic?.storeSubtitle || '';
+                document.getElementById('storePhone').value = settings.basic?.storePhone || '';
+                document.getElementById('storeAddress').value = settings.basic?.storeAddress || '';
+                
+                // 배달앱 설정
+                document.getElementById('ttaengUrl').value = settings.delivery?.ttaengUrl || '';
+                document.getElementById('baeminUrl').value = settings.delivery?.baeminUrl || '';
+                document.getElementById('coupangUrl').value = settings.delivery?.coupangUrl || '';
+                document.getElementById('yogiyoUrl').value = settings.delivery?.yogiyoUrl || '';
+                
+                // 배달앱 상태 업데이트 (설정 로드 후)
+                setTimeout(() => {
+                    updateAllDeliveryStatuses();
+                }, 100);
+                
+                // 할인 설정
+                document.getElementById('discountEnabled').checked = settings.discount?.enabled || false;
+                document.getElementById('discountTitle').value = settings.discount?.title || '';
+                document.getElementById('discountDescription').value = settings.discount?.description || '';
+                
+                // 픽업 설정
+                document.getElementById('pickupEnabled').checked = settings.pickup?.enabled || false;
+                document.getElementById('pickupTitle').value = settings.pickup?.title || '';
+                document.getElementById('pickupDescription').value = settings.pickup?.description || '';
+                
+                // 이미지 설정
+                if (settings.images) {
+                    updateImagePreview('mainLogo', settings.images.mainLogo);
+                    updateImagePreview('menuImage', settings.images.menuImage);
+                }
+                
+                // 배달앱 순서 렌더링
+                await renderDeliveryOrder();
+                
+            } catch (error) {
+                console.error('설정 로드 실패:', error);
+                showStatus('설정을 불러오는데 실패했습니다.', 'error');
+            }
+        }
+
+        // 기본 정보 저장
+        async function saveBasicInfo() {
+            try {
+                const currentStoreId = await getCurrentStoreId();
+                const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                
+                settings.basic = {
+                    storeName: document.getElementById('storeName').value,
+                    storeSubtitle: document.getElementById('storeSubtitle').value,
+                    storePhone: document.getElementById('storePhone').value,
+                    storeAddress: document.getElementById('storeAddress').value
+                };
+                
+                await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`, 'POST', settings);
+                
+                // 가게 목록의 subtitle도 동기화
+                const stores = await apiRequest(`${API_BASE}/stores`);
+                const currentStore = stores.find(store => store.id === currentStoreId);
+                if (currentStore) {
+                    currentStore.subtitle = settings.basic.storeSubtitle;
+                    currentStore.name = settings.basic.storeName;
+                    currentStore.phone = settings.basic.storePhone;
+                    currentStore.address = settings.basic.storeAddress;
+                    
+                    // 가게 정보 업데이트
+                    await apiRequest(`${API_BASE}/stores/update`, 'POST', currentStore);
+                }
+                
+                showStatus('가게명, 하단 텍스트, 전화번호, 주소가 저장되었습니다!', 'success');
+                
+                // 가게 목록 다시 로드하여 변경사항 반영
+                await loadStoreList();
+            } catch (error) {
+                console.error('기본 정보 저장 실패:', error);
+                showStatus('기본 정보 저장에 실패했습니다.', 'error');
+            }
+        }
+
+        // 배달앱 URL 저장 (CRUD 완전 구현)
+        async function saveDeliveryUrls() {
+            try {
+                const currentStoreId = await getCurrentStoreId();
+                const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                
+                settings.delivery = {
+                    ttaengUrl: document.getElementById('ttaengUrl').value,
+                    baeminUrl: document.getElementById('baeminUrl').value,
+                    coupangUrl: document.getElementById('coupangUrl').value,
+                    yogiyoUrl: document.getElementById('yogiyoUrl').value,
+                    deliveryOrder: settings.delivery?.deliveryOrder || ['ttaeng', 'baemin', 'coupang', 'yogiyo']
+                };
+                
+                await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`, 'POST', settings);
+                
+                // 저장 후 모든 배달앱 상태 업데이트
+                updateAllDeliveryStatuses();
+                
+                showStatus('배달앱 URL 설정이 저장되었습니다!', 'success');
+            } catch (error) {
+                console.error('배달앱 URL 저장 실패:', error);
+                showStatus('배달앱 URL 저장에 실패했습니다.', 'error');
+            }
+        }
+
+        // 배달앱 순서 목록 렌더링
+        async function renderDeliveryOrder() {
+            try {
+                const currentStoreId = await getCurrentStoreId();
+                const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                const deliveryOrder = settings.delivery?.deliveryOrder || ['ttaeng', 'baemin', 'coupang', 'yogiyo'];
+                
+                const appConfigs = {
+                    'ttaeng': { name: '땡겨요', icon: '🚚' },
+                    'baemin': { name: '배달의민족', icon: '🛵' },
+                    'coupang': { name: '쿠팡이츠', icon: '📦' },
+                    'yogiyo': { name: '요기요', icon: '🍽️' }
+                };
+                
+                const orderList = document.getElementById('deliveryOrderList');
+                orderList.innerHTML = '';
+                
+                deliveryOrder.forEach((appId, index) => {
+                    const config = appConfigs[appId];
+                    const url = settings.delivery?.[`${appId}Url`] || '';
+                    const isActive = url && url.trim() !== '';
+                    
+                    const item = document.createElement('div');
+                    item.className = 'delivery-order-item';
+                    item.innerHTML = `
+                        <div class="app-info">
+                            <span class="app-icon">${config.icon}</span>
+                            <span class="app-name">${config.name}</span>
+                            <span class="app-status ${isActive ? 'status-active' : 'status-inactive'}">
+                                ${isActive ? '활성' : '준비중'}
+                            </span>
+                        </div>
+                        <div class="order-buttons">
+                            <button class="order-btn" onclick="moveDeliveryApp('${appId}', 'up')" ${index === 0 ? 'disabled' : ''}>↑</button>
+                            <button class="order-btn" onclick="moveDeliveryApp('${appId}', 'down')" ${index === deliveryOrder.length - 1 ? 'disabled' : ''}>↓</button>
+                        </div>
+                    `;
+                    orderList.appendChild(item);
+                });
+            } catch (error) {
+                console.error('배달앱 순서 렌더링 실패:', error);
+            }
+        }
+
+        // 배달앱 순서 변경
+        async function moveDeliveryApp(appId, direction) {
+            try {
+                const currentStoreId = await getCurrentStoreId();
+                const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                
+                let deliveryOrder = settings.delivery?.deliveryOrder || ['ttaeng', 'baemin', 'coupang', 'yogiyo'];
+                const currentIndex = deliveryOrder.indexOf(appId);
+                
+                if (direction === 'up' && currentIndex > 0) {
+                    [deliveryOrder[currentIndex], deliveryOrder[currentIndex - 1]] = [deliveryOrder[currentIndex - 1], deliveryOrder[currentIndex]];
+                } else if (direction === 'down' && currentIndex < deliveryOrder.length - 1) {
+                    [deliveryOrder[currentIndex], deliveryOrder[currentIndex + 1]] = [deliveryOrder[currentIndex + 1], deliveryOrder[currentIndex]];
+                }
+                
+                settings.delivery = settings.delivery || {};
+                settings.delivery.deliveryOrder = deliveryOrder;
+                
+                await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`, 'POST', settings);
+                
+                // 순서 목록 다시 렌더링
+                await renderDeliveryOrder();
+                
+                showStatus('배달앱 순서가 변경되었습니다!', 'success');
+            } catch (error) {
+                console.error('배달앱 순서 변경 실패:', error);
+                showStatus('배달앱 순서 변경에 실패했습니다.', 'error');
+            }
+        }
+
+        // 배달앱 URL 입력 필드 이벤트 리스너 설정
+        function setupDeliveryUrlEventListeners() {
+            const deliveryApps = ['ttaeng', 'baemin', 'coupang', 'yogiyo'];
+            
+            deliveryApps.forEach(app => {
+                const urlInput = document.getElementById(`${app}Url`);
+                if (urlInput) {
+                    // 입력 시 즉시 상태 업데이트
+                    urlInput.addEventListener('input', () => {
+                        updateDeliveryStatus(app);
+                    });
+                    
+                    // 포커스 아웃 시에도 상태 업데이트
+                    urlInput.addEventListener('blur', () => {
+                        updateDeliveryStatus(app);
+                    });
+                }
+            });
+        }
+
+        // 배달앱 상태 업데이트 (구조화된 버전)
+        function updateDeliveryStatus(app) {
+            const urlInput = document.getElementById(`${app}Url`);
+            const statusDiv = document.getElementById(`${app}Status`);
+            
+            if (!urlInput || !statusDiv) {
+                console.warn(`${app} URL 입력 필드 또는 상태 표시 요소를 찾을 수 없습니다.`);
+                return;
+            }
+            
+            const url = urlInput.value.trim();
+            
+            if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+                statusDiv.textContent = '활성';
+                statusDiv.className = 'delivery-status status-active';
+            } else {
+                statusDiv.textContent = '준비중';
+                statusDiv.className = 'delivery-status status-inactive';
+            }
+            
+            // 순서 목록도 함께 업데이트
+            renderDeliveryOrder();
+        }
+
+        // 모든 배달앱 상태 업데이트
+        function updateAllDeliveryStatuses() {
+            const deliveryApps = ['ttaeng', 'baemin', 'coupang', 'yogiyo'];
+            deliveryApps.forEach(app => {
+                updateDeliveryStatus(app);
+            });
+        }
+
+        // 할인 설정 저장
+        async function saveDiscountSettings() {
+            try {
+                const currentStoreId = await getCurrentStoreId();
+                const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                
+                settings.discount = {
+                    enabled: document.getElementById('discountEnabled').checked,
+                    title: document.getElementById('discountTitle').value,
+                    description: document.getElementById('discountDescription').value
+                };
+                
+                await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`, 'POST', settings);
+                showStatus('할인 설정이 저장되었습니다!', 'success');
+            } catch (error) {
+                console.error('할인 설정 저장 실패:', error);
+                showStatus('할인 설정 저장에 실패했습니다.', 'error');
+            }
+        }
+
+        // 픽업 설정 저장
+        async function savePickupSettings() {
+            try {
+                const currentStoreId = await getCurrentStoreId();
+                const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                
+                settings.pickup = {
+                    enabled: document.getElementById('pickupEnabled').checked,
+                    title: document.getElementById('pickupTitle').value,
+                    description: document.getElementById('pickupDescription').value
+                };
+                
+                await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`, 'POST', settings);
+                showStatus('픽업 설정이 저장되었습니다!', 'success');
+            } catch (error) {
+                console.error('픽업 설정 저장 실패:', error);
+                showStatus('픽업 설정 저장에 실패했습니다.', 'error');
+            }
+        }
+
+        // 이미지 업로드 처리
+        async function handleImageUpload(inputId, imageType) {
+            const fileInput = document.getElementById(inputId);
+            if (fileInput && fileInput.files && fileInput.files[0]) {
+                await processImageFile(fileInput.files[0], imageType);
+            }
+        }
+
+        // 이미지 파일 처리
+        async function processImageFile(file, imageType) {
+            const reader = new FileReader();
+            
+            reader.onload = async function(e) {
+                try {
+                    const imageData = e.target.result;
+                    const currentStoreId = await getCurrentStoreId();
+                    
+                    const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                    settings.images = settings.images || {};
+                    settings.images[imageType] = imageData;
+                    
+                    await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`, 'POST', settings);
+                    
+                    // 이미지 미리보기 업데이트
+                    updateImagePreview(imageType, imageData);
+                    
+                    showStatus(`${imageType === 'mainLogo' ? '로고' : '메뉴판'} 이미지가 업로드되어 저장되었습니다!`, 'success');
+                } catch (error) {
+                    console.error('이미지 저장 오류:', error);
+                    showStatus('이미지 저장에 실패했습니다.', 'error');
+                }
+            };
+            
+            reader.readAsDataURL(file);
+        }
+
+        // 드래그앤드롭 처리
+        function handleDragOver(event) {
+            event.preventDefault();
+            event.currentTarget.classList.add('drag-over');
+        }
+
+        function handleDragLeave(event) {
+            event.currentTarget.classList.remove('drag-over');
+        }
+
+        function handleDrop(event, imageType) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('drag-over');
+            
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                processImageFile(files[0], imageType);
+            }
+        }
+
+        // 이미지 미리보기 업데이트
+        function updateImagePreview(imageType, imageData) {
+            const preview = document.getElementById(`${imageType}Preview`);
+            const uploadArea = document.getElementById(`${imageType}Area`);
+            
+            if (imageData) {
+                preview.src = imageData;
+                preview.style.display = 'block';
+                uploadArea.classList.add('has-image');
+            } else {
+                preview.style.display = 'none';
+                uploadArea.classList.remove('has-image');
+            }
+        }
+
+        // 슈퍼어드민 계정 정보 로드
+        async function loadSuperAdminInfo() {
+            try {
+                const response = await apiRequest(`${API_BASE}/superadmin/info`);
+                if (response) {
+                    document.getElementById('adminUsername').value = response.username || '';
+                }
+            } catch (error) {
+                console.error('슈퍼어드민 정보 로드 오류:', error);
+            }
+        }
+
+        // 슈퍼어드민 계정 정보 수정
+        async function updateSuperAdminAccount() {
+            try {
+                const username = document.getElementById('adminUsername').value;
+                const password = document.getElementById('adminPassword').value;
+                const passwordConfirm = document.getElementById('adminPasswordConfirm').value;
+                
+                if (!username.trim()) {
+                    showStatus('계정명을 입력해주세요.', 'error');
+                    return;
+                }
+                
+                if (password && password !== passwordConfirm) {
+                    showStatus('비밀번호가 일치하지 않습니다.', 'error');
+                    return;
+                }
+                
+                const updateData = { username: username.trim() };
+                if (password.trim()) {
+                    updateData.password = password.trim();
+                }
+                
+                await apiRequest(`${API_BASE}/superadmin/update`, 'POST', updateData);
+                showStatus('슈퍼어드민 계정 정보가 수정되었습니다!', 'success');
+                
+                // 비밀번호 필드 초기화
+                document.getElementById('adminPassword').value = '';
+                document.getElementById('adminPasswordConfirm').value = '';
+                
+            } catch (error) {
+                console.error('슈퍼어드민 계정 수정 오류:', error);
+                showStatus('계정 정보 수정에 실패했습니다.', 'error');
+            }
+        }
+
+        // 로그아웃
+        function logout() {
+            if (confirm('로그아웃하시겠습니까?')) {
+                sessionStorage.removeItem('superadmin_logged_in');
+                sessionStorage.removeItem('superadmin_username');
+                window.location.href = 'login.html';
+            }
+        }
+
+        // 메인 페이지 열기
+        async function openMainPage() {
+            try {
+                const currentStoreId = await getCurrentStoreId();
+                if (currentStoreId) {
+                    // store 파라미터를 사용하여 메인 페이지로 이동
+                    const mainPageUrl = `/?store=${currentStoreId}`;
+                    console.log('메인 페이지 URL:', mainPageUrl);
+                    // 새 탭에서 열기
+                    window.open(mainPageUrl, '_blank');
+                } else {
+                    // 가게가 선택되지 않은 경우 기본 페이지로 이동
+                    console.log('가게가 선택되지 않음, 기본 페이지로 이동');
+                    window.open('/', '_blank');
+                }
+            } catch (error) {
+                console.error('메인 페이지 열기 실패:', error);
+                // 오류 발생 시 기본 페이지로 이동
+                window.open('/', '_blank');
+            }
+        }
+
+        // 섹션 표시
+        function showSection(sectionId) {
+            // 모든 섹션 숨기기
+            const sections = document.querySelectorAll('.admin-section');
+            sections.forEach(section => section.style.display = 'none');
+            
+            // 선택된 섹션 표시
+            document.getElementById(sectionId).style.display = 'block';
+            
+            // 메뉴 활성화
+            const menuItems = document.querySelectorAll('.menu-item');
+            menuItems.forEach(item => item.classList.remove('active'));
+            
+            // 클릭된 메뉴 아이템 찾기
+            const clickedItem = document.querySelector(`[onclick="showSection('${sectionId}')"]`);
+            if (clickedItem) {
+                clickedItem.classList.add('active');
+            }
+        }
+
+        // 상태 메시지 표시
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            const statusText = document.getElementById('statusText');
+            
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('ko-KR', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit' 
+            });
+            
+            statusText.innerHTML = `${message} <span style="opacity: 0.7; font-size: 12px;">(${timeString})</span>`;
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.style.display = 'block';
+        }
+
+        // 로딩 상태 관리
+        let isLoading = false;
+        
+        // 페이지 로드 시 초기화
+        document.addEventListener('DOMContentLoaded', async function() {
+            if (isLoading) return;
+            isLoading = true;
+            
+            // 즉시 모든 섹션 숨기기 (CSS 로드 전에)
+            const sections = document.querySelectorAll('.admin-section');
+            sections.forEach(section => section.style.display = 'none');
+            
+            try {
+                await loadStoreList();
+                await loadSettings();
+                await loadSuperAdminInfo();
+                
+                // 배달앱 URL 입력 필드 이벤트 리스너 추가
+                setupDeliveryUrlEventListeners();
+                
+                // 첫 번째 섹션 표시
+                showSection('stores');
+            } catch (error) {
+                console.error('초기화 오류:', error);
+                showStatus('페이지 초기화에 실패했습니다.', 'error');
+            } finally {
+                isLoading = false;
+            }
+        });
+    </script>
+</body>
+</html>
