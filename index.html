@@ -364,8 +364,8 @@
 
       function openStore(storeId) {
         log('INFO', '가게 페이지로 이동', { storeId });
-        // 가게별 페이지로 이동 (예: /store/{storeId})
-        window.location.href = `/store/${storeId}`;
+        // 가게별 페이지로 이동 (예: store.html?storeId={storeId})
+        window.location.href = `store.html?storeId=${storeId}`;
       }
 
       function callStore(phoneNumber) {
@@ -391,7 +391,7 @@
           
           if (storeId) {
             log('INFO', 'URL 파라미터에서 가게 ID 발견, 가게 페이지로 이동', { storeId });
-            window.location.href = `/store/${storeId}`;
+            window.location.href = `store.html?storeId=${storeId}`;
           return;
         }
         
