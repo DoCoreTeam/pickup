@@ -117,7 +117,7 @@
             border-radius: 4px;
             font-size: 14px;
         }
-
+        
         .form-input:focus {
             outline: none;
             border-color: #3498db;
@@ -295,8 +295,8 @@
         /* 토스트 알림 시스템 */
         .toast-container {
             position: fixed;
-            top: 20px;
-            right: 20px;
+            bottom: 20px;
+            left: 20px;
             z-index: 10000;
             pointer-events: none;
         }
@@ -311,7 +311,7 @@
             min-width: 300px;
             max-width: 400px;
             opacity: 0;
-            transform: translateX(100%);
+            transform: translateX(-100%);
             transition: all 0.3s ease;
             pointer-events: auto;
             position: relative;
@@ -397,6 +397,51 @@
             color: #7f8c8d;
         }
 
+        /* 입력 모달 스타일 */
+        .toast.input-modal {
+            min-width: 350px;
+            max-width: 450px;
+        }
+
+        .modal-input-group {
+            margin: 16px 0;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        .modal-input:focus {
+            outline: none;
+            border-color: #2196f3;
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+        }
+
+        .modal-input::placeholder {
+            color: #999;
+        }
+
+        /* 삭제 확인 모달 스타일 */
+        .toast.delete-modal {
+            min-width: 350px;
+            max-width: 400px;
+        }
+
+        .toast-btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .toast-btn-danger:hover {
+            background: #d32f2f;
+        }
+
         .toast-message {
             font-size: 13px;
             color: #7f8c8d;
@@ -480,6 +525,28 @@
         .store-name {
             font-weight: 600;
             color: #333;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            text-align: center;
+            min-width: 60px;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-paused {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
         }
 
         .table-actions {
@@ -682,8 +749,29 @@
         }
 
         .delivery-grid-item .app-icon {
-            font-size: 24px;
+            width: 32px;
+            height: 32px;
             margin-bottom: 4px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            border-radius: 6px;
+        }
+
+        .delivery-grid-item .app-icon.ttaeng {
+            background-image: url('../../assets/images/icons/dgy.svg');
+        }
+
+        .delivery-grid-item .app-icon.baemin {
+            background-image: url('../../assets/images/icons/bm.svg');
+        }
+
+        .delivery-grid-item .app-icon.coupang {
+            background-image: url('../../assets/images/icons/cpeat.png');
+        }
+
+        .delivery-grid-item .app-icon.yogiyo {
+            background-image: url('../../assets/images/icons/yogiyo.png');
         }
 
         .delivery-grid-item .app-name {
@@ -722,19 +810,273 @@
             transform: scale(1.05);
         }
 
+        /* 현대적인 토글 스위치 */
+        .toggle-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .toggle-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .toggle-info h3 {
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0 0 4px 0;
+        }
+
+        .toggle-info p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+            margin: 0;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 32px;
+            cursor: pointer;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 32px;
+            transition: all 0.3s ease;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 24px;
+            width: 24px;
+            left: 2px;
+            bottom: 2px;
+            background: white;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(28px);
+        }
+
+        /* 현대적인 폼 카드 */
+        .settings-form {
+            opacity: 0.6;
+            transition: all 0.3s ease;
+        }
+
+        .settings-form.active {
+            opacity: 1;
+        }
+
+        .form-card {
+            background: white;
+            border-radius: 20px;
+            padding: 32px;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .form-card:hover {
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12);
+            transform: translateY(-2px);
+        }
+
+        .form-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 32px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f8fafc;
+        }
+
+        .form-icon {
+            font-size: 32px;
+            margin-right: 16px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .form-header h3 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1a202c;
+            margin: 0;
+        }
+
+        /* 현대적인 폼 라벨 */
+        .form-label {
+            display: block;
+            margin-bottom: 16px;
+        }
+
+        .label-text {
+            display: block;
+            font-size: 16px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 4px;
+        }
+
+        .label-hint {
+            display: block;
+            font-size: 14px;
+            color: #718096;
+            font-style: italic;
+        }
+
+        /* 현대적인 입력 필드 */
+        .input-wrapper, .textarea-wrapper {
+            position: relative;
+        }
+
+        .modern-input, .modern-textarea {
+            width: 100%;
+            padding: 16px 20px 16px 56px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: #fafafa;
+            box-sizing: border-box;
+        }
+
+        .modern-textarea {
+            padding: 16px 20px 16px 56px;
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .modern-input:focus, .modern-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .input-icon, .textarea-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 20px;
+            color: #a0aec0;
+            pointer-events: none;
+        }
+
+        .textarea-icon {
+            top: 20px;
+            transform: none;
+        }
+
+        /* 친절한 가이드 메시지 */
+        .guide-message {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid #0ea5e9;
+            margin-top: 16px;
+        }
+
+        .guide-icon {
+            font-size: 24px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .guide-text {
+            flex: 1;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #0c4a6e;
+        }
+
+        .guide-text strong {
+            color: #0369a1;
+            font-weight: 600;
+        }
+
+        .save-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+        }
+
+        .save-indicator.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .save-icon {
+            margin-right: 8px;
+            font-size: 16px;
+        }
+
+        /* 반응형 디자인 */
         @media (max-width: 768px) {
-            .admin-container {
-                flex-direction: column;
-            }
-            
-            .admin-sidebar {
-                width: 100%;
-            }
-            
-            .admin-header {
+            .toggle-header {
                 flex-direction: column;
                 align-items: flex-start;
-                gap: 15px;
+                gap: 16px;
+            }
+
+            .form-card {
+                padding: 24px;
+            }
+
+            .form-header {
+                flex-direction: column;
+                align-items: flex-start;
+                text-align: left;
+            }
+
+            .form-icon {
+                margin-right: 0;
+                margin-bottom: 12px;
             }
         }
     </style>
@@ -750,13 +1092,13 @@
                 <h2 style="margin-bottom: 30px; color: #ecf0f1;">관리자 메뉴</h2>
                 
                 <!-- 선택된 가게 카드 -->
-                <div id="selectedStoreCard" class="selected-store-card" style="display: none;">
+                <div id="selectedStoreCard" class="selected-store-card">
                     <div class="selected-store-header">
                         <div class="selected-store-icon">🏪</div>
                         <div class="selected-store-label">선택된 가게</div>
                     </div>
-                    <div class="selected-store-name" id="selectedStoreName">가게명</div>
-                    <div class="selected-store-subtitle" id="selectedStoreSubtitle">부제목</div>
+                    <div class="selected-store-name" id="selectedStoreName">가게를 선택해주세요</div>
+                    <div class="selected-store-subtitle" id="selectedStoreSubtitle">좌측 가게 목록에서 선택하세요</div>
                 </div>
                 
                 <div class="menu-item" onclick="showSection('stores')">
@@ -827,7 +1169,7 @@
                 </div>
 
                 <div class="button-group">
-                    <button onclick="addNewStore()" class="btn btn-primary">새 가게 추가</button>
+                    <button onclick="showStoreNameModal()" class="btn btn-primary">새 가게 추가</button>
                 </div>
             </div>
 
@@ -941,20 +1283,61 @@
                     할인 설정
                 </h2>
                 
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="discountEnabled" onchange="saveDiscountSettings()"> 할인 안내 활성화
-                    </label>
+                <!-- 할인 활성화 토글 -->
+                <div class="toggle-card">
+                    <div class="toggle-header">
+                        <div class="toggle-info">
+                            <h3>할인 이벤트 활성화</h3>
+                            <p>고객들에게 할인 정보를 표시합니다</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="discountEnabled" onchange="saveDiscountSettings()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <label for="discountTitle">할인 제목</label>
-                    <input type="text" id="discountTitle" class="form-input" placeholder="할인 제목을 입력하세요" onblur="saveDiscountSettings()">
-                </div>
-                
-                <div class="form-group">
-                    <label for="discountDescription">할인 설명</label>
-                    <textarea id="discountDescription" class="form-input" rows="3" placeholder="할인 설명을 입력하세요" onblur="saveDiscountSettings()"></textarea>
+                <!-- 할인 설정 폼 -->
+                <div class="settings-form" id="discountForm">
+                    <div class="form-card">
+                        <div class="form-header">
+                            <div class="form-icon">🎉</div>
+                            <h3>할인 정보 입력</h3>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="discountTitle" class="form-label">
+                                <span class="label-text">할인 제목</span>
+                                <span class="label-hint">고객이 눈에 띄는 제목을 입력하세요</span>
+                            </label>
+                            <div class="input-wrapper">
+                                <input type="text" id="discountTitle" class="form-input modern-input" placeholder="예: 신메뉴 출시 기념 20% 할인!" onblur="saveDiscountSettings()">
+                                <div class="input-icon">📝</div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="discountDescription" class="form-label">
+                                <span class="label-text">할인 설명</span>
+                                <span class="label-hint">자세한 할인 내용을 입력하세요</span>
+                            </label>
+                            <div class="textarea-wrapper">
+                                <textarea id="discountDescription" class="form-input modern-textarea" rows="4" placeholder="예: 신메뉴 출시를 기념하여 전체 메뉴 20% 할인! 기간: 12월 1일 ~ 12월 31일" onblur="saveDiscountSettings()"></textarea>
+                                <div class="textarea-icon">📄</div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-footer">
+                            <!-- 가이드 메시지 -->
+                            <div class="guide-message">
+                                <div class="guide-icon">✨</div>
+                                <div class="guide-text">
+                                    <strong>설정이 완료되면 자동으로 저장됩니다!</strong><br>
+                                    고객들이 가게 페이지에서 바로 확인할 수 있어요.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -965,20 +1348,61 @@
                     픽업 안내
                 </h2>
                 
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="pickupEnabled" onchange="savePickupSettings()"> 픽업 안내 활성화
-                    </label>
+                <!-- 픽업 활성화 토글 -->
+                <div class="toggle-card">
+                    <div class="toggle-header">
+                        <div class="toggle-info">
+                            <h3>픽업 안내 활성화</h3>
+                            <p>고객들에게 픽업 장소와 안내사항을 표시합니다</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="pickupEnabled" onchange="savePickupSettings()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <label for="pickupTitle">픽업 제목</label>
-                    <input type="text" id="pickupTitle" class="form-input" placeholder="픽업 제목을 입력하세요" onblur="savePickupSettings()">
-                </div>
-                
-                <div class="form-group">
-                    <label for="pickupDescription">픽업 설명</label>
-                    <textarea id="pickupDescription" class="form-input" rows="3" placeholder="픽업 설명을 입력하세요" onblur="savePickupSettings()"></textarea>
+                <!-- 픽업 설정 폼 -->
+                <div class="settings-form" id="pickupForm">
+                    <div class="form-card">
+                        <div class="form-header">
+                            <div class="form-icon">📍</div>
+                            <h3>픽업 정보 입력</h3>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="pickupTitle" class="form-label">
+                                <span class="label-text">픽업 제목</span>
+                                <span class="label-hint">고객이 이해하기 쉬운 제목을 입력하세요</span>
+                            </label>
+                            <div class="input-wrapper">
+                                <input type="text" id="pickupTitle" class="form-input modern-input" placeholder="예: 픽업 장소 안내" onblur="savePickupSettings()">
+                                <div class="input-icon">📝</div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="pickupDescription" class="form-label">
+                                <span class="label-text">픽업 설명</span>
+                                <span class="label-hint">픽업 장소와 주의사항을 자세히 입력하세요</span>
+                            </label>
+                            <div class="textarea-wrapper">
+                                <textarea id="pickupDescription" class="form-input modern-textarea" rows="4" placeholder="예: 매장 1층 카운터에서 픽업해주세요. 주문번호를 말씀해주시면 빠르게 받으실 수 있습니다." onblur="savePickupSettings()"></textarea>
+                                <div class="textarea-icon">📄</div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-footer">
+                            <!-- 가이드 메시지 -->
+                            <div class="guide-message">
+                                <div class="guide-icon">📍</div>
+                                <div class="guide-text">
+                                    <strong>픽업 정보가 설정되면 자동으로 저장됩니다!</strong><br>
+                                    고객들이 픽업 장소를 쉽게 찾을 수 있어요.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1050,39 +1474,7 @@
             // 현재 선택된 가게의 페이지 URL 생성
             const currentStoreId = getCurrentStoreId();
             if (currentStoreId) {
-                const storePageUrl = `/store/${currentStoreId}`;
-                showToast('설정이 저장되었습니다! 가게 페이지에서 변경사항을 확인하세요.', 'success', '설정 저장 완료');
-                
-                // 새 탭에서 가게 페이지 열기 버튼 추가
-                setTimeout(() => {
-                    const refreshButton = document.createElement('button');
-                    refreshButton.innerHTML = '가게 페이지 확인하기';
-                    refreshButton.style.cssText = `
-                        position: fixed;
-                        top: 80px;
-                        right: 20px;
-                        background: #2196f3;
-                        color: white;
-                        border: none;
-                        padding: 8px 16px;
-                        border-radius: 4px;
-                        cursor: pointer;
-                        z-index: 10001;
-                        font-size: 12px;
-                    `;
-                    refreshButton.onclick = () => {
-                        window.open(storePageUrl, '_blank');
-                        refreshButton.remove();
-                    };
-                    document.body.appendChild(refreshButton);
-                    
-                    // 5초 후 자동 제거
-                    setTimeout(() => {
-                        if (refreshButton.parentNode) {
-                            refreshButton.remove();
-                        }
-                    }, 5000);
-                }, 1000);
+                showToast('설정이 저장되었습니다! 고객들이 가게 페이지에서 바로 확인할 수 있어요.', 'success', '설정 저장 완료');
             }
         }
 
@@ -1224,6 +1616,7 @@
                                     <th>부제목</th>
                                     <th>전화번호</th>
                                     <th>주소</th>
+                                    <th>상태</th>
                                     <th>작업</th>
                                 </tr>
                             </thead>
@@ -1250,8 +1643,17 @@
                         <td>${store.subtitle || '부제목 없음'}</td>
                         <td>${store.phone || '전화번호 없음'}</td>
                         <td>${store.address || '주소 없음'}</td>
+                        <td class="store-status">
+                            <span class="status-badge ${store.status === 'paused' ? 'status-paused' : 'status-active'}">
+                                ${store.status === 'paused' ? '중지됨' : '운영중'}
+                            </span>
+                        </td>
                         <td class="table-actions">
                             <button onclick="viewStorePage('${store.id}')" class="btn btn-sm btn-info">페이지 보기</button>
+                            ${store.status === 'paused' 
+                                ? `<button onclick="resumeStore('${store.id}')" class="btn btn-sm btn-success">재개</button>`
+                                : `<button onclick="pauseStore('${store.id}')" class="btn btn-sm btn-warning">중지</button>`
+                            }
                             <button onclick="deleteStore('${store.id}')" class="btn btn-sm btn-danger">삭제</button>
                         </td>
                     `;
@@ -1278,13 +1680,7 @@
                         `;
                         
                         // 사이드바의 선택된 가게 정보 표시
-                        const sidebarInfo = document.getElementById('sidebarStoreInfo');
-                        if (sidebarInfo) {
-                            sidebarInfo.innerHTML = `
-                                <div class="store-name">${currentStore.name}</div>
-                                <div class="store-subtitle">${currentStore.subtitle || '부제목 없음'}</div>
-                            `;
-                        }
+                        updateSelectedStoreCard(currentStore.id);
                     }
                 }
                 
@@ -1354,47 +1750,119 @@
                     `;
                     
                     // 사이드바의 선택된 가게 정보 업데이트
-                    const sidebarInfo = document.getElementById('sidebarStoreInfo');
-                    if (sidebarInfo) {
-                        sidebarInfo.innerHTML = `
-                            <div class="store-name">${currentStore.name}</div>
-                            <div class="store-subtitle">${currentStore.subtitle || '부제목 없음'}</div>
-                        `;
-                    }
+                    updateSelectedStoreCard(storeId);
                 }
             } catch (error) {
                 console.error('현재 가게 정보 업데이트 실패:', error);
             }
         }
 
+        // 사이드바 가게 정보 초기화 (가게 선택되지 않은 경우)
+        function initializeSidebarStoreInfo() {
+            const nameElement = document.getElementById('selectedStoreName');
+            const subtitleElement = document.getElementById('selectedStoreSubtitle');
+            
+            if (nameElement) nameElement.textContent = '가게를 선택해주세요';
+            if (subtitleElement) subtitleElement.textContent = '좌측 가게 목록에서 선택하세요';
+        }
+
         // 선택된 가게 카드 업데이트
         async function updateSelectedStoreCard(storeId) {
             try {
+                if (!storeId) {
+                    // 가게가 선택되지 않은 경우 초기화
+                    initializeSidebarStoreInfo();
+                    return;
+                }
+                
                 const stores = await apiRequest(`${API_BASE}/stores`);
                 const selectedStore = stores.find(store => store.id === storeId);
                 
                 if (selectedStore) {
-                    const card = document.getElementById('selectedStoreCard');
                     const nameElement = document.getElementById('selectedStoreName');
                     const subtitleElement = document.getElementById('selectedStoreSubtitle');
                     
-                    nameElement.textContent = selectedStore.name || '이름 없음';
-                    subtitleElement.textContent = selectedStore.subtitle || '부제목 없음';
-                    
-                    card.style.display = 'block';
+                    if (nameElement) nameElement.textContent = selectedStore.name || '이름 없음';
+                    if (subtitleElement) subtitleElement.textContent = selectedStore.subtitle || '부제목 없음';
                 } else {
-                    document.getElementById('selectedStoreCard').style.display = 'none';
+                    // 가게를 찾을 수 없는 경우 초기화
+                    initializeSidebarStoreInfo();
                 }
             } catch (error) {
                 console.error('선택된 가게 카드 업데이트 실패:', error);
+                // 오류 발생 시 초기화
+                initializeSidebarStoreInfo();
             }
         }
 
-        // 새 가게 추가
-        async function addNewStore() {
-            const storeName = prompt('새 가게명을 입력하세요:');
-            if (!storeName) return;
+        // 가게명 입력 모달 표시
+        function showStoreNameModal() {
+            const container = document.getElementById('toastContainer') || createToastContainer();
             
+            const modal = document.createElement('div');
+            modal.className = 'toast input-modal';
+            
+            modal.innerHTML = `
+                <div class="toast-header">
+                    <span class="toast-icon">🏬</span>
+                    <span class="toast-title">새 가게 추가</span>
+                    <button class="toast-close" onclick="closeStoreNameModal(this)">×</button>
+                </div>
+                <div class="toast-message">
+                    새 가게명을 입력하세요
+                </div>
+                <div class="modal-input-group">
+                    <input type="text" id="storeNameInput" placeholder="가게명을 입력하세요" class="modal-input" maxlength="50">
+                </div>
+                <div class="toast-actions">
+                    <button class="toast-btn toast-btn-cancel" onclick="closeStoreNameModal(this)">취소</button>
+                    <button class="toast-btn toast-btn-confirm" onclick="confirmStoreName()">추가</button>
+                </div>
+            `;
+            
+            container.appendChild(modal);
+            
+            setTimeout(() => {
+                modal.classList.add('show');
+                document.getElementById('storeNameInput').focus();
+            }, 10);
+            
+            // Enter 키로 확인
+            document.getElementById('storeNameInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    confirmStoreName();
+                }
+            });
+        }
+
+        // 가게명 입력 모달 닫기
+        function closeStoreNameModal(closeButton) {
+            const modal = closeButton.closest('.toast');
+            modal.classList.remove('show');
+            setTimeout(() => {
+                if (modal.parentNode) {
+                    modal.parentNode.removeChild(modal);
+                }
+            }, 300);
+        }
+
+        // 가게명 확인 및 추가
+        function confirmStoreName() {
+            const input = document.getElementById('storeNameInput');
+            const storeName = input.value.trim();
+            
+            if (!storeName) {
+                showToast('가게명을 입력해주세요.', 'error', '오류');
+                input.focus();
+                return;
+            }
+            
+            closeStoreNameModal(document.querySelector('.input-modal .toast-close'));
+            addNewStore(storeName);
+        }
+
+        // 새 가게 추가 (수정된 버전)
+        async function addNewStore(storeName) {
             try {
                 const newStore = {
                     name: storeName,
@@ -1412,34 +1880,129 @@
                 // 새로 추가된 가게를 현재 선택된 가게로 설정
                 if (result && result.store && result.store.id) {
                     console.log('새 가게 자동 선택 시작:', result.store.id);
-                    await switchStore(result.store.id);
+                    await selectStore(result.store.id);
                     console.log('새 가게 자동 선택 완료');
-                    showStatus('새 가게가 추가되고 선택되었습니다!', 'success');
+                    showToast(`"${storeName}" 가게가 추가되고 선택되었습니다!`, 'success', '성공');
                 } else {
                     console.log('새 가게 자동 선택 실패 - 응답 구조:', result);
-                    showStatus('새 가게가 추가되었습니다!', 'success');
+                    showToast(`"${storeName}" 가게가 추가되었습니다!`, 'success', '성공');
                 }
                 
                 await loadStoreList();
             } catch (error) {
                 console.error('가게 추가 실패:', error);
-                showStatus('가게 추가에 실패했습니다.', 'error');
+                showToast('가게 추가에 실패했습니다.', 'error', '오류');
+            }
+        }
+
+        // 가게 삭제 확인 모달 표시
+        function showDeleteConfirmModal(storeId, storeName) {
+            const container = document.getElementById('toastContainer') || createToastContainer();
+            
+            const modal = document.createElement('div');
+            modal.className = 'toast delete-modal';
+            
+            modal.innerHTML = `
+                <div class="toast-header">
+                    <span class="toast-icon">⚠️</span>
+                    <span class="toast-title">가게 삭제 확인</span>
+                    <button class="toast-close" onclick="closeDeleteConfirmModal(this)">×</button>
+                </div>
+                <div class="toast-message">
+                    <strong>"${storeName}"</strong> 가게를 삭제하시겠습니까?<br>
+                    <small style="color: #666; margin-top: 8px; display: block;">이 작업은 되돌릴 수 없습니다.</small>
+                </div>
+                <div class="toast-actions">
+                    <button class="toast-btn toast-btn-cancel" onclick="closeDeleteConfirmModal(this)">취소</button>
+                    <button class="toast-btn toast-btn-danger" onclick="confirmDeleteStore('${storeId}')">삭제</button>
+                </div>
+            `;
+            
+            container.appendChild(modal);
+            
+            setTimeout(() => {
+                modal.classList.add('show');
+            }, 10);
+            
+            // 자동 닫기 (15초 후)
+            setTimeout(() => {
+                closeDeleteConfirmModal(modal.querySelector('.toast-close'));
+            }, 15000);
+        }
+
+        // 삭제 확인 모달 닫기
+        function closeDeleteConfirmModal(closeButton) {
+            const modal = closeButton.closest('.toast');
+            modal.classList.remove('show');
+            setTimeout(() => {
+                if (modal.parentNode) {
+                    modal.parentNode.removeChild(modal);
+                }
+            }, 300);
+        }
+
+        // 가게 삭제 확인 및 실행
+        async function confirmDeleteStore(storeId) {
+            closeDeleteConfirmModal(document.querySelector('.delete-modal .toast-close'));
+            await performDeleteStore(storeId);
+        }
+
+        // 실제 가게 삭제 수행
+        async function performDeleteStore(storeId) {
+            try {
+                // 현재 선택된 가게가 삭제되는 가게인지 확인
+                const currentStoreId = await getCurrentStoreId();
+                const isCurrentStore = currentStoreId === storeId;
+                
+                await apiRequest(`${API_BASE}/stores/${storeId}`, 'DELETE');
+                showToast('가게가 삭제되었습니다!', 'success', '성공');
+                await loadStoreList();
+                
+                // 삭제된 가게가 현재 선택된 가게였다면 선택 초기화
+                if (isCurrentStore) {
+                    await apiRequest(`${API_BASE}/current-store`, 'POST', { storeId: null });
+                    initializeSidebarStoreInfo();
+                }
+            } catch (error) {
+                console.error('가게 삭제 실패:', error);
+                showToast('가게 삭제에 실패했습니다.', 'error', '오류');
+            }
+        }
+
+        // 가게 중지
+        async function pauseStore(storeId) {
+            try {
+                await apiRequest(`${API_BASE}/stores/${storeId}/pause`, 'POST');
+                showToast('가게가 중지되었습니다!', 'success', '성공');
+                await loadStoreList();
+            } catch (error) {
+                console.error('가게 중지 실패:', error);
+                showToast('가게 중지에 실패했습니다.', 'error', '오류');
+            }
+        }
+
+        // 가게 재개
+        async function resumeStore(storeId) {
+            try {
+                await apiRequest(`${API_BASE}/stores/${storeId}/resume`, 'POST');
+                showToast('가게가 재개되었습니다!', 'success', '성공');
+                await loadStoreList();
+            } catch (error) {
+                console.error('가게 재개 실패:', error);
+                showToast('가게 재개에 실패했습니다.', 'error', '오류');
             }
         }
 
         // 가게 삭제
         async function deleteStore(storeId) {
             const storeName = await getStoreNameById(storeId);
-            if (!confirm(`"${storeName}" 가게를 삭제하시겠습니까?`)) return;
-            
-            try {
-                await apiRequest(`${API_BASE}/stores/${storeId}`, 'DELETE');
-                showStatus('가게가 삭제되었습니다!', 'success');
-                await loadStoreList();
-            } catch (error) {
-                console.error('가게 삭제 실패:', error);
-                showStatus('가게 삭제에 실패했습니다.', 'error');
-            }
+            showDeleteConfirmModal(storeId, storeName);
+        }
+
+        // 가게 페이지 보기
+        function viewStorePage(storeId) {
+            const storeUrl = `http://localhost:8081/store.html?id=${storeId}`;
+            window.open(storeUrl, '_blank');
         }
 
         // 가게명으로 ID 찾기
@@ -1490,10 +2053,26 @@
                 document.getElementById('discountTitle').value = settings.discount?.title || '';
                 document.getElementById('discountDescription').value = settings.discount?.description || '';
                 
+                // 할인 폼 표시/숨김
+                const discountForm = document.getElementById('discountForm');
+                if (settings.discount?.enabled) {
+                    discountForm.classList.add('active');
+                } else {
+                    discountForm.classList.remove('active');
+                }
+                
                 // 픽업 설정
                 document.getElementById('pickupEnabled').checked = settings.pickup?.enabled || false;
                 document.getElementById('pickupTitle').value = settings.pickup?.title || '';
                 document.getElementById('pickupDescription').value = settings.pickup?.description || '';
+                
+                // 픽업 폼 표시/숨김
+                const pickupForm = document.getElementById('pickupForm');
+                if (settings.pickup?.enabled) {
+                    pickupForm.classList.add('active');
+                } else {
+                    pickupForm.classList.remove('active');
+                }
                 
                 // 이미지 설정
                 if (settings.images) {
@@ -1584,10 +2163,10 @@
                 const deliveryOrder = settings.delivery?.deliveryOrder || ['ttaeng', 'baemin', 'coupang', 'yogiyo'];
                 
                 const appConfigs = {
-                    'ttaeng': { name: '땡겨요', icon: '🚚' },
-                    'baemin': { name: '배달의민족', icon: '🛵' },
-                    'coupang': { name: '쿠팡이츠', icon: '📦' },
-                    'yogiyo': { name: '요기요', icon: '🍽️' }
+                    'ttaeng': { name: '땡겨요', iconClass: 'ttaeng' },
+                    'baemin': { name: '배달의민족', iconClass: 'baemin' },
+                    'coupang': { name: '쿠팡이츠', iconClass: 'coupang' },
+                    'yogiyo': { name: '요기요', iconClass: 'yogiyo' }
                 };
                 
                 const gridContainer = document.getElementById('deliveryOrderGrid');
@@ -1603,7 +2182,7 @@
                     item.setAttribute('data-app-id', appId);
                     item.innerHTML = `
                         <div class="drag-handle">⋮⋮</div>
-                        <div class="app-icon">${config.icon}</div>
+                        <div class="app-icon ${config.iconClass}"></div>
                         <div class="app-name">${config.name}</div>
                         <div class="app-status ${isActive ? 'active' : ''}">
                             ${isActive ? '활성' : '준비중'}
@@ -1753,6 +2332,15 @@
                 };
                 
                 await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`, 'POST', settings);
+                
+                // 토글 상태에 따라 폼 표시/숨김
+                const discountForm = document.getElementById('discountForm');
+                if (settings.discount.enabled) {
+                    discountForm.classList.add('active');
+                } else {
+                    discountForm.classList.remove('active');
+                }
+                
                 showStatus('할인 설정이 저장되었습니다!', 'success');
                 notifyStorePageRefresh();
             } catch (error) {
@@ -1774,6 +2362,15 @@
                 };
                 
                 await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`, 'POST', settings);
+                
+                // 토글 상태에 따라 폼 표시/숨김
+                const pickupForm = document.getElementById('pickupForm');
+                if (settings.pickup.enabled) {
+                    pickupForm.classList.add('active');
+                } else {
+                    pickupForm.classList.remove('active');
+                }
+                
                 showStatus('픽업 설정이 저장되었습니다!', 'success');
                 notifyStorePageRefresh();
             } catch (error) {
@@ -1932,8 +2529,51 @@
             }
         }
 
+        // 가게 선택 상태 확인
+        async function checkStoreSelected() {
+            try {
+                const currentStoreId = await getCurrentStoreId();
+                return currentStoreId && currentStoreId !== null;
+            } catch (error) {
+                console.error('가게 선택 상태 확인 실패:', error);
+                return false;
+            }
+        }
+
+        // 가게 선택되지 않은 경우 알림 표시
+        function showStoreSelectionRequired() {
+            showToast('먼저 가게를 선택해주세요.', 'error', '가게 선택 필요');
+        }
+
         // 섹션 표시
-        function showSection(sectionId) {
+        async function showSection(sectionId) {
+            // 가게 관리 섹션은 항상 접근 가능
+            if (sectionId === 'stores') {
+                // 모든 섹션 숨기기
+                const sections = document.querySelectorAll('.admin-section');
+                sections.forEach(section => section.style.display = 'none');
+                
+                // 선택된 섹션 표시
+                document.getElementById(sectionId).style.display = 'block';
+                
+                // 메뉴 활성화
+                const menuItems = document.querySelectorAll('.menu-item');
+                menuItems.forEach(item => item.classList.remove('active'));
+                
+                // 클릭된 메뉴 아이템 찾기
+                const clickedItem = document.querySelector(`[onclick="showSection('${sectionId}')"]`);
+                if (clickedItem) {
+                    clickedItem.classList.add('active');
+                }
+                return;
+            }
+            
+            // 다른 섹션들은 가게 선택 후에만 접근 가능
+            if (!(await checkStoreSelected())) {
+                showStoreSelectionRequired();
+                return;
+            }
+            
             // 모든 섹션 숨기기
             const sections = document.querySelectorAll('.admin-section');
             sections.forEach(section => section.style.display = 'none');
@@ -2070,6 +2710,9 @@
                 const currentStoreId = await getCurrentStoreId();
                 if (currentStoreId) {
                     await updateSelectedStoreCard(currentStoreId);
+                } else {
+                    // 가게가 선택되지 않은 경우 사이드바 초기화
+                    initializeSidebarStoreInfo();
                 }
                 
                 // 배달앱 URL 입력 필드 이벤트 리스너 추가

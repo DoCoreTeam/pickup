@@ -46,6 +46,51 @@ class DataHandler(BaseHTTPRequestHandler):
         """기본 로그 메시지 비활성화 (우리가 직접 관리)"""
         pass
     
+    def migrate_settings(self, data):
+        """기존 설정 데이터를 새로운 키 구조로 마이그레이션"""
+        if 'settings' not in data:
+            return data
+            
+        for store_id, settings in data['settings'].items():
+            # 할인 설정 마이그레이션
+            if 'discount' in settings:
+                discount = settings['discount']
+                if 'discountEnabled' in discount:
+                    discount['enabled'] = discount.pop('discountEnabled')
+                if 'discountTitle' in discount:
+                    discount['title'] = discount.pop('discountTitle')
+                if 'discountDescription' in discount:
+                    discount['description'] = discount.pop('discountDescription')
+            
+            # 픽업 설정 마이그레이션
+            if 'pickup' in settings:
+                pickup = settings['pickup']
+                if 'pickupEnabled' in pickup:
+                    pickup['enabled'] = pickup.pop('pickupEnabled')
+                if 'pickupTitle' in pickup:
+                    pickup['title'] = pickup.pop('pickupTitle')
+                if 'pickupDescription' in pickup:
+                    pickup['description'] = pickup.pop('pickupDescription')
+        
+        return data
+    
+    def migrate_stores(self, data):
+        """기존 가게 데이터를 새로운 구조로 마이그레이션"""
+        if 'stores' not in data:
+            return data
+            
+        for store in data['stores']:
+            # status 필드가 없으면 기본값 설정
+            if 'status' not in store:
+                # 기존 isPaused 필드가 있으면 그에 따라 설정
+                if 'isPaused' in store:
+                    store['status'] = 'paused' if store['isPaused'] else 'active'
+                    del store['isPaused']  # 기존 필드 제거
+                else:
+                    store['status'] = 'active'  # 기본값
+        
+        return data
+    
     def load_data(self):
         """데이터 파일 로드"""
         try:
@@ -53,6 +98,10 @@ class DataHandler(BaseHTTPRequestHandler):
                 with open(self.data_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     log(LogLevel.DEBUG, f"데이터 파일 로드 성공: {self.data_file}")
+                    # 설정 데이터 마이그레이션
+                    data = self.migrate_settings(data)
+                    # 가게 데이터 마이그레이션
+                    data = self.migrate_stores(data)
                     return data
             else:
                 log(LogLevel.WARN, f"데이터 파일이 존재하지 않음: {self.data_file}")
@@ -254,7 +303,7 @@ class DataHandler(BaseHTTPRequestHandler):
                     return
                 
                 # 중지 상태 설정
-                store['isPaused'] = True
+                store['status'] = 'paused'
                 store['pausedAt'] = datetime.now().isoformat()
                 
                 self.save_data(store_data)
@@ -292,7 +341,46 @@ class DataHandler(BaseHTTPRequestHandler):
                     return
                 
                 # 재개 상태 설정
-                store['isPaused'] = False
+                store['status'] = 'active'
+                if 'pausedAt' in store:
+                    del store['pausedAt']
+                
+                self.save_data(store_data)
+                
+                # 활동 로그 기록
+                self.log_activity(
+                    log_type="store",
+                    action="가게 재개",
+                    description=f"'{store['name']}' 가게를 재개했습니다. 고객 접속이 가능합니다.",
+                    user_id="admin",
+                    user_name="관리자",
+                    target_type="store",
+                    target_id=store_id,
+                    target_name=store['name'],
+                    details={"resumedAt": datetime.now().isoformat()}
+                )
+                
+                log(LogLevel.INFO, f"가게 재개: {store_id}")
+                self.send_json_response({"success": True})
+            
+            elif parsed_path.path.startswith('/api/stores/') and parsed_path.path.endswith('/resume'):
+                # 가게 재개
+                store_id = parsed_path.path.split('/')[-2]
+                store_data = self.load_data()
+                
+                # 가게 찾기
+                store = None
+                for s in store_data['stores']:
+                    if s['id'] == store_id:
+                        store = s
+                        break
+                
+                if not store:
+                    self.send_json_response({"error": "Store not found"}, 404)
+                    return
+                
+                # 재개 상태 설정
+                store['status'] = 'active'
                 if 'pausedAt' in store:
                     del store['pausedAt']
                 
@@ -331,7 +419,7 @@ class DataHandler(BaseHTTPRequestHandler):
                     return
                 
                 # 중지 상태 설정
-                store['isPaused'] = True
+                store['status'] = 'paused'
                 store['pausedAt'] = datetime.now().isoformat()
                 
                 self.save_data(store_data)
@@ -369,7 +457,46 @@ class DataHandler(BaseHTTPRequestHandler):
                     return
                 
                 # 재개 상태 설정
-                store['isPaused'] = False
+                store['status'] = 'active'
+                if 'pausedAt' in store:
+                    del store['pausedAt']
+                
+                self.save_data(store_data)
+                
+                # 활동 로그 기록
+                self.log_activity(
+                    log_type="store",
+                    action="가게 재개",
+                    description=f"'{store['name']}' 가게를 재개했습니다. 고객 접속이 가능합니다.",
+                    user_id="admin",
+                    user_name="관리자",
+                    target_type="store",
+                    target_id=store_id,
+                    target_name=store['name'],
+                    details={"resumedAt": datetime.now().isoformat()}
+                )
+                
+                log(LogLevel.INFO, f"가게 재개: {store_id}")
+                self.send_json_response({"success": True})
+            
+            elif parsed_path.path.startswith('/api/stores/') and parsed_path.path.endswith('/resume'):
+                # 가게 재개
+                store_id = parsed_path.path.split('/')[-2]
+                store_data = self.load_data()
+                
+                # 가게 찾기
+                store = None
+                for s in store_data['stores']:
+                    if s['id'] == store_id:
+                        store = s
+                        break
+                
+                if not store:
+                    self.send_json_response({"error": "Store not found"}, 404)
+                    return
+                
+                # 재개 상태 설정
+                store['status'] = 'active'
                 if 'pausedAt' in store:
                     del store['pausedAt']
                 
@@ -521,9 +648,9 @@ class DataHandler(BaseHTTPRequestHandler):
                                 "storeAddress": store_info.get('address', '')
                             },
                             "discount": {
-                                "discountEnabled": False,
-                                "discountTitle": "할인 이벤트",
-                                "discountDescription": "할인 내용을 입력하세요"
+                                "enabled": False,
+                                "title": "할인 이벤트",
+                                "description": "할인 내용을 입력하세요"
                             },
                             "delivery": {
                                 "ttaengUrl": "",
@@ -533,9 +660,9 @@ class DataHandler(BaseHTTPRequestHandler):
                                 "deliveryOrder": ["ttaeng", "baemin", "coupang", "yogiyo"]
                             },
                             "pickup": {
-                                "pickupEnabled": False,
-                                "pickupTitle": "픽업 안내",
-                                "pickupDescription": "픽업 안내 내용을 입력하세요"
+                                "enabled": False,
+                                "title": "픽업 안내",
+                                "description": "픽업 안내 내용을 입력하세요"
                             },
                             "images": {
                                 "mainLogo": "",
@@ -633,7 +760,7 @@ class DataHandler(BaseHTTPRequestHandler):
                     return
                 
                 # 중지 상태 설정
-                store['isPaused'] = True
+                store['status'] = 'paused'
                 store['pausedAt'] = datetime.now().isoformat()
                 
                 self.save_data(store_data)
@@ -671,7 +798,46 @@ class DataHandler(BaseHTTPRequestHandler):
                     return
                 
                 # 재개 상태 설정
-                store['isPaused'] = False
+                store['status'] = 'active'
+                if 'pausedAt' in store:
+                    del store['pausedAt']
+                
+                self.save_data(store_data)
+                
+                # 활동 로그 기록
+                self.log_activity(
+                    log_type="store",
+                    action="가게 재개",
+                    description=f"'{store['name']}' 가게를 재개했습니다. 고객 접속이 가능합니다.",
+                    user_id="admin",
+                    user_name="관리자",
+                    target_type="store",
+                    target_id=store_id,
+                    target_name=store['name'],
+                    details={"resumedAt": datetime.now().isoformat()}
+                )
+                
+                log(LogLevel.INFO, f"가게 재개: {store_id}")
+                self.send_json_response({"success": True})
+            
+            elif parsed_path.path.startswith('/api/stores/') and parsed_path.path.endswith('/resume'):
+                # 가게 재개
+                store_id = parsed_path.path.split('/')[-2]
+                store_data = self.load_data()
+                
+                # 가게 찾기
+                store = None
+                for s in store_data['stores']:
+                    if s['id'] == store_id:
+                        store = s
+                        break
+                
+                if not store:
+                    self.send_json_response({"error": "Store not found"}, 404)
+                    return
+                
+                # 재개 상태 설정
+                store['status'] = 'active'
                 if 'pausedAt' in store:
                     del store['pausedAt']
                 
@@ -751,6 +917,7 @@ class DataHandler(BaseHTTPRequestHandler):
                     "subtitle": data.get('subtitle', ''),
                     "phone": data.get('phone', ''),
                     "address": data.get('address', ''),
+                    "status": "active",  # 기본값: 활성 상태
                     "createdAt": datetime.now().isoformat()
                 }
                 
@@ -909,7 +1076,7 @@ class DataHandler(BaseHTTPRequestHandler):
                     return
                 
                 # 중지 상태 설정
-                store['isPaused'] = True
+                store['status'] = 'paused'
                 store['pausedAt'] = datetime.now().isoformat()
                 
                 self.save_data(store_data)
@@ -947,7 +1114,46 @@ class DataHandler(BaseHTTPRequestHandler):
                     return
                 
                 # 재개 상태 설정
-                store['isPaused'] = False
+                store['status'] = 'active'
+                if 'pausedAt' in store:
+                    del store['pausedAt']
+                
+                self.save_data(store_data)
+                
+                # 활동 로그 기록
+                self.log_activity(
+                    log_type="store",
+                    action="가게 재개",
+                    description=f"'{store['name']}' 가게를 재개했습니다. 고객 접속이 가능합니다.",
+                    user_id="admin",
+                    user_name="관리자",
+                    target_type="store",
+                    target_id=store_id,
+                    target_name=store['name'],
+                    details={"resumedAt": datetime.now().isoformat()}
+                )
+                
+                log(LogLevel.INFO, f"가게 재개: {store_id}")
+                self.send_json_response({"success": True})
+            
+            elif parsed_path.path.startswith('/api/stores/') and parsed_path.path.endswith('/resume'):
+                # 가게 재개
+                store_id = parsed_path.path.split('/')[-2]
+                store_data = self.load_data()
+                
+                # 가게 찾기
+                store = None
+                for s in store_data['stores']:
+                    if s['id'] == store_id:
+                        store = s
+                        break
+                
+                if not store:
+                    self.send_json_response({"error": "Store not found"}, 404)
+                    return
+                
+                # 재개 상태 설정
+                store['status'] = 'active'
                 if 'pausedAt' in store:
                     del store['pausedAt']
                 
@@ -1091,7 +1297,7 @@ class DataHandler(BaseHTTPRequestHandler):
                 self.log_activity(
                     log_type="settings",
                     action="설정 저장",
-                    description=f"가게 설정을 저장했습니다.",
+                    description="가게 설정을 저장했습니다.",
                     user_id="admin",
                     user_name="관리자",
                     target_type="store",

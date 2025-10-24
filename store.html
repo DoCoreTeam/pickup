@@ -15,12 +15,22 @@
 
     <style>
       :root {
-        --bg: #f7f7f8;
+        --bg: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
         --card: #ffffff;
-        --fg: #111827;
+        --fg: #1a1a1a;
         --muted: #6b7280;
-        --primary: #0ea5e9; /* 상단 전화 버튼 색 (시안 블루) */
-        --focus: 2px solid #11182744;
+        --primary: #4f46e5;
+        --secondary: #06b6d4;
+        --accent: #f59e0b;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --error: #ef4444;
+        --border: rgba(0, 0, 0, 0.05);
+        --focus: 2px solid #4f46e544;
+        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        --radius: 12px;
+        --radius-lg: 16px;
       }
 
       * { box-sizing: border-box; }
@@ -30,12 +40,13 @@
         font-family: system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Apple SD Gothic Neo, "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
         background: var(--bg);
         color: var(--fg);
-        line-height: 1.5;
+        line-height: 1.6;
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
         -webkit-text-size-adjust: 100%;
         -ms-text-size-adjust: 100%;
         text-size-adjust: 100%;
+        min-height: 100vh;
       }
 
       .container {
@@ -47,52 +58,49 @@
         box-sizing: border-box;
       }
 
-      header { text-align: center; margin: 12px 0 20px; }
-
-      .logo {
-        font-size: 24px;
-        font-weight: 600;
-        margin-bottom: 8px;
-        color: var(--primary);
-      }
-
-      .back-btn {
-        position: absolute;
-        top: 20px;
-        left: 16px;
-        background: none;
-        border: none;
-        font-size: 18px;
-        cursor: pointer;
-        color: var(--muted);
-        padding: 8px;
-        border-radius: 8px;
-        transition: all 0.2s ease;
-      }
-
-      .back-btn:hover {
-        background: #f3f4f6;
-        color: var(--fg);
-      }
-
       .store-info {
         background: var(--card);
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: var(--shadow-lg);
+        border: 1px solid rgba(0, 0, 0, 0.05);
         text-align: center;
+        position: relative;
+        overflow: hidden;
+      }
+      
+      .store-info::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--primary), var(--secondary));
       }
 
       .store-logo {
-        width: 80px;
-        height: 80px;
-        margin: 0 auto 16px;
-        border-radius: 12px;
+        width: 100px;
+        height: 100px;
+        margin: 0 auto 20px;
+        border-radius: var(--radius-lg);
         overflow: hidden;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        background: #f0f0f0;
-        border: 2px solid #ddd;
+        box-shadow: var(--shadow-lg);
+        background: #f8fafc;
+        border: 2px solid rgba(79, 70, 229, 0.1);
+        position: relative;
+      }
+      
+      .store-logo::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.05), rgba(6, 182, 212, 0.05));
+        z-index: 1;
       }
 
       .store-logo img {
@@ -100,47 +108,97 @@
         height: 100%;
         object-fit: contain;
         background: white;
+        position: relative;
+        z-index: 2;
       }
 
       .store-name {
-        font-size: 24px;
-        font-weight: 700;
+        font-size: 28px;
+        font-weight: 800;
         margin-bottom: 8px;
         color: var(--fg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+      
+      .store-name::before {
+        content: '🍽️';
+        font-size: 24px;
       }
 
       .store-subtitle {
         font-size: 16px;
         color: var(--muted);
-        margin-bottom: 16px;
+        margin-bottom: 20px;
+        font-weight: 500;
       }
 
       .phone-section {
-        background: var(--primary);
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
         color: white;
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 20px;
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: var(--shadow-lg);
         text-align: center;
+        position: relative;
+        overflow: hidden;
+      }
+      
+      .phone-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+        z-index: 1;
+      }
+      
+      .phone-section > * {
+        position: relative;
+        z-index: 2;
       }
 
       .phone-btn {
         background: white;
         color: var(--primary);
         border: none;
-        border-radius: 8px;
+        border-radius: var(--radius);
         padding: 16px 32px;
         font-size: 18px;
-        font-weight: 600;
+        font-weight: 700;
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: all 0.3s ease;
         width: 100%;
-        margin-top: 12px;
+        margin-top: 16px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        position: relative;
+        overflow: hidden;
+      }
+      
+      .phone-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(79, 70, 229, 0.1), transparent);
+        transition: left 0.5s ease;
+      }
+      
+      .phone-btn:hover::before {
+        left: 100%;
       }
 
       .phone-btn:hover {
         background: #f8fafc;
-        transform: translateY(-1px);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
       }
 
       .phone-number {
@@ -158,8 +216,8 @@
 
       .action-btn {
         background: var(--card);
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
         padding: 16px;
         text-align: center;
         cursor: pointer;
@@ -169,28 +227,29 @@
       }
 
       .action-btn:hover {
-        background: #f9fafb;
+        background: #f8fafc;
         border-color: var(--primary);
         transform: translateY(-1px);
       }
 
       .action-icon {
-        font-size: 24px;
+        font-size: 20px;
         margin-bottom: 8px;
         display: block;
       }
 
       .action-text {
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 500;
       }
 
       .delivery-section {
         background: var(--card);
-        border-radius: 12px;
+        border-radius: 8px;
         padding: 20px;
         margin-bottom: 20px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
       }
 
       .section-title {
@@ -207,9 +266,9 @@
       }
 
       .delivery-btn {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
         padding: 16px;
         text-align: left;
         cursor: pointer;
@@ -220,6 +279,12 @@
         align-items: center;
         gap: 12px;
         min-height: 60px;
+      }
+
+      .delivery-btn:hover {
+        border-color: var(--primary);
+        background: #f8fafc;
+        transform: translateY(-1px);
       }
 
       /* 배달앱별 기본 브랜드 색상 */
@@ -244,6 +309,8 @@
       .delivery-btn[onclick*="ttaeng"] {
         background: #EB5027;
         border-color: #EB5027;
+        color: white;
+      }
         color: white;
       }
 
@@ -404,10 +471,11 @@
 
       .address-section {
         background: var(--card);
-        border-radius: 12px;
+        border-radius: 8px;
         padding: 20px;
         margin-bottom: 20px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
       }
 
       .address-text {
@@ -428,7 +496,7 @@
         background: var(--primary);
         color: white;
         border: none;
-        border-radius: 8px;
+        border-radius: 6px;
         padding: 12px;
         font-size: 14px;
         font-weight: 500;
@@ -439,7 +507,8 @@
       }
 
       .map-btn:hover {
-        background: #0284c7;
+        background: #2563eb;
+        transform: translateY(-1px);
       }
 
       .footer {
@@ -447,7 +516,7 @@
         padding: 20px 0;
         color: var(--muted);
         font-size: 12px;
-        border-top: 1px solid #e5e7eb;
+        border-top: 1px solid var(--border);
         margin-top: 20px;
       }
 
@@ -460,7 +529,7 @@
       .loading-spinner {
         width: 40px;
         height: 40px;
-        border: 3px solid #e5e7eb;
+        border: 3px solid var(--border);
         border-top: 3px solid var(--primary);
         border-radius: 50%;
         animation: spin 1s linear infinite;
@@ -470,17 +539,6 @@
       @keyframes spin {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
-      }
-
-      .error {
-        text-align: center;
-        padding: 40px 20px;
-        color: #dc2626;
-      }
-
-      .error-icon {
-        font-size: 48px;
-        margin-bottom: 16px;
       }
 
       @media (max-width: 480px) {
@@ -504,12 +562,6 @@
   </head>
   <body>
     <div class="container">
-      <button class="back-btn" onclick="goBack()">← 뒤로</button>
-      
-      <header>
-        <div class="logo">🍽️ 픽업</div>
-      </header>
-
       <div id="content">
         <div class="loading">
           <div class="loading-spinner"></div>
@@ -571,9 +623,9 @@
       }
 
       function getStoreIdFromUrl() {
-        // URL 파라미터에서 storeId 확인
+        // URL 파라미터에서 storeId 또는 id 확인
         const urlParams = new URLSearchParams(window.location.search);
-        const storeIdFromParam = urlParams.get('storeId');
+        const storeIdFromParam = urlParams.get('storeId') || urlParams.get('id');
         
         if (storeIdFromParam) {
           return storeIdFromParam;
@@ -598,7 +650,7 @@
             const store = data.stores.find(s => s.id === storeId);
             if (store) {
               // 가게가 중지된 경우 중지 페이지로 리다이렉트
-              if (store.isPaused) {
+              if (store.status === 'paused') {
                 log('WARN', '가게가 중지됨, 중지 페이지로 리다이렉트', { storeId });
                 window.location.href = '/paused.html';
                 return;
@@ -995,10 +1047,6 @@
           log('INFO', 'T맵 열기', { address: currentStore.address });
           window.open(tmapUrl, '_blank');
         }
-      }
-
-      function goBack() {
-        window.history.back();
       }
 
       // ========================================

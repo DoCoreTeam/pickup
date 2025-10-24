@@ -228,6 +228,34 @@
             color: #721c24;
         }
 
+        /* 배달앱 아이콘 스타일 */
+        .app-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 8px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .app-icon.ttaeng {
+            background-image: url('../../assets/images/icons/dgy.svg');
+        }
+
+        .app-icon.baemin {
+            background-image: url('../../assets/images/icons/bm.svg');
+        }
+
+        .app-icon.coupang {
+            background-image: url('../../assets/images/icons/cpeat.png');
+        }
+
+        .app-icon.yogiyo {
+            background-image: url('../../assets/images/icons/yogiyo.png');
+        }
+
         /* 이미지 업로드 영역 스타일 */
         .image-upload-area {
             border: 2px dashed #ddd;
@@ -969,10 +997,10 @@
                 const deliveryOrder = settings.delivery?.deliveryOrder || ['ttaeng', 'baemin', 'coupang', 'yogiyo'];
                 
                 const appConfigs = {
-                    'ttaeng': { name: '땡겨요', icon: '🚚' },
-                    'baemin': { name: '배달의민족', icon: '🛵' },
-                    'coupang': { name: '쿠팡이츠', icon: '📦' },
-                    'yogiyo': { name: '요기요', icon: '🍽️' }
+                    'ttaeng': { name: '땡겨요', iconClass: 'ttaeng' },
+                    'baemin': { name: '배달의민족', iconClass: 'baemin' },
+                    'coupang': { name: '쿠팡이츠', iconClass: 'coupang' },
+                    'yogiyo': { name: '요기요', iconClass: 'yogiyo' }
                 };
                 
                 const orderList = document.getElementById('deliveryOrderList');
@@ -987,7 +1015,7 @@
                     item.className = 'delivery-order-item';
                     item.innerHTML = `
                         <div class="app-info">
-                            <span class="app-icon">${config.icon}</span>
+                            <span class="app-icon ${config.iconClass}"></span>
                             <span class="app-name">${config.name}</span>
                             <span class="app-status ${isActive ? 'status-active' : 'status-inactive'}">
                                 ${isActive ? '활성' : '준비중'}

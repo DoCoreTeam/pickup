@@ -892,11 +892,6 @@
           <div class="discount-content">
             <div class="discount-title">할인 안내</div>
             <div class="discount-desc">할인 정보를 설정해주세요</div>
-            <button class="pickup-toggle-btn" onclick="togglePickupInfo()">
-              <span class="pickup-toggle-icon">📍</span>
-              <span>픽업 안내 보기</span>
-              <span class="pickup-toggle-arrow">▼</span>
-            </button>
           </div>
         </div>
       </section>
@@ -1397,20 +1392,20 @@
           // 할인 섹션 표시/숨김
           const discountSection = document.querySelector('.discount-section');
           if (discountSection) {
-            const shouldShowDiscount = discount.discountEnabled && discount.discountTitle;
+            const shouldShowDiscount = discount.enabled && discount.title;
             discountSection.style.display = shouldShowDiscount ? 'block' : 'none';
           }
           
           // 할인 제목 업데이트
           const discountTitle = document.querySelector('.discount-title');
-          if (discountTitle && discount.discountTitle) {
-            discountTitle.textContent = discount.discountTitle;
+          if (discountTitle && discount.title) {
+            discountTitle.textContent = discount.title;
           }
           
           // 할인 설명 업데이트
           const discountDesc = document.querySelector('.discount-desc');
-          if (discountDesc && discount.discountDescription) {
-            discountDesc.innerHTML = discount.discountDescription;
+          if (discountDesc && discount.description) {
+            discountDesc.innerHTML = discount.description;
           }
         },
 

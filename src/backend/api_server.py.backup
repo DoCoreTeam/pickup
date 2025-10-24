@@ -170,9 +170,9 @@ class DataHandler(BaseHTTPRequestHandler):
                             "storeAddress": store_info.get('address', '')
                         },
                         "discount": {
-                            "discountEnabled": False,
-                            "discountTitle": "할인 이벤트",
-                            "discountDescription": "할인 내용을 입력하세요"
+                            "enabled": False,
+                            "title": "할인 이벤트",
+                            "description": "할인 내용을 입력하세요"
                         },
                         "delivery": {
                             "ttaengUrl": "",
@@ -182,9 +182,9 @@ class DataHandler(BaseHTTPRequestHandler):
                             "deliveryOrder": ["ttaeng", "baemin", "coupang", "yogiyo"]
                         },
                         "pickup": {
-                            "pickupEnabled": False,
-                            "pickupTitle": "픽업 안내",
-                            "pickupDescription": "픽업 안내 내용을 입력하세요"
+                            "enabled": False,
+                            "title": "픽업 안내",
+                            "description": "픽업 안내 내용을 입력하세요"
                         },
                         "images": {
                             "mainLogo": "",
@@ -290,9 +290,9 @@ class DataHandler(BaseHTTPRequestHandler):
                     "storeAddress": store_data.get('address', '')
                 },
                 "discount": {
-                    "discountEnabled": False,
-                    "discountTitle": "할인 이벤트",
-                    "discountDescription": "할인 내용을 입력하세요"
+                    "enabled": False,
+                    "title": "할인 이벤트",
+                    "description": "할인 내용을 입력하세요"
                 },
                 "delivery": {
                     "ttaengUrl": "",
@@ -302,9 +302,9 @@ class DataHandler(BaseHTTPRequestHandler):
                     "deliveryOrder": ["ttaeng", "baemin", "coupang", "yogiyo"]
                 },
                 "pickup": {
-                    "pickupEnabled": False,
-                    "pickupTitle": "픽업 안내",
-                    "pickupDescription": "픽업 안내 내용을 입력하세요"
+                    "enabled": False,
+                    "title": "픽업 안내",
+                    "description": "픽업 안내 내용을 입력하세요"
                 },
                 "images": {
                     "mainLogo": "",
