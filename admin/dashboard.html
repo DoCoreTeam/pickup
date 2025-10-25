@@ -1047,7 +1047,7 @@
         }
 
         .order-item {
-            background: #f8fafc;
+            background: #ffffff;
             border: 2px solid #e2e8f0;
             border-radius: 8px;
             padding: 16px;
@@ -1057,6 +1057,7 @@
             align-items: center;
             gap: 12px;
             position: relative;
+            opacity: 1;
         }
 
         .order-item:hover {
@@ -1067,8 +1068,9 @@
         }
 
         .order-item.dragging {
-            opacity: 0.5;
-            transform: rotate(2deg);
+            opacity: 0.8;
+            transform: rotate(1deg);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
         }
 
         .order-item.drag-over {
@@ -1221,7 +1223,7 @@
                     <span>📦</span> 픽업 안내
                 </div>
                 <div class="menu-item" onclick="showSection('section-order')">
-                    <span>📋</span> 섹션 순서
+                    <span>📋</span> UI 순서 변경
                 </div>
                 <div class="menu-item" onclick="showSection('activity-logs')">
                     <span>📋</span> 활동 로그
@@ -1514,7 +1516,7 @@
             <div class="admin-section" id="section-order">
                 <h2 class="section-title">
                     <span>📋</span>
-                    섹션 순서 설정
+                    UI 순서 변경
                 </h2>
                 
                 <div class="settings-form">
@@ -1531,16 +1533,11 @@
                     </div>
                     
                     <div class="form-footer">
-                        <button class="btn btn-primary" onclick="saveSectionOrder()">
-                            <span class="btn-icon">💾</span>
-                            순서 저장
-                        </button>
-                        
                         <div class="guide-message">
                             <div class="guide-icon">💡</div>
                             <div class="guide-text">
-                                <strong>섹션 순서 변경 팁!</strong><br>
-                                드래그하여 원하는 순서로 배치하세요. 변경사항은 즉시 가게 페이지에 반영됩니다.
+                                <strong>UI 순서 변경 팁!</strong><br>
+                                드래그하여 원하는 순서로 배치하세요. 변경사항은 자동으로 저장되고 즉시 가게 페이지에 반영됩니다.
                             </div>
                         </div>
                     </div>
@@ -2605,6 +2602,8 @@
                         ghostClass: 'dragging',
                         onEnd: function(evt) {
                             updateOrderNumbers();
+                            // 드래그 완료 시 자동 저장
+                            saveSectionOrder();
                         }
                     });
                 }
@@ -2646,7 +2645,7 @@
                 
                 await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`, 'POST', settings);
                 
-                showStatus('섹션 순서가 저장되었습니다!', 'success');
+                showStatus('UI 순서가 자동으로 저장되었습니다!', 'success');
                 
                 // 활동 로그 기록
                 await logActivity('settings', 'section_order_updated', '섹션 순서가 변경되었습니다', {
