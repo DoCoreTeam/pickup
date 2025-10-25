@@ -994,44 +994,17 @@
             ` : ''}
           </div>
 
-          <!-- 할인 정보 섹션 -->
-          ${settings?.discount?.enabled ? `
-          <div class="discount-section">
-            <div class="discount-title">
-              🎉 ${settings.discount.title || '할인 이벤트'}
-            </div>
-            <div class="discount-description">
-              ${settings.discount.description || '할인 내용을 입력하세요'}
-            </div>
-          </div>
-          ` : ''}
-
-          <div class="delivery-section">
-            <div class="section-title">🚚 배달 주문</div>
-            <div class="delivery-grid" id="deliveryGrid">
-              <!-- 동적으로 생성됩니다 -->
-            </div>
-          </div>
-
-
-          <div class="address-section">
-            <div class="section-title">📍 주소 정보</div>
-            <div class="address-text">
-              ${currentStore.address || '주소가 등록되지 않았습니다.'}
-            </div>
-            <div class="map-buttons">
-              <button class="map-btn" onclick="openNaverMap()">
-                🗺️ 네이버지도로 길찾기
-              </button>
-              <button class="map-btn" onclick="openTmap()">
-                🚗 T맵으로 길찾기
-              </button>
-            </div>
+          <!-- 동적 섹션 렌더링 -->
+          <div id="dynamicSections">
+            <!-- 섹션 순서에 따라 동적으로 생성됩니다 -->
           </div>
         `;
 
         // 배달앱 렌더링
         renderDeliveryApps();
+        
+        // 동적 섹션 렌더링
+        renderDynamicSections();
       }
 
       function showMenu() {
@@ -1052,6 +1025,88 @@
         // 픽업 안내 모달 표시
         log('INFO', '픽업 안내 모달 표시');
         showPickupModal();
+      }
+
+      // 동적 섹션 렌더링
+      function renderDynamicSections() {
+        try {
+          const dynamicSections = document.getElementById('dynamicSections');
+          if (!dynamicSections) return;
+
+          // 기본 섹션 순서 (설정이 없으면 기본값 사용)
+          const defaultOrder = [
+            { id: 'discount', title: '할인 안내', icon: '🎉', description: '할인 이벤트 정보' },
+            { id: 'delivery', title: '배달 주문', icon: '🚚', description: '배달앱 주문 링크' },
+            { id: 'address', title: '주소 정보', icon: '📍', description: '가게 주소 및 지도' }
+          ];
+
+          const sectionOrder = settings?.sectionOrder || defaultOrder;
+          
+          dynamicSections.innerHTML = '';
+
+          sectionOrder.forEach(section => {
+            let sectionHTML = '';
+
+            switch (section.id) {
+              case 'discount':
+                if (settings?.discount?.enabled) {
+                  sectionHTML = `
+                    <div class="discount-section">
+                      <div class="discount-title">
+                        🎉 ${settings.discount.title || '할인 이벤트'}
+                      </div>
+                      <div class="discount-description">
+                        ${settings.discount.description || '할인 내용을 입력하세요'}
+                      </div>
+                    </div>
+                  `;
+                }
+                break;
+
+              case 'delivery':
+                sectionHTML = `
+                  <div class="delivery-section">
+                    <div class="section-title">🚚 배달 주문</div>
+                    <div class="delivery-grid" id="deliveryGrid">
+                      <!-- 동적으로 생성됩니다 -->
+                    </div>
+                  </div>
+                `;
+                break;
+
+              case 'address':
+                sectionHTML = `
+                  <div class="address-section">
+                    <div class="section-title">📍 주소 정보</div>
+                    <div class="address-text">
+                      ${currentStore.address || '주소가 등록되지 않았습니다.'}
+                    </div>
+                    <div class="map-buttons">
+                      <button class="map-btn" onclick="openNaverMap()">
+                        🗺️ 네이버지도로 길찾기
+                      </button>
+                      <button class="map-btn" onclick="openTmap()">
+                        🚗 T맵으로 길찾기
+                      </button>
+                    </div>
+                  </div>
+                `;
+                break;
+            }
+
+            if (sectionHTML) {
+              dynamicSections.innerHTML += sectionHTML;
+            }
+          });
+
+          // 배달앱 렌더링 (delivery 섹션이 렌더링된 후)
+          if (sectionOrder.some(s => s.id === 'delivery')) {
+            renderDeliveryApps();
+          }
+
+        } catch (error) {
+          console.error('동적 섹션 렌더링 실패:', error);
+        }
       }
 
       function showPickupModal() {

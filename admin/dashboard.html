@@ -1031,6 +1031,107 @@
             font-weight: 600;
         }
 
+        /* 섹션 순서 설정 스타일 */
+        .section-order-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #e1e5e9;
+            margin-bottom: 20px;
+        }
+
+        .order-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .order-item {
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            cursor: move;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+        }
+
+        .order-item:hover {
+            background: #f1f5f9;
+            border-color: #3b82f6;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+        }
+
+        .order-item.dragging {
+            opacity: 0.5;
+            transform: rotate(2deg);
+        }
+
+        .order-item.drag-over {
+            border-color: #10b981;
+            background: #ecfdf5;
+        }
+
+        .order-handle {
+            width: 20px;
+            height: 20px;
+            background: #6b7280;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            cursor: grab;
+        }
+
+        .order-handle:active {
+            cursor: grabbing;
+        }
+
+        .order-icon {
+            font-size: 20px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+
+        .order-content {
+            flex: 1;
+        }
+
+        .order-title {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+
+        .order-description {
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        .order-number {
+            background: #3b82f6;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
         .save-indicator {
             display: flex;
             align-items: center;
@@ -1118,6 +1219,9 @@
                 </div>
                 <div class="menu-item" onclick="showSection('pickup')">
                     <span>📦</span> 픽업 안내
+                </div>
+                <div class="menu-item" onclick="showSection('section-order')">
+                    <span>📋</span> 섹션 순서
                 </div>
                 <div class="menu-item" onclick="showSection('activity-logs')">
                     <span>📋</span> 활동 로그
@@ -1400,6 +1504,43 @@
                                     <strong>픽업 정보가 설정되면 자동으로 저장됩니다!</strong><br>
                                     고객들이 픽업 장소를 쉽게 찾을 수 있어요.
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 섹션 순서 설정 -->
+            <div class="admin-section" id="section-order">
+                <h2 class="section-title">
+                    <span>📋</span>
+                    섹션 순서 설정
+                </h2>
+                
+                <div class="settings-form">
+                    <div class="form-header">
+                        <div class="form-icon">🔄</div>
+                        <h3>가게 페이지 섹션 순서</h3>
+                        <p>드래그하여 섹션 순서를 변경할 수 있습니다</p>
+                    </div>
+                    
+                    <div class="section-order-container">
+                        <div class="order-list" id="sectionOrderList">
+                            <!-- 동적으로 생성됩니다 -->
+                        </div>
+                    </div>
+                    
+                    <div class="form-footer">
+                        <button class="btn btn-primary" onclick="saveSectionOrder()">
+                            <span class="btn-icon">💾</span>
+                            순서 저장
+                        </button>
+                        
+                        <div class="guide-message">
+                            <div class="guide-icon">💡</div>
+                            <div class="guide-text">
+                                <strong>섹션 순서 변경 팁!</strong><br>
+                                드래그하여 원하는 순서로 배치하세요. 변경사항은 즉시 가게 페이지에 반영됩니다.
                             </div>
                         </div>
                     </div>
@@ -2088,6 +2229,9 @@
                 // 배달앱 순서 렌더링
                 await renderDeliveryOrder();
                 
+                // 섹션 순서 렌더링
+                await renderSectionOrder();
+                
             } catch (error) {
                 console.error('설정 로드 실패:', error);
                 showStatus('설정을 불러오는데 실패했습니다.', 'error');
@@ -2415,6 +2559,103 @@
             } catch (error) {
                 console.error('픽업 설정 저장 실패:', error);
                 showStatus('픽업 설정 저장에 실패했습니다.', 'error');
+            }
+        }
+
+        // 섹션 순서 렌더링
+        async function renderSectionOrder() {
+            try {
+                const currentStoreId = await getCurrentStoreId();
+                const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                
+                // 기본 섹션 순서 (설정이 없으면 기본값 사용)
+                const defaultOrder = [
+                    { id: 'discount', title: '할인 안내', icon: '🎉', description: '할인 이벤트 정보' },
+                    { id: 'delivery', title: '배달 주문', icon: '🚚', description: '배달앱 주문 링크' },
+                    { id: 'address', title: '주소 정보', icon: '📍', description: '가게 주소 및 지도' }
+                ];
+                
+                const sectionOrder = settings.sectionOrder || defaultOrder;
+                const orderList = document.getElementById('sectionOrderList');
+                
+                orderList.innerHTML = '';
+                
+                sectionOrder.forEach((section, index) => {
+                    const orderItem = document.createElement('div');
+                    orderItem.className = 'order-item';
+                    orderItem.dataset.sectionId = section.id;
+                    
+                    orderItem.innerHTML = `
+                        <div class="order-handle">⋮⋮</div>
+                        <div class="order-icon">${section.icon}</div>
+                        <div class="order-content">
+                            <div class="order-title">${section.title}</div>
+                            <div class="order-description">${section.description}</div>
+                        </div>
+                        <div class="order-number">${index + 1}</div>
+                    `;
+                    
+                    orderList.appendChild(orderItem);
+                });
+                
+                // SortableJS 초기화
+                if (window.Sortable) {
+                    new Sortable(orderList, {
+                        animation: 150,
+                        ghostClass: 'dragging',
+                        onEnd: function(evt) {
+                            updateOrderNumbers();
+                        }
+                    });
+                }
+                
+            } catch (error) {
+                console.error('섹션 순서 렌더링 실패:', error);
+                showStatus('섹션 순서를 불러오는데 실패했습니다.', 'error');
+            }
+        }
+
+        // 순서 번호 업데이트
+        function updateOrderNumbers() {
+            const orderItems = document.querySelectorAll('.order-item');
+            orderItems.forEach((item, index) => {
+                const numberElement = item.querySelector('.order-number');
+                if (numberElement) {
+                    numberElement.textContent = index + 1;
+                }
+            });
+        }
+
+        // 섹션 순서 저장
+        async function saveSectionOrder() {
+            try {
+                const currentStoreId = await getCurrentStoreId();
+                const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                
+                const orderItems = document.querySelectorAll('.order-item');
+                const sectionOrder = Array.from(orderItems).map(item => {
+                    const sectionId = item.dataset.sectionId;
+                    const title = item.querySelector('.order-title').textContent;
+                    const icon = item.querySelector('.order-icon').textContent;
+                    const description = item.querySelector('.order-description').textContent;
+                    
+                    return { id: sectionId, title, icon, description };
+                });
+                
+                settings.sectionOrder = sectionOrder;
+                
+                await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`, 'POST', settings);
+                
+                showStatus('섹션 순서가 저장되었습니다!', 'success');
+                
+                // 활동 로그 기록
+                await logActivity('settings', 'section_order_updated', '섹션 순서가 변경되었습니다', {
+                    newOrder: sectionOrder.map(s => s.id)
+                });
+                
+            } catch (error) {
+                console.error('섹션 순서 저장 실패:', error);
+                showStatus('섹션 순서 저장에 실패했습니다.', 'error');
             }
         }
 
