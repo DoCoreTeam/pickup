@@ -804,13 +804,13 @@
           </div>
 
           <!-- 할인 정보 섹션 -->
-          ${settings?.discount?.discountEnabled ? `
+          ${settings?.discount?.enabled ? `
           <div class="discount-section">
             <div class="discount-title">
-              🎉 ${settings.discount.discountTitle || '할인 이벤트'}
+              🎉 ${settings.discount.title || '할인 이벤트'}
             </div>
             <div class="discount-description">
-              ${settings.discount.discountDescription || '할인 내용을 입력하세요'}
+              ${settings.discount.description || '할인 내용을 입력하세요'}
             </div>
           </div>
           ` : ''}
