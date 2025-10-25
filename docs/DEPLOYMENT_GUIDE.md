@@ -51,48 +51,61 @@ ps aux | grep python
 
 ### **Step 3: 서비스 확인**
 ```bash
+# 환경 변수에서 호스트 확인
+echo "호스트: ${HOST:-localhost}"
+echo "포트: ${PORT:-8080}"
+
 # HTTP 서버 확인
-curl -I http://localhost:8080/
+curl -I http://${HOST:-localhost}:${PORT:-8080}/
 
 # API 서버 확인
-curl http://localhost:8081/api/data
+curl http://${HOST:-localhost}:${API_PORT:-8081}/api/data
 
 # 메인 페이지 확인
-curl http://localhost:8080/
+curl http://${HOST:-localhost}:${PORT:-8080}/
 
 # 관리자 페이지 확인
-curl http://localhost:8080/admin/dashboard.html
+curl http://${HOST:-localhost}:${PORT:-8080}/admin/dashboard.html
 ```
 
 ### **Step 4: 기능 테스트**
 ```bash
 # 가게 목록 조회
-curl http://localhost:8081/api/stores
+curl http://${HOST:-localhost}:${API_PORT:-8081}/api/stores
 
 # 설정 조회
-curl "http://localhost:8081/api/settings?storeId=store_1761193456474_iu7rvfvcr"
+curl "http://${HOST:-localhost}:${API_PORT:-8081}/api/settings?storeId=store_1761193456474_iu7rvfvcr"
 
 # 브라우저에서 수동 테스트
-open http://localhost:8080/
-open http://localhost:8080/admin/dashboard.html
+open http://${HOST:-localhost}:${PORT:-8080}/
+open http://${HOST:-localhost}:${PORT:-8080}/admin/dashboard.html
 ```
 
 ---
 
 ## 🌐 접속 정보
 
+### **환경 변수 설정**
+```bash
+# 배포 환경에서 설정할 환경 변수
+export HOST=${HOST:-localhost}           # 서버 호스트 (기본값: localhost)
+export PORT=${PORT:-8080}                # HTTP 서버 포트 (기본값: 8080)
+export API_PORT=${API_PORT:-8081}        # API 서버 포트 (기본값: 8081)
+export BASE_URL=${BASE_URL:-http://${HOST}:${PORT}}  # 기본 URL
+```
+
 ### **사용자 접속 URL**
-- **메인 페이지**: `http://localhost:8080/`
-- **특정 가게**: `http://localhost:8080/?store=가게ID`
+- **메인 페이지**: `${BASE_URL}/`
+- **특정 가게**: `${BASE_URL}/?store=가게ID`
 
 ### **관리자 접속 URL**
-- **관리자 대시보드**: `http://localhost:8080/admin/dashboard.html`
-- **로그인 페이지**: `http://localhost:8080/admin/login.html`
+- **관리자 대시보드**: `${BASE_URL}/admin/dashboard.html`
+- **로그인 페이지**: `${BASE_URL}/admin/login.html`
 
 ### **API 접속 URL**
-- **API 기본**: `http://localhost:8081/api/`
-- **데이터 조회**: `http://localhost:8081/api/data`
-- **가게 목록**: `http://localhost:8081/api/stores`
+- **API 기본**: `http://${HOST}:${API_PORT}/api/`
+- **데이터 조회**: `http://${HOST}:${API_PORT}/api/data`
+- **가게 목록**: `http://${HOST}:${API_PORT}/api/stores`
 
 ---
 
@@ -101,10 +114,10 @@ open http://localhost:8080/admin/dashboard.html
 ### **서버 상태 확인**
 ```bash
 # HTTP 서버 상태
-curl -I http://localhost:8080/
+curl -I http://${HOST:-localhost}:${PORT:-8080}/
 
 # API 서버 상태
-curl http://localhost:8081/api/data
+curl http://${HOST:-localhost}:${API_PORT:-8081}/api/data
 
 # 프로세스 상태
 ps aux | grep python

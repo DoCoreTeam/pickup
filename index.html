@@ -345,9 +345,7 @@
       // ========================================
       
       // API_BASE를 현재 도메인에 맞게 동적 설정
-      const API_BASE = window.location.hostname === 'localhost' 
-        ? 'http://localhost:8081/api' 
-        : '/api';
+      const API_BASE = '/api';
       let stores = [];
       let isLoading = true;
       

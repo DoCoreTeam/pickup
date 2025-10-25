@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import json
 import os
+import time
+import fcntl
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import uuid
@@ -40,11 +42,30 @@ def log_error(error_message, exception=None):
 class DataHandler(BaseHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         self.data_file = 'assets/data/data.json'
+        # DB_PATH 절대경로 로그 출력
+        import os
+        abs_path = os.path.abspath(self.data_file)
+        log(LogLevel.INFO, f"DB_PATH 절대경로: {abs_path}")
+        
+        # 샘플 데이터 읽기 테스트
+        self.readDB_sample()
         super().__init__(*args, **kwargs)
     
     def log_message(self, format, *args):
         """기본 로그 메시지 비활성화 (우리가 직접 관리)"""
         pass
+    
+    def readDB_sample(self):
+        """DB에서 샘플 데이터 1건 읽기"""
+        try:
+            data = self.load_data()
+            if data and 'stores' in data and len(data['stores']) > 0:
+                sample_store = data['stores'][0]
+                log(LogLevel.INFO, f"DB 샘플 데이터 (첫 번째 가게): {sample_store}")
+            else:
+                log(LogLevel.WARN, "DB에 가게 데이터가 없습니다.")
+        except Exception as e:
+            log_error("DB 샘플 데이터 읽기 실패", e)
     
     def migrate_settings(self, data):
         """기존 설정 데이터를 새로운 키 구조로 마이그레이션"""
@@ -123,13 +144,62 @@ class DataHandler(BaseHTTPRequestHandler):
             }
     
     def save_data(self, data):
-        """데이터 파일 저장"""
-        try:
-            with open(self.data_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            log(LogLevel.DEBUG, f"데이터 파일 저장 성공: {self.data_file}")
-        except Exception as e:
-            log_error(f"데이터 파일 저장 실패: {self.data_file}", e)
+        """데이터 파일 저장 (파일 락 사용)"""
+        lock_file = self.data_file + '.lock'
+        max_retries = 3
+        retry_delay = 0.1
+        
+        for attempt in range(max_retries):
+            try:
+                # 파일 락 획득 시도
+                with open(lock_file, 'w') as lock_f:
+                    try:
+                        fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        
+                        # 임시 파일에 먼저 저장 (원자적 쓰기)
+                        temp_file = self.data_file + '.tmp'
+                        with open(temp_file, 'w', encoding='utf-8') as f:
+                            json.dump(data, f, ensure_ascii=False, indent=2)
+                        
+                        # 임시 파일을 원본 파일로 이동 (원자적 교체)
+                        import shutil
+                        shutil.move(temp_file, self.data_file)
+                        
+                        log(LogLevel.DEBUG, f"데이터 파일 저장 성공: {self.data_file}")
+                        return True
+                        
+                    except BlockingIOError:
+                        # 다른 프로세스가 파일을 사용 중
+                        if attempt < max_retries - 1:
+                            log(LogLevel.WARN, f"파일 락 대기 중... (시도 {attempt + 1}/{max_retries})")
+                            time.sleep(retry_delay * (attempt + 1))
+                            continue
+                        else:
+                            log_error(f"파일 락 획득 실패: {self.data_file}")
+                            return False
+                    finally:
+                        # 락 해제
+                        fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
+                        
+            except Exception as e:
+                log_error(f"데이터 파일 저장 실패: {self.data_file}", e)
+                # 임시 파일이 남아있으면 삭제
+                try:
+                    temp_file = self.data_file + '.tmp'
+                    if os.path.exists(temp_file):
+                        os.remove(temp_file)
+                except:
+                    pass
+                return False
+            finally:
+                # 락 파일 정리
+                try:
+                    if os.path.exists(lock_file):
+                        os.remove(lock_file)
+                except:
+                    pass
+        
+        return False
     
     def log_activity(self, log_type, action, description, user_id="system", user_name="시스템", target_type=None, target_id=None, target_name=None, details=None):
         """사용자 친화적 활동 로그 기록"""
@@ -231,13 +301,38 @@ class DataHandler(BaseHTTPRequestHandler):
     def get_request_data(self):
         """POST 요청 데이터 읽기"""
         try:
+            # Content-Length 헤더 확인
+            if 'Content-Length' not in self.headers:
+                log_error("Content-Length 헤더가 없습니다")
+                return None
+                
             content_length = int(self.headers['Content-Length'])
+            if content_length <= 0:
+                log_error(f"잘못된 Content-Length: {content_length}")
+                return None
+            
+            # 데이터 읽기
             post_data = self.rfile.read(content_length)
+            if not post_data:
+                log_error("빈 요청 데이터")
+                return None
+            
+            # JSON 파싱
             data = json.loads(post_data.decode('utf-8'))
             log(LogLevel.DEBUG, "POST 요청 데이터 수신", data)
             return data
+            
+        except json.JSONDecodeError as e:
+            log_error(f"JSON 파싱 실패: {str(e)}")
+            return None
+        except UnicodeDecodeError as e:
+            log_error(f"문자 인코딩 실패: {str(e)}")
+            return None
+        except ValueError as e:
+            log_error(f"Content-Length 파싱 실패: {str(e)}")
+            return None
         except Exception as e:
-            log_error("POST 요청 데이터 파싱 실패", e)
+            log_error(f"POST 요청 데이터 파싱 실패: {str(e)}")
             return None
     
     def do_GET(self):
@@ -519,27 +614,77 @@ class DataHandler(BaseHTTPRequestHandler):
                 self.send_json_response({"success": True})
             
             elif parsed_path.path == '/api/activity-logs':
-                # 활동 로그 조회
-                data = self.load_data()
-                logs = data.get('activityLogs', [])
+                if self.command == 'GET':
+                    # 활동 로그 조회
+                    data = self.load_data()
+                    logs = data.get('activityLogs', [])
+                    
+                    # 페이지네이션 지원
+                    query_params = parse_qs(parsed_path.query)
+                    page = int(query_params.get('page', ['1'])[0])
+                    limit = int(query_params.get('limit', ['50'])[0])
+                    
+                    start_idx = (page - 1) * limit
+                    end_idx = start_idx + limit
+                    
+                    paginated_logs = logs[start_idx:end_idx]
+                    
+                    self.send_json_response({
+                        "logs": paginated_logs,
+                        "total": len(logs),
+                        "page": page,
+                        "limit": limit,
+                        "totalPages": (len(logs) + limit - 1) // limit
+                    })
                 
-                # 페이지네이션 지원
-                query_params = parse_qs(parsed_path.query)
-                page = int(query_params.get('page', ['1'])[0])
-                limit = int(query_params.get('limit', ['50'])[0])
-                
-                start_idx = (page - 1) * limit
-                end_idx = start_idx + limit
-                
-                paginated_logs = logs[start_idx:end_idx]
-                
-                self.send_json_response({
-                    "logs": paginated_logs,
-                    "total": len(logs),
-                    "page": page,
-                    "limit": limit,
-                    "totalPages": (len(logs) + limit - 1) // limit
-                })
+                elif self.command == 'POST':
+                    # 활동 로그 추가
+                    try:
+                        log_data = self.get_request_data()
+                        
+                        if not log_data:
+                            self.send_json_response({"error": "로그 데이터가 필요합니다"}, 400)
+                            return
+                        
+                        # 필수 필드 확인
+                        required_fields = ['action', 'storeId', 'details']
+                        for field in required_fields:
+                            if field not in log_data:
+                                self.send_json_response({"error": f"필수 필드 '{field}'가 누락되었습니다"}, 400)
+                                return
+                        
+                        # 데이터 로드
+                        data = self.load_data()
+                        
+                        # activityLogs 배열 초기화 (없는 경우)
+                        if 'activityLogs' not in data:
+                            data['activityLogs'] = []
+                        
+                        # 새 로그 엔트리 생성
+                        new_log = {
+                            "id": str(uuid.uuid4()),
+                            "timestamp": datetime.now().isoformat(),
+                            "action": log_data['action'],
+                            "storeId": log_data['storeId'],
+                            "details": log_data['details']
+                        }
+                        
+                        # 로그 추가 (최신 순으로 정렬)
+                        data['activityLogs'].insert(0, new_log)
+                        
+                        # 최대 1000개 로그만 유지 (메모리 절약)
+                        if len(data['activityLogs']) > 1000:
+                            data['activityLogs'] = data['activityLogs'][:1000]
+                        
+                        # 데이터 저장
+                        self.save_data(data)
+                        
+                        log(LogLevel.INFO, f"활동 로그 추가: {log_data['action']} - {log_data['storeId']}")
+                        self.send_json_response({"success": True, "logId": new_log['id']})
+                        
+                    except Exception as e:
+                        log_error("활동 로그 추가 실패", e)
+                        self.send_json_response({"error": "활동 로그 추가에 실패했습니다"}, 500)
             
             elif parsed_path.path.startswith('/api/stores/') and parsed_path.path.endswith('/order'):
                 # 가게 순서 변경
@@ -613,6 +758,45 @@ class DataHandler(BaseHTTPRequestHandler):
                 if data['currentStoreId']:
                     current_store = next((store for store in data['stores'] if store['id'] == data['currentStoreId']), None)
                 self.send_json_response(current_store)
+            
+            elif parsed_path.path.startswith('/api/users/'):
+                # 사용자 정보 조회 (/api/users/:id)
+                user_id = parsed_path.path.split('/')[-1]
+                data = self.load_data()
+                
+                # 사용자 정보 찾기 (가게 정보에서 사용자 정보 추출)
+                user_info = None
+                if 'stores' in data:
+                    for store in data['stores']:
+                        if store.get('id') == user_id:
+                            user_info = {
+                                "id": store.get('id'),
+                                "name": store.get('name'),
+                                "subtitle": store.get('subtitle'),
+                                "phone": store.get('phone'),
+                                "address": store.get('address'),
+                                "status": store.get('status', 'active')
+                            }
+                            break
+                
+                if user_info:
+                    # Cache-Control: no-store 헤더와 함께 응답
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json; charset=utf-8')
+                    self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate')
+                    self.send_header('Pragma', 'no-cache')
+                    self.send_header('Expires', '0')
+                    self.end_headers()
+                    self.wfile.write(json.dumps(user_info, ensure_ascii=False).encode('utf-8'))
+                else:
+                    self.send_response(404)
+                    self.send_header('Content-Type', 'application/json; charset=utf-8')
+                    self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate')
+                    self.send_header('Pragma', 'no-cache')
+                    self.send_header('Expires', '0')
+                    self.end_headers()
+                    error_response = {"error": "User not found"}
+                    self.wfile.write(json.dumps(error_response, ensure_ascii=False).encode('utf-8'))
             
             elif parsed_path.path.startswith('/api/settings'):
                 # 설정 조회
@@ -904,7 +1088,8 @@ class DataHandler(BaseHTTPRequestHandler):
                 # 가게 생성
                 data = self.get_request_data()
                 if not data:
-                    self.send_json_response({"error": "Invalid data"}, 400)
+                    log_error("가게 생성 요청 데이터 파싱 실패")
+                    self.send_json_response({"error": "요청 데이터를 읽을 수 없습니다. 다시 시도해주세요."}, 400)
                     return
                 
                 log(LogLevel.INFO, f"가게 생성 요청: {data.get('name', 'Unknown')}")
@@ -922,7 +1107,15 @@ class DataHandler(BaseHTTPRequestHandler):
                 }
                 
                 store_data['stores'].append(new_store)
-                self.save_data(store_data)
+                
+                # 데이터 저장 시도
+                if not self.save_data(store_data):
+                    log_error(f"가게 저장 실패: {new_store['name']}")
+                    self.send_json_response({
+                        "error": "가게 정보 저장에 실패했습니다. 잠시 후 다시 시도해주세요.",
+                        "details": "파일 저장 중 오류가 발생했습니다."
+                    }, 500)
+                    return
                 
                 # 활동 로그 기록
                 self.log_activity(
@@ -1202,7 +1395,15 @@ class DataHandler(BaseHTTPRequestHandler):
                     self.send_json_response({"error": "store not found"}, 404)
                     return
                 
-                self.save_data(store_data)
+                # 데이터 저장 시도
+                if not self.save_data(store_data):
+                    log_error(f"가게 정보 저장 실패: {data['id']}")
+                    self.send_json_response({
+                        "error": "가게 정보 저장에 실패했습니다. 잠시 후 다시 시도해주세요.",
+                        "details": "파일 저장 중 오류가 발생했습니다."
+                    }, 500)
+                    return
+                
                 log(LogLevel.INFO, f"가게 정보 업데이트 완료: {data['id']}")
                 self.send_json_response({"success": True, "message": "가게 정보가 업데이트되었습니다."})
             
@@ -1232,7 +1433,7 @@ class DataHandler(BaseHTTPRequestHandler):
                 # 모든 설정 타입 업데이트
                 for setting_type, setting_data in data.items():
                     if setting_type == 'basic':
-                        # 기본 정보는 가게 정보에 직접 업데이트
+                        # 기본 정보는 가게 정보에 직접 업데이트 (기존 값 보존)
                         store = None
                         for s in store_data['stores']:
                             if s['id'] == store_id:
@@ -1240,13 +1441,14 @@ class DataHandler(BaseHTTPRequestHandler):
                                 break
                         
                         if store:
-                            if 'storeName' in setting_data:
+                            # 기존 값이 있으면 보존하고, 새로운 값만 업데이트
+                            if 'storeName' in setting_data and setting_data['storeName']:
                                 store['name'] = setting_data['storeName']
-                            if 'storeSubtitle' in setting_data:
+                            if 'storeSubtitle' in setting_data and setting_data['storeSubtitle']:
                                 store['subtitle'] = setting_data['storeSubtitle']
-                            if 'storePhone' in setting_data:
+                            if 'storePhone' in setting_data and setting_data['storePhone']:
                                 store['phone'] = setting_data['storePhone']
-                            if 'storeAddress' in setting_data:
+                            if 'storeAddress' in setting_data and setting_data['storeAddress']:
                                 store['address'] = setting_data['storeAddress']
                     
                     elif setting_type == 'delivery':
@@ -1291,7 +1493,14 @@ class DataHandler(BaseHTTPRequestHandler):
                     
                     store_data['settings'][store_id]['pickup']['lastModified'] = datetime.now().isoformat()
                 
-                self.save_data(store_data)
+                # 데이터 저장 시도
+                if not self.save_data(store_data):
+                    log_error(f"설정 저장 실패: {store_id}")
+                    self.send_json_response({
+                        "error": "설정 저장에 실패했습니다. 잠시 후 다시 시도해주세요.",
+                        "details": "파일 저장 중 오류가 발생했습니다."
+                    }, 500)
+                    return
                 
                 # 활동 로그 기록
                 self.log_activity(
@@ -1413,7 +1622,14 @@ class DataHandler(BaseHTTPRequestHandler):
                 if 'address' in data:
                     store['address'] = data['address']
                 
-                self.save_data(store_data)
+                # 데이터 저장 시도
+                if not self.save_data(store_data):
+                    log_error(f"가게 정보 저장 실패: {store_id}")
+                    self.send_json_response({
+                        "error": "가게 정보 저장에 실패했습니다. 잠시 후 다시 시도해주세요.",
+                        "details": "파일 저장 중 오류가 발생했습니다."
+                    }, 500)
+                    return
                 
                 # 활동 로그 기록
                 self.log_activity(

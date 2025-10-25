@@ -1461,7 +1461,7 @@
     </div>
 
     <script>
-        const API_BASE = 'http://localhost:8081/api';
+        const API_BASE = '/api';
 
         // 로그인 상태 확인
         const isLoggedIn = sessionStorage.getItem('superadmin_logged_in') === 'true';
@@ -1707,6 +1707,11 @@
                 
                 // 설정 로드
                 await loadSettings();
+                
+                // 사용자 정보 로드 (DB 데이터 → 폼 매핑)
+                console.log('🔄 [DEBUG] 가게 선택 후 사용자 정보 로딩 시작');
+                await loadUserInfo(storeId);
+                console.log('✅ [DEBUG] 가게 선택 후 사용자 정보 로딩 완료');
                 
                 // 토스트 알림
                 const stores = await apiRequest(`${API_BASE}/stores`);
@@ -2001,7 +2006,7 @@
 
         // 가게 페이지 보기
         function viewStorePage(storeId) {
-            const storeUrl = `http://localhost:8081/store.html?id=${storeId}`;
+            const storeUrl = `/store.html?id=${storeId}`;
             window.open(storeUrl, '_blank');
         }
 
@@ -2118,7 +2123,6 @@
                 }
                 
                 showStatus('가게명, 하단 텍스트, 전화번호, 주소가 저장되었습니다!', 'success');
-                notifyStorePageRefresh();
                 
                 // 가게 목록 다시 로드하여 변경사항 반영
                 await loadStoreList();
@@ -2148,7 +2152,6 @@
                 updateAllDeliveryStatuses();
                 
                 showStatus('배달앱 URL 설정이 저장되었습니다!', 'success');
-                notifyStorePageRefresh();
             } catch (error) {
                 console.error('배달앱 URL 저장 실패:', error);
                 showStatus('배달앱 URL 저장에 실패했습니다.', 'error');
@@ -2261,9 +2264,28 @@
                     user: 'admin'
                 };
                 
+                console.log('📝 [DEBUG] 활동 로그 기록 시도:', logData);
                 await apiRequest(`${API_BASE}/activity-logs`, 'POST', logData);
+                console.log('✅ [DEBUG] 활동 로그 기록 성공');
             } catch (error) {
-                console.error('활동 로그 기록 실패:', error);
+                console.error('❌ [DEBUG] 활동 로그 기록 실패:', error);
+                // 404 에러인 경우 대안 처리
+                if (error.message && error.message.includes('404')) {
+                    console.log('🔄 [DEBUG] 404 에러 감지 - 대안 처리 시도');
+                    // 로컬 스토리지에 임시 저장
+                    try {
+                        const localLogs = JSON.parse(localStorage.getItem('localActivityLogs') || '[]');
+                        localLogs.push({
+                            ...logData,
+                            id: 'local_' + Date.now(),
+                            source: 'local_fallback'
+                        });
+                        localStorage.setItem('localActivityLogs', JSON.stringify(localLogs));
+                        console.log('✅ [DEBUG] 로컬 스토리지에 활동 로그 저장 완료');
+                    } catch (localError) {
+                        console.error('❌ [DEBUG] 로컬 스토리지 저장 실패:', localError);
+                    }
+                }
             }
         }
 
@@ -2342,7 +2364,6 @@
                 }
                 
                 showStatus('할인 설정이 저장되었습니다!', 'success');
-                notifyStorePageRefresh();
             } catch (error) {
                 console.error('할인 설정 저장 실패:', error);
                 showStatus('할인 설정 저장에 실패했습니다.', 'error');
@@ -2372,7 +2393,6 @@
                 }
                 
                 showStatus('픽업 설정이 저장되었습니다!', 'success');
-                notifyStorePageRefresh();
             } catch (error) {
                 console.error('픽업 설정 저장 실패:', error);
                 showStatus('픽업 설정 저장에 실패했습니다.', 'error');
@@ -2406,7 +2426,6 @@
                     updateImagePreview(imageType, imageData);
                     
                     showStatus(`${imageType === 'mainLogo' ? '로고' : '메뉴판'} 이미지가 업로드되어 저장되었습니다!`, 'success');
-                    notifyStorePageRefresh();
                 } catch (error) {
                     console.error('이미지 저장 오류:', error);
                     showStatus('이미지 저장에 실패했습니다.', 'error');
@@ -2688,6 +2707,107 @@
             container.innerHTML = logsHtml;
         }
 
+        // 사용자 정보 로드 함수 (DB 데이터 → 폼 매핑)
+        async function loadUserInfo(userId) {
+          try {
+            console.log(`🔍 [DEBUG] 사용자 정보 로드 시작: ${userId}`);
+            console.log(`🔍 [DEBUG] 요청 URL: /api/users/${userId}`);
+            
+            const response = await fetch(`/api/users/${userId}`, {
+              headers: {
+                'Cache-Control': 'no-store',
+                'Pragma': 'no-cache'
+              }
+            });
+            
+            console.log(`🔍 [DEBUG] 응답 상태: ${response.status}`);
+            
+            if (!response.ok) {
+              throw new Error(`사용자 정보를 불러올 수 없습니다. (${response.status})`);
+            }
+            
+            const userData = await response.json();
+            console.log('✅ [DEBUG] 사용자 정보 로드 성공:', userData);
+            console.log('🔍 [DEBUG] 응답 데이터 상세:');
+            console.log('  - name:', JSON.stringify(userData.name));
+            console.log('  - subtitle:', JSON.stringify(userData.subtitle));
+            console.log('  - phone:', JSON.stringify(userData.phone));
+            console.log('  - address:', JSON.stringify(userData.address));
+            
+            // 폼 필드에 값 주입
+            console.log('🔄 [DEBUG] 폼 데이터 주입 시작');
+            resetFormWithUserData(userData);
+            console.log('✅ [DEBUG] 폼 데이터 주입 완료');
+            
+            return userData;
+            
+          } catch (error) {
+            console.error('❌ [DEBUG] 사용자 정보 로드 실패:', error);
+            showStatus('사용자 정보를 불러올 수 없습니다.', 'error');
+            return null;
+          }
+        }
+
+        // 폼 리셋 및 데이터 주입 함수
+        function resetFormWithUserData(userData) {
+          console.log('🔍 [DEBUG] 폼 데이터 주입 시작:', userData);
+          
+          // 폼 필드 매핑 (올바른 필드 ID 사용)
+          const fieldMapping = {
+            'storeName': userData.name,
+            'storeSubtitle': userData.subtitle,
+            'storePhone': userData.phone,
+            'storeAddress': userData.address
+          };
+          
+          console.log('📋 [DEBUG] 필드 매핑:', fieldMapping);
+          
+          // 스냅샷 비교를 위한 결과 저장
+          const snapshotResults = {};
+          
+          // 각 필드에 값 설정
+          Object.entries(fieldMapping).forEach(([fieldId, value]) => {
+            console.log(`🔍 [DEBUG] 필드 ${fieldId} 처리 중...`);
+            const field = document.getElementById(fieldId);
+            
+            if (field) {
+              const oldValue = field.value;
+              field.value = value || '';
+              console.log(`✅ [DEBUG] 필드 ${fieldId}: "${oldValue}" → "${field.value}"`);
+              
+              // 스냅샷 결과 저장
+              snapshotResults[fieldId] = {
+                apiValue: value,
+                inputValue: field.value,
+                match: value === field.value
+              };
+            } else {
+              console.error(`❌ [DEBUG] 필드 ${fieldId}를 찾을 수 없습니다!`);
+              // 모든 input 필드 확인
+              const allInputs = document.querySelectorAll('input, textarea');
+              console.log('🔍 [DEBUG] 페이지의 모든 input/textarea 필드들:');
+              allInputs.forEach(input => {
+                console.log(`  - ID: ${input.id}, Name: ${input.name}, Type: ${input.type}`);
+              });
+              
+              snapshotResults[fieldId] = {
+                apiValue: value,
+                inputValue: 'FIELD_NOT_FOUND',
+                match: false
+              };
+            }
+          });
+          
+          // 스냅샷 결과 출력
+          console.log('📊 [DEBUG] 스냅샷 비교 결과:', snapshotResults);
+          
+          // 일치 여부 확인
+          const allMatch = Object.values(snapshotResults).every(result => result.match);
+          console.log(`🎯 [DEBUG] 모든 필드 일치: ${allMatch ? '✅ 성공' : '❌ 실패'}`);
+          
+          console.log('✅ [DEBUG] 폼 데이터 주입 완료:', fieldMapping);
+        }
+
         // 로딩 상태 관리
         let isLoading = false;
         
@@ -2706,9 +2826,13 @@
                 await loadSuperAdminInfo();
                 await loadActivityLogs(); // 활동 로그 로드 추가
                 
-                // 현재 선택된 가게 카드 표시
+                // 현재 선택된 가게의 사용자 정보 로드
                 const currentStoreId = await getCurrentStoreId();
                 if (currentStoreId) {
+                    console.log('🔄 [DEBUG] 페이지 로드 시 사용자 정보 로딩 시작');
+                    await loadUserInfo(currentStoreId);
+                    console.log('✅ [DEBUG] 페이지 로드 시 사용자 정보 로딩 완료');
+                    
                     await updateSelectedStoreCard(currentStoreId);
                 } else {
                     // 가게가 선택되지 않은 경우 사이드바 초기화
