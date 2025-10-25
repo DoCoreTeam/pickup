@@ -2098,13 +2098,34 @@
         async function saveBasicInfo() {
             try {
                 const currentStoreId = await getCurrentStoreId();
+                if (!currentStoreId) {
+                    console.log('⚠️ [DEBUG] 가게가 선택되지 않아 저장을 건너뜁니다.');
+                    return;
+                }
+                
+                // 폼 값 확인
+                const storeName = document.getElementById('storeName').value;
+                const storeSubtitle = document.getElementById('storeSubtitle').value;
+                const storePhone = document.getElementById('storePhone').value;
+                const storeAddress = document.getElementById('storeAddress').value;
+                
+                console.log('🔍 [DEBUG] 저장할 기본 정보:', {
+                    storeName, storeSubtitle, storePhone, storeAddress
+                });
+                
+                // 빈 값이면 저장하지 않음
+                if (!storeName && !storeSubtitle && !storePhone && !storeAddress) {
+                    console.log('⚠️ [DEBUG] 모든 필드가 비어있어 저장을 건너뜁니다.');
+                    return;
+                }
+                
                 const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
                 
                 settings.basic = {
-                    storeName: document.getElementById('storeName').value,
-                    storeSubtitle: document.getElementById('storeSubtitle').value,
-                    storePhone: document.getElementById('storePhone').value,
-                    storeAddress: document.getElementById('storeAddress').value
+                    storeName: storeName,
+                    storeSubtitle: storeSubtitle,
+                    storePhone: storePhone,
+                    storeAddress: storeAddress
                 };
                 
                 await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`, 'POST', settings);
@@ -2254,37 +2275,35 @@
 
         // 활동 로그 기록
         async function logActivity(logType, action, description, details = null) {
+            // logData를 try 바깥에 선언하여 catch 폴백에서도 동일 객체 사용
+            const logData = {
+                type: logType,
+                action: action,
+                description: description,
+                details: details,
+                timestamp: new Date().toISOString(),
+                user: 'admin'
+            };
+            
             try {
-                const logData = {
-                    type: logType,
-                    action: action,
-                    description: description,
-                    details: details,
-                    timestamp: new Date().toISOString(),
-                    user: 'admin'
-                };
-                
                 console.log('📝 [DEBUG] 활동 로그 기록 시도:', logData);
-                await apiRequest(`${API_BASE}/activity-logs`, 'POST', logData);
+                await apiRequest('/api/activity-logs', 'POST', logData);
                 console.log('✅ [DEBUG] 활동 로그 기록 성공');
             } catch (error) {
                 console.error('❌ [DEBUG] 활동 로그 기록 실패:', error);
-                // 404 에러인 경우 대안 처리
-                if (error.message && error.message.includes('404')) {
-                    console.log('🔄 [DEBUG] 404 에러 감지 - 대안 처리 시도');
-                    // 로컬 스토리지에 임시 저장
-                    try {
-                        const localLogs = JSON.parse(localStorage.getItem('localActivityLogs') || '[]');
-                        localLogs.push({
-                            ...logData,
-                            id: 'local_' + Date.now(),
-                            source: 'local_fallback'
-                        });
-                        localStorage.setItem('localActivityLogs', JSON.stringify(localLogs));
-                        console.log('✅ [DEBUG] 로컬 스토리지에 활동 로그 저장 완료');
-                    } catch (localError) {
-                        console.error('❌ [DEBUG] 로컬 스토리지 저장 실패:', localError);
-                    }
+                // 모든 에러에 대해 로컬 폴백 처리
+                console.log('🔄 [DEBUG] 서버 저장 실패 - 로컬 폴백 처리 시도');
+                try {
+                    const localLogs = JSON.parse(localStorage.getItem('localActivityLogs') || '[]');
+                    localLogs.push({
+                        ...logData,
+                        id: 'local_' + Date.now(),
+                        source: 'local_fallback'
+                    });
+                    localStorage.setItem('localActivityLogs', JSON.stringify(localLogs));
+                    console.log('✅ [DEBUG] 로컬 스토리지에 활동 로그 저장 완료');
+                } catch (localError) {
+                    console.error('❌ [DEBUG] 로컬 스토리지 저장 실패:', localError);
                 }
             }
         }

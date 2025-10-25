@@ -646,8 +646,8 @@ class DataHandler(BaseHTTPRequestHandler):
                             self.send_json_response({"error": "로그 데이터가 필요합니다"}, 400)
                             return
                         
-                        # 필수 필드 확인
-                        required_fields = ['action', 'storeId', 'details']
+                        # 필수 필드 확인 (클라이언트에서 보내는 구조에 맞게 수정)
+                        required_fields = ['type', 'action', 'description']
                         for field in required_fields:
                             if field not in log_data:
                                 self.send_json_response({"error": f"필수 필드 '{field}'가 누락되었습니다"}, 400)
@@ -660,13 +660,15 @@ class DataHandler(BaseHTTPRequestHandler):
                         if 'activityLogs' not in data:
                             data['activityLogs'] = []
                         
-                        # 새 로그 엔트리 생성
+                        # 새 로그 엔트리 생성 (클라이언트에서 보내는 구조에 맞게 수정)
                         new_log = {
                             "id": str(uuid.uuid4()),
-                            "timestamp": datetime.now().isoformat(),
+                            "timestamp": log_data.get('timestamp', datetime.now().isoformat()),
+                            "type": log_data['type'],
                             "action": log_data['action'],
-                            "storeId": log_data['storeId'],
-                            "details": log_data['details']
+                            "description": log_data['description'],
+                            "details": log_data.get('details'),
+                            "user": log_data.get('user', 'admin')
                         }
                         
                         # 로그 추가 (최신 순으로 정렬)
@@ -679,8 +681,8 @@ class DataHandler(BaseHTTPRequestHandler):
                         # 데이터 저장
                         self.save_data(data)
                         
-                        log(LogLevel.INFO, f"활동 로그 추가: {log_data['action']} - {log_data['storeId']}")
-                        self.send_json_response({"success": True, "logId": new_log['id']})
+                        log(LogLevel.INFO, f"활동 로그 추가: {log_data['action']} - {log_data.get('user', 'admin')}")
+                        self.send_json_response({"success": True, "logId": new_log['id']}, 201)
                         
                     except Exception as e:
                         log_error("활동 로그 추가 실패", e)
