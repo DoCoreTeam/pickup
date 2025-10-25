@@ -1137,6 +1137,15 @@
 
       // 모바일 확대/축소 방지 적용
       preventZoom();
+
+      // 전화하기 함수
+      function callStore() {
+        if (currentStore && currentStore.phone) {
+          window.location.href = `tel:${currentStore.phone}`;
+        } else {
+          alert('전화번호가 등록되지 않았습니다.');
+        }
+      }
     </script>
   </body>
 </html>
