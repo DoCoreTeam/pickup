@@ -2505,56 +2505,22 @@
                 allStores = stores;
                 filteredStores = stores;
                 
-                const storeList = document.getElementById('storeList');
-                const currentStoreId = await getCurrentStoreId();
-                
                 // 통계 업데이트
                 updateStoreStats();
                 
-                // 테이블 구조로 변경
-                storeList.innerHTML = `
-                    <div class="table-container">
-                        <table class="store-table">
-                            <thead>
-                                <tr>
-                                    <th>가게명</th>
-                                    <th>부제목</th>
-                                    <th>전화번호</th>
-                                    <th>주소</th>
-                                    <th>상태</th>
-                                    <th>작업</th>
-                                </tr>
-                            </thead>
-                            <tbody id="storeTableBody">
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-                
-                // 필터링된 개수 업데이트
+                // 필터된 개수 업데이트
                 document.getElementById('filteredStoresCount').textContent = filteredStores.length;
                 
                 // 테이블 렌더링
                 await renderStoreTable();
                 
-                // 현재 선택된 가게 정보 표시 및 시각적 표시
-                if (currentStoreId) {
-                    const currentStore = stores.find(s => s.id === currentStoreId);
-                    if (currentStore) {
-                        // 메인 영역의 현재 가게 정보 표시
-                        document.getElementById('currentStoreInfo').innerHTML = `
-                            <strong>${currentStore.name}</strong><br>
-                            <small>${currentStore.subtitle || '부제목 없음'}</small>
-                        `;
-                        
-                        // 사이드바의 선택된 가게 정보 표시
-                        updateSelectedStoreCard(currentStore.id);
-                    }
-                }
-                
             } catch (error) {
                 console.error('가게 목록 로드 실패:', error);
-                showToast('가게 목록을 불러오는데 실패했습니다.', 'error', '오류');
+                const tbody = document.getElementById('storeTableBody');
+                if (tbody) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="padding: 40px; text-align: center; color: #ef4444;">가게 목록을 불러오는데 실패했습니다.</td></tr>';
+                }
+                showToast('가게 목록을 불러오는데 실패했습니다.', 'error');
             }
         }
 
