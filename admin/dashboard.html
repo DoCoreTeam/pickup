@@ -33,6 +33,8 @@
             flex-direction: column;
             position: relative;
             transition: transform 0.3s ease;
+            height: 100vh;
+            overflow-y: auto;
         }
         
         .sidebar-toggle {
@@ -71,13 +73,10 @@
         }
         
         .sidebar-footer {
-            margin-top: auto;
+            flex-shrink: 0;
             padding: 20px;
             border-top: 1px solid rgba(255,255,255,0.1);
-            position: sticky;
-            bottom: 0;
             background: #2c3e50;
-            z-index: 100;
         }
         
         .version-info {
@@ -1611,7 +1610,8 @@
         
         <!-- 사이드바 -->
         <div class="admin-sidebar">
-            <div style="padding: 0 20px;">
+            <!-- 메뉴 영역 (스크롤 가능) -->
+            <div style="flex: 1; overflow-y: auto; padding: 0 20px;">
                 <h2 style="margin-bottom: 30px; color: #ecf0f1;">관리자 메뉴</h2>
                 
                 <!-- 선택된 가게 카드 -->
@@ -1656,7 +1656,7 @@
                 </div>
             </div>
             
-            <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) -->
+            <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
                     <div class="version-badge">v1.4.0</div>
