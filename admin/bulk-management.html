@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>슈퍼어드민 - 대량 가게 관리</title>
+    <style>
+        /* 네임스페이스: .bulk-* */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .bulk-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .bulk-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .bulk-header h1 {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .bulk-back-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .bulk-back-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+
+        .bulk-toolbar {
+            padding: 20px 40px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .bulk-search-box {
+            flex: 1;
+            min-width: 300px;
+            position: relative;
+        }
+
+        .bulk-search-box input {
+            width: 100%;
+            padding: 12px 40px 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .bulk-search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .bulk-search-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 18px;
+        }
+
+        .bulk-filter-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .bulk-filter-select {
+            padding: 10px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .bulk-filter-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .bulk-action-bar {
+            padding: 15px 40px;
+            background: #fff7ed;
+            border-bottom: 1px solid #fed7aa;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .bulk-action-bar.active {
+            display: flex;
+        }
+
+        .bulk-selected-info {
+            font-size: 14px;
+            font-weight: 600;
+            color: #9a3412;
+        }
+
+        .bulk-action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .bulk-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .bulk-btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .bulk-btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .bulk-btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .bulk-btn-danger:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+        }
+
+        .bulk-btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .bulk-btn-warning:hover {
+            background: #d97706;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+        }
+
+        .bulk-btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .bulk-btn-success:hover {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+
+        .bulk-btn-secondary {
+            background: #64748b;
+            color: white;
+        }
+
+        .bulk-btn-secondary:hover {
+            background: #475569;
+        }
+
+        .bulk-table-container {
+            padding: 20px 40px;
+            overflow-x: auto;
+        }
+
+        .bulk-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .bulk-table thead {
+            background: #f1f5f9;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .bulk-table th {
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .bulk-table td {
+            padding: 16px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 14px;
+            color: #1e293b;
+        }
+
+        .bulk-table tbody tr {
+            transition: all 0.2s ease;
+        }
+
+        .bulk-table tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .bulk-table tbody tr.selected {
+            background: #ede9fe;
+        }
+
+        .bulk-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #667eea;
+        }
+
+        .bulk-status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .bulk-status-active {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .bulk-status-paused {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .bulk-pagination {
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .bulk-page-info {
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .bulk-page-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .bulk-page-btn {
+            padding: 8px 16px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .bulk-page-btn:hover:not(:disabled) {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+
+        .bulk-page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .bulk-page-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .bulk-loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #64748b;
+        }
+
+        .bulk-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #e2e8f0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: bulk-spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes bulk-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .bulk-empty {
+            text-align: center;
+            padding: 60px 20px;
+            color: #64748b;
+        }
+
+        .bulk-empty-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .bulk-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .bulk-modal.active {
+            display: flex;
+        }
+
+        .bulk-modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .bulk-modal-header {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #1e293b;
+        }
+
+        .bulk-modal-body {
+            margin-bottom: 20px;
+            color: #64748b;
+            line-height: 1.6;
+        }
+
+        .bulk-modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .bulk-toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            display: none;
+            align-items: center;
+            gap: 12px;
+            z-index: 2000;
+            animation: bulk-slide-up 0.3s ease;
+        }
+
+        .bulk-toast.active {
+            display: flex;
+        }
+
+        @keyframes bulk-slide-up {
+            from {
+                transform: translateY(100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .bulk-toast-success {
+            border-left: 4px solid #10b981;
+        }
+
+        .bulk-toast-error {
+            border-left: 4px solid #ef4444;
+        }
+
+        .bulk-toast-icon {
+            font-size: 24px;
+        }
+
+        .bulk-toast-message {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .bulk-import-export {
+            display: flex;
+            gap: 10px;
+        }
+
+        .bulk-file-input {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .bulk-header {
+                flex-direction: column;
+                gap: 15px;
+                align-items: flex-start;
+            }
+
+            .bulk-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .bulk-search-box {
+                min-width: 100%;
+            }
+
+            .bulk-action-bar {
+                flex-direction: column;
+                gap: 15px;
+                align-items: stretch;
+            }
+
+            .bulk-action-buttons {
+                flex-direction: column;
+            }
+
+            .bulk-table-container {
+                padding: 10px;
+            }
+
+            .bulk-pagination {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bulk-container">
+        <!-- 헤더 -->
+        <div class="bulk-header">
+            <h1>🚀 슈퍼어드민 - 대량 가게 관리</h1>
+            <button class="bulk-back-btn" onclick="window.location.href='/admin/dashboard.html'">
+                ← 대시보드로 돌아가기
+            </button>
+        </div>
+
+        <!-- 툴바 (검색/필터) -->
+        <div class="bulk-toolbar">
+            <div class="bulk-search-box">
+                <input type="text" id="bulk-search" placeholder="가게명, 전화번호, 주소로 검색..." />
+                <span class="bulk-search-icon">🔍</span>
+            </div>
+            <div class="bulk-filter-group">
+                <select id="bulk-status-filter" class="bulk-filter-select">
+                    <option value="">전체 상태</option>
+                    <option value="active">활성</option>
+                    <option value="paused">일시정지</option>
+                </select>
+                <select id="bulk-sort" class="bulk-filter-select">
+                    <option value="name">이름순</option>
+                    <option value="createdAt">생성일순</option>
+                    <option value="lastModified">수정일순</option>
+                </select>
+            </div>
+            <div class="bulk-import-export">
+                <button class="bulk-btn bulk-btn-secondary" onclick="bulkExportJSON()">
+                    📥 JSON 내보내기
+                </button>
+                <button class="bulk-btn bulk-btn-secondary" onclick="bulkExportCSV()">
+                    📊 CSV 내보내기
+                </button>
+                <button class="bulk-btn bulk-btn-primary" onclick="document.getElementById('bulk-json-input').click()">
+                    📤 JSON 가져오기
+                </button>
+                <button class="bulk-btn bulk-btn-primary" onclick="document.getElementById('bulk-csv-input').click()">
+                    📊 CSV 가져오기
+                </button>
+                <input type="file" id="bulk-json-input" class="bulk-file-input" accept=".json" onchange="bulkImportJSONFile(event)" />
+                <input type="file" id="bulk-csv-input" class="bulk-file-input" accept=".csv" onchange="bulkImportCSVFile(event)" />
+            </div>
+        </div>
+
+        <!-- 액션 바 (선택 시 표시) -->
+        <div class="bulk-action-bar" id="bulk-action-bar">
+            <div class="bulk-selected-info">
+                <span id="bulk-selected-count">0</span>개 가게 선택됨
+            </div>
+            <div class="bulk-action-buttons">
+                <button class="bulk-btn bulk-btn-warning" onclick="bulkPauseStores()">
+                    ⏸️ 일시정지
+                </button>
+                <button class="bulk-btn bulk-btn-success" onclick="bulkResumeStores()">
+                    ▶️ 재개
+                </button>
+                <button class="bulk-btn bulk-btn-danger" onclick="bulkDeleteStores()">
+                    🗑️ 삭제
+                </button>
+            </div>
+        </div>
+
+        <!-- 테이블 -->
+        <div class="bulk-table-container">
+            <div id="bulk-loading" class="bulk-loading">
+                <div class="bulk-spinner"></div>
+                <div>가게 목록을 불러오는 중...</div>
+            </div>
+            <div id="bulk-empty" class="bulk-empty" style="display: none;">
+                <div class="bulk-empty-icon">📦</div>
+                <div>가게가 없습니다.</div>
+            </div>
+            <table class="bulk-table" id="bulk-table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">
+                            <input type="checkbox" class="bulk-checkbox" id="bulk-select-all" onchange="bulkToggleSelectAll()" />
+                        </th>
+                        <th style="width: 200px;">가게명</th>
+                        <th style="width: 150px;">하단 텍스트</th>
+                        <th style="width: 120px;">전화번호</th>
+                        <th style="width: 200px;">주소</th>
+                        <th style="width: 100px;">상태</th>
+                        <th style="width: 150px;">생성일</th>
+                    </tr>
+                </thead>
+                <tbody id="bulk-table-body">
+                    <!-- 동적 생성 -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 페이지네이션 -->
+        <div class="bulk-pagination" id="bulk-pagination" style="display: none;">
+            <div class="bulk-page-info">
+                <span id="bulk-page-info">1-10 / 100개</span>
+            </div>
+            <div class="bulk-page-buttons" id="bulk-page-buttons">
+                <!-- 동적 생성 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 확인 모달 -->
+    <div class="bulk-modal" id="bulk-modal">
+        <div class="bulk-modal-content">
+            <div class="bulk-modal-header" id="bulk-modal-title">확인</div>
+            <div class="bulk-modal-body" id="bulk-modal-message">정말 실행하시겠습니까?</div>
+            <div class="bulk-modal-footer">
+                <button class="bulk-btn bulk-btn-secondary" onclick="bulkCloseModal()">취소</button>
+                <button class="bulk-btn bulk-btn-danger" id="bulk-modal-confirm" onclick="bulkConfirmAction()">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 토스트 알림 -->
+    <div class="bulk-toast" id="bulk-toast">
+        <span class="bulk-toast-icon" id="bulk-toast-icon">✅</span>
+        <span class="bulk-toast-message" id="bulk-toast-message">성공!</span>
+    </div>
+
+    <script>
+        // 전역 상태
+        const bulkState = {
+            stores: [],
+            filteredStores: [],
+            selectedIds: new Set(),
+            currentPage: 1,
+            pageSize: 20,
+            searchQuery: '',
+            statusFilter: '',
+            sortBy: 'name',
+            pendingAction: null
+        };
+
+        // API 베이스 URL (상대 경로)
+        const API_BASE = '';
+
+        // 초기화
+        document.addEventListener('DOMContentLoaded', () => {
+            bulkLoadStores();
+            bulkInitEventListeners();
+        });
+
+        // 이벤트 리스너 초기화
+        function bulkInitEventListeners() {
+            document.getElementById('bulk-search').addEventListener('input', (e) => {
+                bulkState.searchQuery = e.target.value.toLowerCase();
+                bulkState.currentPage = 1;
+                bulkFilterAndRender();
+            });
+
+            document.getElementById('bulk-status-filter').addEventListener('change', (e) => {
+                bulkState.statusFilter = e.target.value;
+                bulkState.currentPage = 1;
+                bulkFilterAndRender();
+            });
+
+            document.getElementById('bulk-sort').addEventListener('change', (e) => {
+                bulkState.sortBy = e.target.value;
+                bulkFilterAndRender();
+            });
+        }
+
+        // 가게 목록 로드
+        async function bulkLoadStores() {
+            try {
+                const response = await fetch(`${API_BASE}/api/data`);
+                if (!response.ok) throw new Error('Failed to fetch stores');
+                
+                const data = await response.json();
+                bulkState.stores = data.stores || [];
+                bulkFilterAndRender();
+                
+                document.getElementById('bulk-loading').style.display = 'none';
+            } catch (error) {
+                console.error('Error loading stores:', error);
+                bulkShowToast('가게 목록을 불러오는데 실패했습니다.', 'error');
+                document.getElementById('bulk-loading').style.display = 'none';
+                document.getElementById('bulk-empty').style.display = 'block';
+            }
+        }
+
+        // 필터링 및 렌더링
+        function bulkFilterAndRender() {
+            // 필터링
+            bulkState.filteredStores = bulkState.stores.filter(store => {
+                // 검색 필터
+                if (bulkState.searchQuery) {
+                    const searchText = `${store.name} ${store.phone} ${store.address}`.toLowerCase();
+                    if (!searchText.includes(bulkState.searchQuery)) return false;
+                }
+                
+                // 상태 필터
+                if (bulkState.statusFilter && store.status !== bulkState.statusFilter) {
+                    return false;
+                }
+                
+                return true;
+            });
+
+            // 정렬
+            bulkState.filteredStores.sort((a, b) => {
+                if (bulkState.sortBy === 'name') {
+                    return a.name.localeCompare(b.name);
+                } else if (bulkState.sortBy === 'createdAt') {
+                    return new Date(b.createdAt) - new Date(a.createdAt);
+                } else if (bulkState.sortBy === 'lastModified') {
+                    return new Date(b.lastModified || b.createdAt) - new Date(a.lastModified || a.createdAt);
+                }
+                return 0;
+            });
+
+            // 렌더링
+            bulkRenderTable();
+            bulkRenderPagination();
+            bulkUpdateActionBar();
+        }
+
+        // 테이블 렌더링
+        function bulkRenderTable() {
+            const tbody = document.getElementById('bulk-table-body');
+            const table = document.getElementById('bulk-table');
+            const empty = document.getElementById('bulk-empty');
+
+            if (bulkState.filteredStores.length === 0) {
+                table.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            table.style.display = 'table';
+            empty.style.display = 'none';
+
+            // 페이지네이션
+            const start = (bulkState.currentPage - 1) * bulkState.pageSize;
+            const end = start + bulkState.pageSize;
+            const pageStores = bulkState.filteredStores.slice(start, end);
+
+            tbody.innerHTML = pageStores.map(store => {
+                const isSelected = bulkState.selectedIds.has(store.id);
+                const statusClass = store.status === 'active' ? 'bulk-status-active' : 'bulk-status-paused';
+                const statusText = store.status === 'active' ? '활성' : '일시정지';
+                const createdDate = new Date(store.createdAt).toLocaleDateString('ko-KR');
+
+                return `
+                    <tr class="${isSelected ? 'selected' : ''}" data-id="${store.id}">
+                        <td>
+                            <input type="checkbox" class="bulk-checkbox" ${isSelected ? 'checked' : ''} 
+                                   onchange="bulkToggleSelect('${store.id}')" />
+                        </td>
+                        <td><strong>${bulkEscapeHtml(store.name)}</strong></td>
+                        <td>${bulkEscapeHtml(store.subtitle || '-')}</td>
+                        <td>${bulkEscapeHtml(store.phone || '-')}</td>
+                        <td>${bulkEscapeHtml(store.address || '-')}</td>
+                        <td><span class="bulk-status-badge ${statusClass}">${statusText}</span></td>
+                        <td>${createdDate}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // 페이지네이션 렌더링
+        function bulkRenderPagination() {
+            const pagination = document.getElementById('bulk-pagination');
+            const pageInfo = document.getElementById('bulk-page-info');
+            const pageButtons = document.getElementById('bulk-page-buttons');
+
+            if (bulkState.filteredStores.length === 0) {
+                pagination.style.display = 'none';
+                return;
+            }
+
+            pagination.style.display = 'flex';
+
+            const totalPages = Math.ceil(bulkState.filteredStores.length / bulkState.pageSize);
+            const start = (bulkState.currentPage - 1) * bulkState.pageSize + 1;
+            const end = Math.min(start + bulkState.pageSize - 1, bulkState.filteredStores.length);
+
+            pageInfo.textContent = `${start}-${end} / ${bulkState.filteredStores.length}개`;
+
+            // 페이지 버튼
+            let buttons = '';
+            buttons += `<button class="bulk-page-btn" ${bulkState.currentPage === 1 ? 'disabled' : ''} 
+                        onclick="bulkGoToPage(${bulkState.currentPage - 1})">이전</button>`;
+            
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= bulkState.currentPage - 2 && i <= bulkState.currentPage + 2)) {
+                    buttons += `<button class="bulk-page-btn ${i === bulkState.currentPage ? 'active' : ''}" 
+                                onclick="bulkGoToPage(${i})">${i}</button>`;
+                } else if (i === bulkState.currentPage - 3 || i === bulkState.currentPage + 3) {
+                    buttons += `<button class="bulk-page-btn" disabled>...</button>`;
+                }
+            }
+            
+            buttons += `<button class="bulk-page-btn" ${bulkState.currentPage === totalPages ? 'disabled' : ''} 
+                        onclick="bulkGoToPage(${bulkState.currentPage + 1})">다음</button>`;
+
+            pageButtons.innerHTML = buttons;
+        }
+
+        // 페이지 이동
+        function bulkGoToPage(page) {
+            bulkState.currentPage = page;
+            bulkRenderTable();
+            bulkRenderPagination();
+        }
+
+        // 전체 선택/해제
+        function bulkToggleSelectAll() {
+            const checkbox = document.getElementById('bulk-select-all');
+            const start = (bulkState.currentPage - 1) * bulkState.pageSize;
+            const end = start + bulkState.pageSize;
+            const pageStores = bulkState.filteredStores.slice(start, end);
+
+            if (checkbox.checked) {
+                pageStores.forEach(store => bulkState.selectedIds.add(store.id));
+            } else {
+                pageStores.forEach(store => bulkState.selectedIds.delete(store.id));
+            }
+
+            bulkRenderTable();
+            bulkUpdateActionBar();
+        }
+
+        // 개별 선택/해제
+        function bulkToggleSelect(storeId) {
+            if (bulkState.selectedIds.has(storeId)) {
+                bulkState.selectedIds.delete(storeId);
+            } else {
+                bulkState.selectedIds.add(storeId);
+            }
+
+            bulkRenderTable();
+            bulkUpdateActionBar();
+        }
+
+        // 액션 바 업데이트
+        function bulkUpdateActionBar() {
+            const actionBar = document.getElementById('bulk-action-bar');
+            const selectedCount = document.getElementById('bulk-selected-count');
+            const selectAllCheckbox = document.getElementById('bulk-select-all');
+
+            selectedCount.textContent = bulkState.selectedIds.size;
+
+            if (bulkState.selectedIds.size > 0) {
+                actionBar.classList.add('active');
+            } else {
+                actionBar.classList.remove('active');
+            }
+
+            // 전체 선택 체크박스 상태 업데이트
+            const start = (bulkState.currentPage - 1) * bulkState.pageSize;
+            const end = start + bulkState.pageSize;
+            const pageStores = bulkState.filteredStores.slice(start, end);
+            const allSelected = pageStores.length > 0 && pageStores.every(store => bulkState.selectedIds.has(store.id));
+            selectAllCheckbox.checked = allSelected;
+        }
+
+        // 대량 일시정지
+        function bulkPauseStores() {
+            if (bulkState.selectedIds.size === 0) return;
+            
+            bulkState.pendingAction = {
+                type: 'pause',
+                title: '가게 일시정지',
+                message: `선택한 ${bulkState.selectedIds.size}개 가게를 일시정지하시겠습니까?`,
+                action: async () => {
+                    try {
+                        const response = await fetch(`${API_BASE}/api/stores/bulk-pause`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ storeIds: Array.from(bulkState.selectedIds) })
+                        });
+
+                        if (!response.ok) throw new Error('Failed to pause stores');
+                        
+                        const result = await response.json();
+                        bulkShowToast(`${result.pausedCount}개 가게가 일시정지되었습니다.`, 'success');
+                        bulkState.selectedIds.clear();
+                        await bulkLoadStores();
+                    } catch (error) {
+                        console.error('Error pausing stores:', error);
+                        bulkShowToast('일시정지 실패', 'error');
+                    }
+                }
+            };
+            bulkShowModal();
+        }
+
+        // 대량 재개
+        function bulkResumeStores() {
+            if (bulkState.selectedIds.size === 0) return;
+            
+            bulkState.pendingAction = {
+                type: 'resume',
+                title: '가게 재개',
+                message: `선택한 ${bulkState.selectedIds.size}개 가게를 재개하시겠습니까?`,
+                action: async () => {
+                    try {
+                        const response = await fetch(`${API_BASE}/api/stores/bulk-resume`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ storeIds: Array.from(bulkState.selectedIds) })
+                        });
+
+                        if (!response.ok) throw new Error('Failed to resume stores');
+                        
+                        const result = await response.json();
+                        bulkShowToast(`${result.resumedCount}개 가게가 재개되었습니다.`, 'success');
+                        bulkState.selectedIds.clear();
+                        await bulkLoadStores();
+                    } catch (error) {
+                        console.error('Error resuming stores:', error);
+                        bulkShowToast('재개 실패', 'error');
+                    }
+                }
+            };
+            bulkShowModal();
+        }
+
+        // 대량 삭제
+        function bulkDeleteStores() {
+            if (bulkState.selectedIds.size === 0) return;
+            
+            bulkState.pendingAction = {
+                type: 'delete',
+                title: '가게 삭제',
+                message: `⚠️ 선택한 ${bulkState.selectedIds.size}개 가게를 영구적으로 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`,
+                action: async () => {
+                    try {
+                        const response = await fetch(`${API_BASE}/api/stores/bulk-delete`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ storeIds: Array.from(bulkState.selectedIds) })
+                        });
+
+                        if (!response.ok) throw new Error('Failed to delete stores');
+                        
+                        const result = await response.json();
+                        bulkShowToast(`${result.deletedCount}개 가게가 삭제되었습니다.`, 'success');
+                        bulkState.selectedIds.clear();
+                        await bulkLoadStores();
+                    } catch (error) {
+                        console.error('Error deleting stores:', error);
+                        bulkShowToast('삭제 실패', 'error');
+                    }
+                }
+            };
+            bulkShowModal();
+        }
+
+        // JSON 내보내기
+        async function bulkExportJSON() {
+            try {
+                const response = await fetch(`${API_BASE}/api/stores/bulk-export?format=json`);
+                if (!response.ok) throw new Error('Failed to export');
+                
+                const data = await response.json();
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `stores_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                bulkShowToast('JSON 파일이 다운로드되었습니다.', 'success');
+            } catch (error) {
+                console.error('Error exporting JSON:', error);
+                bulkShowToast('내보내기 실패', 'error');
+            }
+        }
+
+        // CSV 내보내기
+        async function bulkExportCSV() {
+            try {
+                const response = await fetch(`${API_BASE}/api/stores/bulk-export?format=csv`);
+                if (!response.ok) throw new Error('Failed to export');
+                
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `stores_${new Date().toISOString().split('T')[0]}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                bulkShowToast('CSV 파일이 다운로드되었습니다.', 'success');
+            } catch (error) {
+                console.error('Error exporting CSV:', error);
+                bulkShowToast('내보내기 실패', 'error');
+            }
+        }
+
+        // JSON 가져오기
+        async function bulkImportJSONFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            try {
+                const text = await file.text();
+                const data = JSON.parse(text);
+                
+                if (!data.stores || !Array.isArray(data.stores)) {
+                    throw new Error('Invalid JSON format');
+                }
+
+                const response = await fetch(`${API_BASE}/api/stores/bulk-import`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ format: 'json', stores: data.stores })
+                });
+
+                if (!response.ok) throw new Error('Failed to import');
+                
+                const result = await response.json();
+                bulkShowToast(`${result.importedCount}개 가게가 가져오기되었습니다.`, 'success');
+                await bulkLoadStores();
+            } catch (error) {
+                console.error('Error importing JSON file:', error);
+                bulkShowToast('JSON 가져오기 실패', 'error');
+            } finally {
+                event.target.value = '';
+            }
+        }
+
+        // CSV 가져오기
+        async function bulkImportCSVFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            try {
+                const text = await file.text();
+                
+                const response = await fetch(`${API_BASE}/api/stores/bulk-import`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ format: 'csv', csvData: text })
+                });
+
+                if (!response.ok) throw new Error('Failed to import');
+                
+                const result = await response.json();
+                bulkShowToast(`${result.importedCount}개 가게가 가져오기되었습니다.`, 'success');
+                await bulkLoadStores();
+            } catch (error) {
+                console.error('Error importing CSV file:', error);
+                bulkShowToast('CSV 가져오기 실패', 'error');
+            } finally {
+                event.target.value = '';
+            }
+        }
+
+        // 모달 표시
+        function bulkShowModal() {
+            const modal = document.getElementById('bulk-modal');
+            const title = document.getElementById('bulk-modal-title');
+            const message = document.getElementById('bulk-modal-message');
+            const confirmBtn = document.getElementById('bulk-modal-confirm');
+
+            if (!bulkState.pendingAction) return;
+
+            title.textContent = bulkState.pendingAction.title;
+            message.textContent = bulkState.pendingAction.message;
+            
+            if (bulkState.pendingAction.type === 'delete') {
+                confirmBtn.className = 'bulk-btn bulk-btn-danger';
+            } else {
+                confirmBtn.className = 'bulk-btn bulk-btn-primary';
+            }
+
+            modal.classList.add('active');
+        }
+
+        // 모달 닫기
+        function bulkCloseModal() {
+            const modal = document.getElementById('bulk-modal');
+            modal.classList.remove('active');
+            bulkState.pendingAction = null;
+        }
+
+        // 모달 확인
+        async function bulkConfirmAction() {
+            if (bulkState.pendingAction && bulkState.pendingAction.action) {
+                bulkCloseModal();
+                await bulkState.pendingAction.action();
+            }
+        }
+
+        // 토스트 표시
+        function bulkShowToast(message, type = 'success') {
+            const toast = document.getElementById('bulk-toast');
+            const icon = document.getElementById('bulk-toast-icon');
+            const messageEl = document.getElementById('bulk-toast-message');
+
+            toast.className = `bulk-toast bulk-toast-${type} active`;
+            icon.textContent = type === 'success' ? '✅' : '❌';
+            messageEl.textContent = message;
+
+            setTimeout(() => {
+                toast.classList.remove('active');
+            }, 3000);
+        }
+
+        // HTML 이스케이프
+        function bulkEscapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
+

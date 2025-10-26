@@ -396,3 +396,4 @@ with open('assets/data/data.json', 'w', encoding='utf-8') as f:
 **작성자**: AI Assistant  
 **상태**: ✅ 완료
 
+

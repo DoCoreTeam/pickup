@@ -31,6 +31,43 @@
             padding: 20px 0;
             display: flex;
             flex-direction: column;
+            position: relative;
+            transition: transform 0.3s ease;
+        }
+        
+        .sidebar-toggle {
+            display: none;
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1001;
+            background: #2c3e50;
+            color: white;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .sidebar-toggle:hover {
+            background: #34495e;
+        }
+        
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+        
+        .sidebar-overlay.active {
+            display: block;
         }
         
         .sidebar-footer {
@@ -1512,6 +1549,28 @@
 
         /* 반응형 디자인 */
         @media (max-width: 768px) {
+            .admin-sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                z-index: 1000;
+                transform: translateX(-100%);
+            }
+            
+            .admin-sidebar.active {
+                transform: translateX(0);
+            }
+            
+            .sidebar-toggle {
+                display: block;
+            }
+            
+            .admin-content {
+                flex: 1;
+                width: 100%;
+            }
+            
             .toggle-header {
                 flex-direction: column;
                 align-items: flex-start;
@@ -1539,6 +1598,12 @@
     <div class="admin-container">
         <!-- 토스트 알림 컨테이너 -->
         <div id="toastContainer" class="toast-container"></div>
+        
+        <!-- 모바일 사이드바 토글 버튼 -->
+        <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+        
+        <!-- 사이드바 오버레이 (모바일) -->
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
         
         <!-- 사이드바 -->
         <div class="admin-sidebar">
@@ -1582,12 +1647,15 @@
                 <div class="menu-item" onclick="showSection('superadmin')">
                     <span>👤</span> 슈퍼어드민
                 </div>
+                <div class="menu-item" onclick="window.location.href='/admin/bulk-management.html'" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin-top: 10px;">
+                    <span>🚀</span> 대량 가게 관리
+                </div>
             </div>
             
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge">v1.3.0</div>
+                    <div class="version-badge">v1.4.0</div>
                 </div>
                 <a href="/admin/release-notes.html" class="release-notes-btn">
                     📝 릴리즈 노트
@@ -1621,6 +1689,45 @@
                     가게 관리
                 </h2>
                 
+                <!-- 통계 대시보드 -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                        <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">전체 가게</div>
+                        <div style="font-size: 32px; font-weight: 700;" id="totalStoresCount">0</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                        <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">활성 가게</div>
+                        <div style="font-size: 32px; font-weight: 700;" id="activeStoresCount">0</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                        <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">일시정지</div>
+                        <div style="font-size: 32px; font-weight: 700;" id="pausedStoresCount">0</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                        <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">오늘 추가</div>
+                        <div style="font-size: 32px; font-weight: 700;" id="todayStoresCount">0</div>
+                    </div>
+                </div>
+                
+                <!-- 검색 및 필터 -->
+                <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
+                    <input type="text" id="storeSearchInput" placeholder="🔍 가게명, 전화번호, 주소 검색..." 
+                           style="flex: 1; min-width: 250px; padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 14px;"
+                           onkeyup="filterStoreList()" />
+                    <select id="storeStatusFilter" style="padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 14px; cursor: pointer;"
+                            onchange="filterStoreList()">
+                        <option value="">전체 상태</option>
+                        <option value="active">활성</option>
+                        <option value="paused">일시정지</option>
+                    </select>
+                    <select id="storeSortBy" style="padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 14px; cursor: pointer;"
+                            onchange="filterStoreList()">
+                        <option value="name">이름순</option>
+                        <option value="createdAt">생성일순</option>
+                        <option value="lastModified">최근 수정순</option>
+                    </select>
+                </div>
+                
                 <div class="form-group">
                     <label>현재 선택된 가게</label>
                     <div id="currentStoreInfo" style="padding: 10px; background: #f8f9fa; border-radius: 4px; margin-bottom: 15px;">
@@ -1629,14 +1736,25 @@
                 </div>
 
                 <div class="form-group">
-                    <label>가게 목록</label>
+                    <label>가게 목록 (<span id="filteredStoresCount">0</span>개)</label>
                     <ul id="storeList" class="store-list">
                         <li>로딩 중...</li>
                     </ul>
                 </div>
 
-                <div class="button-group">
-                    <button onclick="showStoreNameModal()" class="btn btn-primary">새 가게 추가</button>
+                <div class="button-group" style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    <button onclick="showStoreNameModal()" class="btn btn-primary">
+                        ➕ 새 가게 추가
+                    </button>
+                    <button onclick="window.location.href='/admin/bulk-management.html'" class="btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                        🚀 대량 관리
+                    </button>
+                    <button onclick="exportStoresJSON()" class="btn">
+                        📥 JSON 내보내기
+                    </button>
+                    <button onclick="exportStoresCSV()" class="btn">
+                        📊 CSV 내보내기
+                    </button>
                 </div>
             </div>
 
@@ -1986,6 +2104,10 @@
 
     <script>
         const API_BASE = '/api';
+        
+        // 전역 가게 목록 (필터링용)
+        let allStores = [];
+        let filteredStores = [];
 
         // 로그인 상태 확인
         const isLoggedIn = sessionStorage.getItem('superadmin_logged_in') === 'true';
@@ -2137,11 +2259,180 @@
         }
 
         // 가게 목록 로드
+        // 통계 업데이트
+        function updateStoreStats() {
+            const total = allStores.length;
+            const active = allStores.filter(s => s.status === 'active').length;
+            const paused = allStores.filter(s => s.status === 'paused').length;
+            
+            // 오늘 추가된 가게
+            const today = new Date().toISOString().split('T')[0];
+            const todayStores = allStores.filter(s => {
+                const createdDate = new Date(s.createdAt).toISOString().split('T')[0];
+                return createdDate === today;
+            }).length;
+            
+            document.getElementById('totalStoresCount').textContent = total;
+            document.getElementById('activeStoresCount').textContent = active;
+            document.getElementById('pausedStoresCount').textContent = paused;
+            document.getElementById('todayStoresCount').textContent = todayStores;
+        }
+        
+        // 가게 목록 필터링
+        function filterStoreList() {
+            const searchQuery = document.getElementById('storeSearchInput').value.toLowerCase();
+            const statusFilter = document.getElementById('storeStatusFilter').value;
+            const sortBy = document.getElementById('storeSortBy').value;
+            
+            // 필터링
+            filteredStores = allStores.filter(store => {
+                // 검색 필터
+                if (searchQuery) {
+                    const searchText = `${store.name} ${store.phone} ${store.address}`.toLowerCase();
+                    if (!searchText.includes(searchQuery)) return false;
+                }
+                
+                // 상태 필터
+                if (statusFilter && store.status !== statusFilter) {
+                    return false;
+                }
+                
+                return true;
+            });
+            
+            // 정렬
+            filteredStores.sort((a, b) => {
+                if (sortBy === 'name') {
+                    return a.name.localeCompare(b.name);
+                } else if (sortBy === 'createdAt') {
+                    return new Date(b.createdAt) - new Date(a.createdAt);
+                } else if (sortBy === 'lastModified') {
+                    return new Date(b.lastModified || b.createdAt) - new Date(a.lastModified || a.createdAt);
+                }
+                return 0;
+            });
+            
+            // 필터링된 개수 업데이트
+            document.getElementById('filteredStoresCount').textContent = filteredStores.length;
+            
+            // 테이블 다시 렌더링
+            renderStoreTable();
+        }
+        
+        // 가게 테이블 렌더링
+        async function renderStoreTable() {
+            const tbody = document.getElementById('storeTableBody');
+            const currentStoreId = await getCurrentStoreId();
+            
+            if (!tbody) return;
+            
+            tbody.innerHTML = '';
+            
+            filteredStores.forEach(store => {
+                const tr = document.createElement('tr');
+                tr.className = 'store-row';
+                tr.setAttribute('data-store-id', store.id);
+                
+                // 현재 선택된 가게인지 확인
+                if (currentStoreId === store.id) {
+                    tr.classList.add('selected');
+                }
+                
+                // 부제목 처리 (긴 경우 짧게 표시)
+                const subtitle = store.subtitle || '부제목 없음';
+                const maxSubtitleLength = 40;
+                let subtitleHtml = '';
+                
+                if (subtitle.length > maxSubtitleLength) {
+                    const shortSubtitle = subtitle.substring(0, maxSubtitleLength);
+                    subtitleHtml = `
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="subtitle-short" id="subtitle-short-${store.id}">${shortSubtitle}...</span>
+                            <span class="subtitle-full" id="subtitle-full-${store.id}">${subtitle}</span>
+                            <button class="subtitle-toggle-btn" onclick="event.stopPropagation(); toggleSubtitle('${store.id}')">
+                                더보기
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    subtitleHtml = subtitle;
+                }
+                
+                const statusBadge = store.status === 'paused' 
+                    ? '<span class="status-badge status-paused">일시정지</span>'
+                    : '<span class="status-badge status-active">활성</span>';
+                
+                tr.innerHTML = `
+                    <td><strong>${store.name}</strong></td>
+                    <td>${subtitleHtml}</td>
+                    <td>${store.phone || '전화번호 없음'}</td>
+                    <td>${store.address || '주소 없음'}</td>
+                    <td>${statusBadge}</td>
+                    <td class="table-actions">
+                        <button class="btn btn-small" onclick="event.stopPropagation(); selectStore('${store.id}')">선택</button>
+                        <button class="btn btn-small btn-danger" onclick="event.stopPropagation(); deleteStore('${store.id}')">삭제</button>
+                    </td>
+                `;
+                
+                tr.onclick = () => selectStore(store.id);
+                tbody.appendChild(tr);
+            });
+        }
+        
+        // JSON 내보내기
+        async function exportStoresJSON() {
+            try {
+                const response = await fetch(`${API_BASE}/stores/bulk-export?format=json`);
+                if (!response.ok) throw new Error('Failed to export');
+                
+                const data = await response.json();
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `stores_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                showToast('JSON 파일이 다운로드되었습니다.', 'success');
+            } catch (error) {
+                console.error('Error exporting JSON:', error);
+                showToast('내보내기 실패', 'error');
+            }
+        }
+        
+        // CSV 내보내기
+        async function exportStoresCSV() {
+            try {
+                const response = await fetch(`${API_BASE}/stores/bulk-export?format=csv`);
+                if (!response.ok) throw new Error('Failed to export');
+                
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `stores_${new Date().toISOString().split('T')[0]}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                showToast('CSV 파일이 다운로드되었습니다.', 'success');
+            } catch (error) {
+                console.error('Error exporting CSV:', error);
+                showToast('내보내기 실패', 'error');
+            }
+        }
+
         async function loadStoreList() {
             try {
                 const stores = await apiRequest(`${API_BASE}/stores`);
+                allStores = stores;
+                filteredStores = stores;
+                
                 const storeList = document.getElementById('storeList');
                 const currentStoreId = await getCurrentStoreId();
+                
+                // 통계 업데이트
+                updateStoreStats();
                 
                 // 테이블 구조로 변경
                 storeList.innerHTML = `
@@ -2163,68 +2454,11 @@
                     </div>
                 `;
                 
-                const tbody = document.getElementById('storeTableBody');
+                // 필터링된 개수 업데이트
+                document.getElementById('filteredStoresCount').textContent = filteredStores.length;
                 
-                stores.forEach(store => {
-                    const tr = document.createElement('tr');
-                    tr.className = 'store-row';
-                    tr.setAttribute('data-store-id', store.id);
-                    
-                    // 현재 선택된 가게인지 확인
-                    if (currentStoreId === store.id) {
-                        tr.classList.add('selected');
-                    }
-                    
-                    // 부제목 처리 (긴 경우 짧게 표시)
-                    const subtitle = store.subtitle || '부제목 없음';
-                    const maxSubtitleLength = 40;
-                    let subtitleHtml = '';
-                    
-                    if (subtitle.length > maxSubtitleLength) {
-                        const shortSubtitle = subtitle.substring(0, maxSubtitleLength);
-                        subtitleHtml = `
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span class="subtitle-short" id="subtitle-short-${store.id}">${shortSubtitle}...</span>
-                                <span class="subtitle-full" id="subtitle-full-${store.id}">${subtitle}</span>
-                                <button class="subtitle-toggle-btn" onclick="event.stopPropagation(); toggleSubtitle('${store.id}')">
-                                    더보기
-                                </button>
-                            </div>
-                        `;
-                    } else {
-                        subtitleHtml = subtitle;
-                    }
-                    
-                    tr.innerHTML = `
-                        <td class="store-name">${store.name || '이름 없음'}</td>
-                        <td class="store-subtitle">${subtitleHtml}</td>
-                        <td>${store.phone || '전화번호 없음'}</td>
-                        <td>${store.address || '주소 없음'}</td>
-                        <td class="store-status">
-                            <span class="status-badge ${store.status === 'paused' ? 'status-paused' : 'status-active'}">
-                                ${store.status === 'paused' ? '중지됨' : '운영중'}
-                            </span>
-                        </td>
-                        <td class="table-actions">
-                            <button onclick="viewStorePage('${store.id}')" class="btn btn-sm btn-info">페이지 보기</button>
-                            ${store.status === 'paused' 
-                                ? `<button onclick="resumeStore('${store.id}')" class="btn btn-sm btn-success">재개</button>`
-                                : `<button onclick="pauseStore('${store.id}')" class="btn btn-sm btn-warning">중지</button>`
-                            }
-                            <button onclick="deleteStore('${store.id}')" class="btn btn-sm btn-danger">삭제</button>
-                        </td>
-                    `;
-                    
-                    // 행 클릭 이벤트 (버튼 클릭 제외)
-                    tr.addEventListener('click', (e) => {
-                        // 버튼 클릭이 아닌 경우에만 가게 선택
-                        if (!e.target.closest('.table-actions')) {
-                            selectStore(store.id);
-                        }
-                    });
-                    
-                    tbody.appendChild(tr);
-                });
+                // 테이블 렌더링
+                await renderStoreTable();
                 
                 // 현재 선택된 가게 정보 표시 및 시각적 표시
                 if (currentStoreId) {
@@ -3377,8 +3611,24 @@
             showToast('먼저 가게를 선택해주세요.', 'error', '가게 선택 필요');
         }
 
+        // 사이드바 토글 (모바일)
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.admin-sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        }
+
         // 섹션 표시
         async function showSection(sectionId) {
+            // 모바일에서 섹션 전환 시 사이드바 자동 닫기
+            if (window.innerWidth <= 768) {
+                const sidebar = document.querySelector('.admin-sidebar');
+                const overlay = document.getElementById('sidebarOverlay');
+                sidebar.classList.remove('active');
+                overlay.classList.remove('active');
+            }
             // 가게 관리 섹션은 항상 접근 가능
             if (sectionId === 'stores') {
                 // 모든 섹션 숨기기

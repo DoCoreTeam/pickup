@@ -1075,6 +1075,83 @@ class DataHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 return
             
+            elif parsed_path.path == '/api/stores/bulk-export':
+                # 대량 가게 내보내기 (CSV/JSON)
+                log(LogLevel.INFO, "대량 가게 내보내기 요청")
+                
+                try:
+                    data = self.load_data()
+                    stores = data.get('stores', [])
+                    
+                    # 쿼리 파라미터로 포맷 지정 (기본값: json)
+                    query_params = parse_qs(parsed_path.query)
+                    export_format = query_params.get('format', ['json'])[0]
+                    
+                    if export_format == 'csv':
+                        # CSV 형식으로 내보내기
+                        import csv
+                        import io
+                        
+                        output = io.StringIO()
+                        writer = csv.DictWriter(output, fieldnames=['id', 'name', 'subtitle', 'phone', 'address', 'status', 'createdAt'])
+                        writer.writeheader()
+                        
+                        for store in stores:
+                            writer.writerow({
+                                'id': store.get('id', ''),
+                                'name': store.get('name', ''),
+                                'subtitle': store.get('subtitle', ''),
+                                'phone': store.get('phone', ''),
+                                'address': store.get('address', ''),
+                                'status': store.get('status', 'active'),
+                                'createdAt': store.get('createdAt', '')
+                            })
+                        
+                        csv_content = output.getvalue()
+                        
+                        # UTF-8 BOM 추가 (엑셀 호환)
+                        bom = '\ufeff'
+                        csv_with_bom = bom + csv_content
+                        
+                        self.send_response(200)
+                        self.send_header('Content-Type', 'text/csv; charset=utf-8')
+                        self.send_header('Content-Disposition', 'attachment; filename="stores.csv"')
+                        self.send_header('Access-Control-Allow-Origin', '*')
+                        self.end_headers()
+                        self.wfile.write(csv_with_bom.encode('utf-8'))
+                        
+                        log(LogLevel.INFO, f"CSV 내보내기 완료: {len(stores)}개 가게")
+                    else:
+                        # JSON 형식으로 내보내기 (기본값)
+                        export_data = {
+                            'exportedAt': datetime.now().isoformat(),
+                            'totalCount': len(stores),
+                            'stores': stores
+                        }
+                        
+                        self.send_json_response(export_data)
+                        log(LogLevel.INFO, f"JSON 내보내기 완료: {len(stores)}개 가게")
+                    
+                    # 활동 로그 기록
+                    try:
+                        self.log_activity(
+                            log_type="bulk",
+                            action="대량 가게 내보내기",
+                            description=f"{len(stores)}개 가게 데이터 내보내기 ({export_format.upper()} 형식)",
+                            user_id="admin",
+                            user_name="슈퍼어드민",
+                            target_type="stores",
+                            target_id="bulk_export",
+                            target_name=f"{len(stores)}개 가게",
+                            details={"exportFormat": export_format, "exportedCount": len(stores)}
+                        )
+                    except Exception as log_error:
+                        log(LogLevel.WARN, f"활동 로그 기록 실패 (무시): {log_error}")
+                
+                except Exception as e:
+                    log_error(f"대량 가게 내보내기 중 오류", e)
+                    self.send_json_response({"error": str(e)}, 500)
+            
             else:
                 # 정적 파일 서빙 (API가 아닌 경우)
                 self.serve_static_file(parsed_path.path)
@@ -1898,6 +1975,335 @@ class DataHandler(BaseHTTPRequestHandler):
                 
                 except Exception as e:
                     log_error(f"AI 콘텐츠 생성 중 오류: {store_name}", e)
+                    self.send_json_response({"error": str(e)}, 500)
+            
+            elif parsed_path.path == '/api/stores/bulk-update':
+                # 대량 가게 정보 수정
+                data = self.get_request_data()
+                if not data:
+                    self.send_json_response({"error": "Invalid data"}, 400)
+                    return
+                
+                store_ids = data.get('storeIds', [])
+                updates = data.get('updates', {})
+                
+                if not store_ids or not updates:
+                    self.send_json_response({"error": "storeIds and updates are required"}, 400)
+                    return
+                
+                log(LogLevel.INFO, f"대량 가게 수정 요청: {len(store_ids)}개 가게")
+                
+                try:
+                    store_data = self.load_data()
+                    updated_count = 0
+                    updated_stores = []
+                    
+                    for store_id in store_ids:
+                        for i, store in enumerate(store_data['stores']):
+                            if store['id'] == store_id:
+                                # 업데이트 적용
+                                for key, value in updates.items():
+                                    if key in ['name', 'subtitle', 'phone', 'address', 'status']:
+                                        store_data['stores'][i][key] = value
+                                store_data['stores'][i]['lastModified'] = datetime.now().isoformat()
+                                updated_count += 1
+                                updated_stores.append(store.get('name', store_id))
+                                break
+                    
+                    if self.save_data(store_data):
+                        # 활동 로그 기록
+                        try:
+                            self.log_activity(
+                                log_type="bulk",
+                                action="대량 가게 수정",
+                                description=f"{updated_count}개 가게 정보 일괄 수정\n수정된 가게: {', '.join(updated_stores[:5])}{' 외 ' + str(len(updated_stores) - 5) + '개' if len(updated_stores) > 5 else ''}\n수정 내용: {', '.join(updates.keys())}",
+                                user_id="admin",
+                                user_name="슈퍼어드민",
+                                target_type="stores",
+                                target_id=",".join(store_ids[:5]),
+                                target_name=f"{updated_count}개 가게",
+                                details={"storeIds": store_ids, "updates": updates, "updatedCount": updated_count}
+                            )
+                        except Exception as log_error:
+                            log(LogLevel.WARN, f"활동 로그 기록 실패 (무시): {log_error}")
+                        
+                        log(LogLevel.INFO, f"대량 가게 수정 완료: {updated_count}개")
+                        self.send_json_response({"success": True, "updatedCount": updated_count})
+                    else:
+                        log_error(f"대량 가게 수정 저장 실패")
+                        self.send_json_response({"error": "저장 실패"}, 500)
+                
+                except Exception as e:
+                    log_error(f"대량 가게 수정 중 오류", e)
+                    self.send_json_response({"error": str(e)}, 500)
+            
+            elif parsed_path.path == '/api/stores/bulk-delete':
+                # 대량 가게 삭제
+                data = self.get_request_data()
+                if not data:
+                    self.send_json_response({"error": "Invalid data"}, 400)
+                    return
+                
+                store_ids = data.get('storeIds', [])
+                
+                if not store_ids:
+                    self.send_json_response({"error": "storeIds is required"}, 400)
+                    return
+                
+                log(LogLevel.INFO, f"대량 가게 삭제 요청: {len(store_ids)}개 가게")
+                
+                try:
+                    store_data = self.load_data()
+                    deleted_stores = []
+                    
+                    # 가게 삭제
+                    store_data['stores'] = [
+                        s for s in store_data['stores']
+                        if s['id'] not in store_ids or (deleted_stores.append(s) or False)
+                    ]
+                    
+                    # 설정 삭제
+                    for store_id in store_ids:
+                        if store_id in store_data.get('settings', {}):
+                            del store_data['settings'][store_id]
+                    
+                    if self.save_data(store_data):
+                        # 활동 로그 기록
+                        try:
+                            deleted_names = [s.get('name', s.get('id')) for s in deleted_stores]
+                            self.log_activity(
+                                log_type="bulk",
+                                action="대량 가게 삭제",
+                                description=f"{len(deleted_stores)}개 가게 일괄 삭제\n삭제된 가게: {', '.join(deleted_names[:5])}{' 외 ' + str(len(deleted_names) - 5) + '개' if len(deleted_names) > 5 else ''}",
+                                user_id="admin",
+                                user_name="슈퍼어드민",
+                                target_type="stores",
+                                target_id=",".join(store_ids[:5]),
+                                target_name=f"{len(deleted_stores)}개 가게",
+                                details={"storeIds": store_ids, "deletedCount": len(deleted_stores), "deletedStores": deleted_names}
+                            )
+                        except Exception as log_error:
+                            log(LogLevel.WARN, f"활동 로그 기록 실패 (무시): {log_error}")
+                        
+                        log(LogLevel.INFO, f"대량 가게 삭제 완료: {len(deleted_stores)}개")
+                        self.send_json_response({"success": True, "deletedCount": len(deleted_stores)})
+                    else:
+                        log_error(f"대량 가게 삭제 저장 실패")
+                        self.send_json_response({"error": "저장 실패"}, 500)
+                
+                except Exception as e:
+                    log_error(f"대량 가게 삭제 중 오류", e)
+                    self.send_json_response({"error": str(e)}, 500)
+            
+            elif parsed_path.path == '/api/stores/bulk-pause':
+                # 대량 가게 일시정지
+                data = self.get_request_data()
+                if not data:
+                    self.send_json_response({"error": "Invalid data"}, 400)
+                    return
+                
+                store_ids = data.get('storeIds', [])
+                
+                if not store_ids:
+                    self.send_json_response({"error": "storeIds is required"}, 400)
+                    return
+                
+                log(LogLevel.INFO, f"대량 가게 일시정지 요청: {len(store_ids)}개 가게")
+                
+                try:
+                    store_data = self.load_data()
+                    paused_count = 0
+                    paused_stores = []
+                    
+                    for store_id in store_ids:
+                        for i, store in enumerate(store_data['stores']):
+                            if store['id'] == store_id:
+                                store_data['stores'][i]['status'] = 'paused'
+                                store_data['stores'][i]['lastModified'] = datetime.now().isoformat()
+                                paused_count += 1
+                                paused_stores.append(store.get('name', store_id))
+                                break
+                    
+                    if self.save_data(store_data):
+                        # 활동 로그 기록
+                        try:
+                            self.log_activity(
+                                log_type="bulk",
+                                action="대량 가게 일시정지",
+                                description=f"{paused_count}개 가게 일괄 일시정지\n일시정지된 가게: {', '.join(paused_stores[:5])}{' 외 ' + str(len(paused_stores) - 5) + '개' if len(paused_stores) > 5 else ''}",
+                                user_id="admin",
+                                user_name="슈퍼어드민",
+                                target_type="stores",
+                                target_id=",".join(store_ids[:5]),
+                                target_name=f"{paused_count}개 가게",
+                                details={"storeIds": store_ids, "pausedCount": paused_count}
+                            )
+                        except Exception as log_error:
+                            log(LogLevel.WARN, f"활동 로그 기록 실패 (무시): {log_error}")
+                        
+                        log(LogLevel.INFO, f"대량 가게 일시정지 완료: {paused_count}개")
+                        self.send_json_response({"success": True, "pausedCount": paused_count})
+                    else:
+                        log_error(f"대량 가게 일시정지 저장 실패")
+                        self.send_json_response({"error": "저장 실패"}, 500)
+                
+                except Exception as e:
+                    log_error(f"대량 가게 일시정지 중 오류", e)
+                    self.send_json_response({"error": str(e)}, 500)
+            
+            elif parsed_path.path == '/api/stores/bulk-resume':
+                # 대량 가게 재개
+                data = self.get_request_data()
+                if not data:
+                    self.send_json_response({"error": "Invalid data"}, 400)
+                    return
+                
+                store_ids = data.get('storeIds', [])
+                
+                if not store_ids:
+                    self.send_json_response({"error": "storeIds is required"}, 400)
+                    return
+                
+                log(LogLevel.INFO, f"대량 가게 재개 요청: {len(store_ids)}개 가게")
+                
+                try:
+                    store_data = self.load_data()
+                    resumed_count = 0
+                    resumed_stores = []
+                    
+                    for store_id in store_ids:
+                        for i, store in enumerate(store_data['stores']):
+                            if store['id'] == store_id:
+                                store_data['stores'][i]['status'] = 'active'
+                                store_data['stores'][i]['lastModified'] = datetime.now().isoformat()
+                                resumed_count += 1
+                                resumed_stores.append(store.get('name', store_id))
+                                break
+                    
+                    if self.save_data(store_data):
+                        # 활동 로그 기록
+                        try:
+                            self.log_activity(
+                                log_type="bulk",
+                                action="대량 가게 재개",
+                                description=f"{resumed_count}개 가게 일괄 재개\n재개된 가게: {', '.join(resumed_stores[:5])}{' 외 ' + str(len(resumed_stores) - 5) + '개' if len(resumed_stores) > 5 else ''}",
+                                user_id="admin",
+                                user_name="슈퍼어드민",
+                                target_type="stores",
+                                target_id=",".join(store_ids[:5]),
+                                target_name=f"{resumed_count}개 가게",
+                                details={"storeIds": store_ids, "resumedCount": resumed_count}
+                            )
+                        except Exception as log_error:
+                            log(LogLevel.WARN, f"활동 로그 기록 실패 (무시): {log_error}")
+                        
+                        log(LogLevel.INFO, f"대량 가게 재개 완료: {resumed_count}개")
+                        self.send_json_response({"success": True, "resumedCount": resumed_count})
+                    else:
+                        log_error(f"대량 가게 재개 저장 실패")
+                        self.send_json_response({"error": "저장 실패"}, 500)
+                
+                except Exception as e:
+                    log_error(f"대량 가게 재개 중 오류", e)
+                    self.send_json_response({"error": str(e)}, 500)
+            
+            elif parsed_path.path == '/api/stores/bulk-import':
+                # 대량 가게 가져오기 (CSV/JSON)
+                data = self.get_request_data()
+                if not data:
+                    self.send_json_response({"error": "Invalid data"}, 400)
+                    return
+                
+                # CSV 형식 지원
+                import_format = data.get('format', 'json')
+                stores = []
+                
+                if import_format == 'csv':
+                    # CSV 데이터 파싱
+                    import csv
+                    import io
+                    
+                    csv_data = data.get('csvData', '')
+                    if not csv_data:
+                        self.send_json_response({"error": "csvData is required"}, 400)
+                        return
+                    
+                    # UTF-8 BOM 제거
+                    if csv_data.startswith('\ufeff'):
+                        csv_data = csv_data[1:]
+                    
+                    reader = csv.DictReader(io.StringIO(csv_data))
+                    for row in reader:
+                        stores.append({
+                            'name': row.get('name', ''),
+                            'subtitle': row.get('subtitle', ''),
+                            'phone': row.get('phone', ''),
+                            'address': row.get('address', ''),
+                            'status': row.get('status', 'active')
+                        })
+                else:
+                    # JSON 형식
+                    stores = data.get('stores', [])
+                
+                if not stores:
+                    self.send_json_response({"error": "stores is required"}, 400)
+                    return
+                
+                log(LogLevel.INFO, f"대량 가게 가져오기 요청: {len(stores)}개 가게 ({import_format.upper()} 형식)")
+                
+                try:
+                    store_data = self.load_data()
+                    imported_count = 0
+                    imported_stores = []
+                    
+                    for store in stores:
+                        # 필수 필드 확인
+                        if 'name' not in store:
+                            continue
+                        
+                        # 새 가게 ID 생성
+                        store_id = f"store_{int(datetime.now().timestamp() * 1000)}_{secrets.token_hex(5)}"
+                        
+                        new_store = {
+                            'id': store_id,
+                            'name': store.get('name', ''),
+                            'subtitle': store.get('subtitle', ''),
+                            'phone': store.get('phone', ''),
+                            'address': store.get('address', ''),
+                            'createdAt': datetime.now().isoformat(),
+                            'lastModified': datetime.now().isoformat(),
+                            'status': store.get('status', 'active')
+                        }
+                        
+                        store_data['stores'].append(new_store)
+                        imported_count += 1
+                        imported_stores.append(new_store['name'])
+                    
+                    if self.save_data(store_data):
+                        # 활동 로그 기록
+                        try:
+                            self.log_activity(
+                                log_type="bulk",
+                                action="대량 가게 가져오기",
+                                description=f"{imported_count}개 가게 일괄 가져오기\n가져온 가게: {', '.join(imported_stores[:5])}{' 외 ' + str(len(imported_stores) - 5) + '개' if len(imported_stores) > 5 else ''}",
+                                user_id="admin",
+                                user_name="슈퍼어드민",
+                                target_type="stores",
+                                target_id="bulk_import",
+                                target_name=f"{imported_count}개 가게",
+                                details={"importedCount": imported_count, "importedStores": imported_stores}
+                            )
+                        except Exception as log_error:
+                            log(LogLevel.WARN, f"활동 로그 기록 실패 (무시): {log_error}")
+                        
+                        log(LogLevel.INFO, f"대량 가게 가져오기 완료: {imported_count}개")
+                        self.send_json_response({"success": True, "importedCount": imported_count})
+                    else:
+                        log_error(f"대량 가게 가져오기 저장 실패")
+                        self.send_json_response({"error": "저장 실패"}, 500)
+                
+                except Exception as e:
+                    log_error(f"대량 가게 가져오기 중 오류", e)
                     self.send_json_response({"error": str(e)}, 500)
             
             else:

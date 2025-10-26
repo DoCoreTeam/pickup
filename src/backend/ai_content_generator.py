@@ -195,3 +195,4 @@ def get_generator():
         _generator = AIContentGenerator()
     return _generator
 
+

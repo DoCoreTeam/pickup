@@ -201,3 +201,4 @@ def get_qr_generator():
         _qr_generator = QRGenerator()
     return _qr_generator
 
+
