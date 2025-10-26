@@ -1651,9 +1651,6 @@
                 <div class="menu-item" onclick="showSection('superadmin')">
                     <span>👤</span> 슈퍼어드민
                 </div>
-                <div class="menu-item" onclick="window.location.href='/admin/bulk-management.html'" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin-top: 10px;">
-                    <span>🚀</span> 대량 가게 관리
-                </div>
             </div>
             
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
@@ -1676,6 +1673,9 @@
                     <p>가게 정보와 설정을 관리하세요</p>
                 </div>
                 <div class="header-actions">
+                    <a href="/admin/bulk-management.html" id="bulkManagementBtn" class="btn btn-primary" style="display: none; margin-right: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;">
+                        🚀 대량 가게 관리
+                    </a>
                     <a href="javascript:void(0)" onclick="openMainPage()" class="btn btn-primary">페이지 보기</a>
                     <button onclick="logout()" class="btn btn-secondary">로그아웃</button>
                 </div>
@@ -3626,6 +3626,9 @@
 
         // 섹션 표시
         async function showSection(sectionId) {
+            // URL 해시 업데이트 (새로고침 시 현재 섹션 유지)
+            window.location.hash = sectionId;
+            
             // 모바일에서 섹션 전환 시 사이드바 자동 닫기
             if (window.innerWidth <= 768) {
                 const sidebar = document.querySelector('.admin-sidebar');
@@ -3633,6 +3636,13 @@
                 sidebar.classList.remove('active');
                 overlay.classList.remove('active');
             }
+            
+            // 대량 가게 관리 버튼 표시/숨김
+            const bulkBtn = document.getElementById('bulkManagementBtn');
+            if (bulkBtn) {
+                bulkBtn.style.display = sectionId === 'stores' ? 'inline-block' : 'none';
+            }
+            
             // 가게 관리 섹션은 항상 접근 가능
             if (sectionId === 'stores') {
                 // 모든 섹션 숨기기
@@ -4221,8 +4231,10 @@
                 // 배달앱 URL 입력 필드 이벤트 리스너 추가
                 setupDeliveryUrlEventListeners();
                 
-                // 첫 번째 섹션 표시
-                showSection('stores');
+                // URL 해시에서 섹션 복원 (새로고침 시 현재 섹션 유지)
+                const hash = window.location.hash.substring(1); // '#' 제거
+                const sectionToShow = hash || 'stores';
+                showSection(sectionToShow);
             } catch (error) {
                 console.error('초기화 오류:', error);
                 showStatus('페이지 초기화에 실패했습니다.', 'error');
