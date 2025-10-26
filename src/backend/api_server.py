@@ -46,32 +46,18 @@ def log_error(error_message, exception=None):
         print(f"[{timestamp}] [{LogLevel.ERROR}] {error_message}")
 
 class DataHandler(BaseHTTPRequestHandler):
+    # 클래스 변수로 캐시 추가
+    _data_cache = None
+    _cache_timestamp = 0
+    _cache_ttl = 5  # 5초 캐시
+    
     def __init__(self, *args, **kwargs):
         self.data_file = 'assets/data/data.json'
-        # DB_PATH 절대경로 로그 출력
-        import os
-        abs_path = os.path.abspath(self.data_file)
-        log(LogLevel.INFO, f"DB_PATH 절대경로: {abs_path}")
-        
-        # 샘플 데이터 읽기 테스트
-        self.readDB_sample()
         super().__init__(*args, **kwargs)
     
     def log_message(self, format, *args):
         """기본 로그 메시지 비활성화 (우리가 직접 관리)"""
         pass
-    
-    def readDB_sample(self):
-        """DB에서 샘플 데이터 1건 읽기"""
-        try:
-            data = self.load_data()
-            if data and 'stores' in data and len(data['stores']) > 0:
-                sample_store = data['stores'][0]
-                log(LogLevel.INFO, f"DB 샘플 데이터 (첫 번째 가게): {sample_store}")
-            else:
-                log(LogLevel.WARN, "DB에 가게 데이터가 없습니다.")
-        except Exception as e:
-            log_error("DB 샘플 데이터 읽기 실패", e)
     
     def migrate_settings(self, data):
         """기존 설정 데이터를 새로운 키 구조로 마이그레이션"""
@@ -118,9 +104,16 @@ class DataHandler(BaseHTTPRequestHandler):
         
         return data
     
-    def load_data(self):
-        """데이터 파일 로드"""
+    def load_data(self, use_cache=True):
+        """데이터 파일 로드 (캐싱 지원)"""
         try:
+            # 캐시 사용 가능하고 유효한 경우
+            current_time = time.time()
+            if use_cache and DataHandler._data_cache is not None:
+                if (current_time - DataHandler._cache_timestamp) < DataHandler._cache_ttl:
+                    return DataHandler._data_cache
+            
+            # 파일에서 로드
             if os.path.exists(self.data_file):
                 with open(self.data_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
@@ -129,6 +122,11 @@ class DataHandler(BaseHTTPRequestHandler):
                     data = self.migrate_settings(data)
                     # 가게 데이터 마이그레이션
                     data = self.migrate_stores(data)
+                    
+                    # 캐시 업데이트
+                    DataHandler._data_cache = data
+                    DataHandler._cache_timestamp = current_time
+                    
                     return data
             else:
                 log(LogLevel.WARN, f"데이터 파일이 존재하지 않음: {self.data_file}")
@@ -170,6 +168,10 @@ class DataHandler(BaseHTTPRequestHandler):
                         # 임시 파일을 원본 파일로 이동 (원자적 교체)
                         import shutil
                         shutil.move(temp_file, self.data_file)
+                        
+                        # 캐시 무효화
+                        DataHandler._data_cache = None
+                        DataHandler._cache_timestamp = 0
                         
                         log(LogLevel.DEBUG, f"데이터 파일 저장 성공: {self.data_file}")
                         return True

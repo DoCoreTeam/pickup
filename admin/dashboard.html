@@ -1607,6 +1607,9 @@
     </style>
 </head>
 <body>
+    <!-- 프로그레스 바 (최상단 고정) -->
+    <div id="progressBar" style="position: fixed; top: 0; left: 0; width: 0%; height: 3px; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); z-index: 99999; transition: width 0.3s ease, opacity 0.3s ease; opacity: 0;"></div>
+    
     <div class="admin-container">
         <!-- 토스트 알림 컨테이너 -->
         <div id="toastContainer" class="toast-container"></div>
@@ -1674,7 +1677,7 @@
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge">v1.4.1</div>
+                    <div class="version-badge">v1.4.2</div>
                 </div>
                 <a href="/admin/release-notes.html" class="release-notes-btn">
                     📝 릴리즈 노트
@@ -2222,6 +2225,43 @@
         // 전역 가게 목록 (필터링용)
         let allStores = [];
         let filteredStores = [];
+        
+        // 프로그레스 바 제어
+        const progressBar = document.getElementById('progressBar');
+        let progressValue = 0;
+        let progressInterval = null;
+        
+        function startProgress() {
+            progressValue = 0;
+            progressBar.style.opacity = '1';
+            progressBar.style.width = '0%';
+            
+            // 점진적으로 증가 (최대 90%까지)
+            progressInterval = setInterval(() => {
+                if (progressValue < 90) {
+                    progressValue += Math.random() * 10;
+                    if (progressValue > 90) progressValue = 90;
+                    progressBar.style.width = progressValue + '%';
+                }
+            }, 200);
+        }
+        
+        function completeProgress() {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
+            progressValue = 100;
+            progressBar.style.width = '100%';
+            
+            // 완료 후 페이드 아웃
+            setTimeout(() => {
+                progressBar.style.opacity = '0';
+                setTimeout(() => {
+                    progressBar.style.width = '0%';
+                }, 300);
+            }, 500);
+        }
 
         // 로그인 상태 확인
         const isLoggedIn = sessionStorage.getItem('superadmin_logged_in') === 'true';
@@ -2602,16 +2642,17 @@
         async function selectStore(storeId) {
             if (isLoading) return;
             isLoading = true;
+            startProgress();
             
             try {
                 // 현재 가게 설정
                 await apiRequest(`${API_BASE}/current-store`, 'POST', { storeId });
                 
-                // 선택된 가게 시각적 표시 업데이트
-                updateSelectedStoreVisual(storeId);
-                
-                // 현재 가게 정보 업데이트
+                // 현재 가게 정보 업데이트 (사이드바)
                 await updateCurrentStoreInfo(storeId);
+                
+                // 선택된 가게 시각적 표시 업데이트 (테이블)
+                updateSelectedStoreVisual(storeId);
                 
                 // 설정 로드
                 await loadSettings();
@@ -2622,7 +2663,7 @@
                 console.log('✅ [DEBUG] 가게 선택 후 사용자 정보 로딩 완료');
                 
                 // 토스트 알림
-                const stores = await apiRequest(`${API_BASE}/stores`);
+                const stores = allStores.length > 0 ? allStores : await apiRequest(`${API_BASE}/stores`);
                 const selectedStore = stores.find(s => s.id === storeId);
                 if (selectedStore) {
                     showToast(`${selectedStore.name} 가게가 선택되었습니다.`, 'success', '가게 선택');
@@ -2633,6 +2674,7 @@
                 showToast('가게 선택에 실패했습니다.', 'error', '오류');
             } finally {
                 isLoading = false;
+                completeProgress();
             }
         }
 

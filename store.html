@@ -1691,12 +1691,16 @@
 
       // 로딩 오버레이 숨기기
       function hideLoadingOverlay() {
+        console.log('🔄 로딩 오버레이 숨기기 시작');
         const overlay = document.getElementById('loadingOverlay');
         if (overlay) {
           overlay.classList.add('fade-out');
           setTimeout(() => {
             overlay.style.display = 'none';
+            console.log('✅ 로딩 오버레이 숨김 완료');
           }, 300);
+        } else {
+          console.error('❌ 로딩 오버레이 요소를 찾을 수 없음');
         }
       }
 
