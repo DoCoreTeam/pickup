@@ -976,7 +976,7 @@
               </button>
             </div>
             
-            ${renderBusinessHours(settings)}
+            <div id="businessHoursSection"></div>
           </div>
 
           <div class="quick-actions">
@@ -1007,6 +1007,12 @@
         
         // 동적 섹션 렌더링
         renderDynamicSections();
+        
+        // 영업시간 렌더링
+        const businessHoursSection = document.getElementById('businessHoursSection');
+        if (businessHoursSection) {
+          businessHoursSection.innerHTML = renderBusinessHours(settings);
+        }
       }
 
       function showMenu() {

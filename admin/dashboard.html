@@ -2449,6 +2449,7 @@
             
             filteredStores.forEach(store => {
                 const tr = document.createElement('tr');
+                tr.setAttribute('data-store-id', store.id);
                 tr.style.borderBottom = '1px solid #e2e8f0';
                 tr.style.transition = 'background 0.2s';
                 tr.onmouseover = () => tr.style.background = '#f8fafc';
@@ -2465,6 +2466,10 @@
                     ? '<span style="display: inline-block; padding: 4px 12px; background: #fef3c7; color: #92400e; border-radius: 12px; font-size: 12px; font-weight: 600;">일시정지</span>'
                     : '<span style="display: inline-block; padding: 4px 12px; background: #d1fae5; color: #065f46; border-radius: 12px; font-size: 12px; font-weight: 600;">활성</span>';
                 
+                const pauseResumeBtn = store.status === 'paused'
+                    ? `<button onclick="event.stopPropagation(); resumeStore('${store.id}')" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">재개</button>`
+                    : `<button onclick="event.stopPropagation(); pauseStore('${store.id}')" style="padding: 6px 12px; background: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">일시정지</button>`;
+                
                 tr.innerHTML = `
                     <td style="padding: 16px 12px;">
                         <code style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-size: 12px; color: #475569;">${shortId}</code>
@@ -2473,14 +2478,15 @@
                     <td style="padding: 16px 12px; color: #64748b;">${store.phone || '-'}</td>
                     <td style="padding: 16px 12px;">${statusBadge}</td>
                     <td style="padding: 16px 12px; text-align: center;">
-                        <div style="display: flex; gap: 8px; justify-content: center;">
-                            <button onclick="selectStore('${store.id}')" style="padding: 6px 12px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">선택</button>
-                            <button onclick="copyStoreUrl('${storeUrl}')" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">URL 복사</button>
-                            <button onclick="deleteStore('${store.id}')" style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">삭제</button>
+                        <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+                            <button onclick="event.stopPropagation(); selectStore('${store.id}')" style="padding: 6px 12px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">선택</button>
+                            ${pauseResumeBtn}
+                            <button onclick="event.stopPropagation(); copyStoreUrl('${storeUrl}')" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">URL 복사</button>
+                            <button onclick="event.stopPropagation(); deleteStore('${store.id}')" style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">삭제</button>
+                        </div>
                     </td>
                 `;
                 
-                tr.onclick = () => selectStore(store.id);
                 tbody.appendChild(tr);
             });
         }
@@ -2636,16 +2642,13 @@
             const tbody = document.getElementById('storeTableBody');
             if (!tbody) return;
             
-            const allRows = tbody.querySelectorAll('tr');
+            const allRows = tbody.querySelectorAll('tr[data-store-id]');
             allRows.forEach(row => {
-                row.style.background = 'white';
-            });
-            
-            // 선택된 행 찾아서 배경색 변경
-            allRows.forEach(row => {
-                const selectBtn = row.querySelector('button[onclick*="selectStore"]');
-                if (selectBtn && selectBtn.getAttribute('onclick').includes(selectedStoreId)) {
+                const storeId = row.getAttribute('data-store-id');
+                if (storeId === selectedStoreId) {
                     row.style.background = '#eff6ff';
+                } else {
+                    row.style.background = 'white';
                 }
             });
         }
