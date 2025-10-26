@@ -2564,16 +2564,22 @@
 
         // 선택된 가게 시각적 표시 업데이트
         function updateSelectedStoreVisual(selectedStoreId) {
-            // 모든 행에서 selected 클래스 제거
-            document.querySelectorAll('.store-row').forEach(row => {
-                row.classList.remove('selected');
+            // 테이블의 모든 행 배경 초기화
+            const tbody = document.getElementById('storeTableBody');
+            if (!tbody) return;
+            
+            const allRows = tbody.querySelectorAll('tr');
+            allRows.forEach(row => {
+                row.style.background = 'white';
             });
             
-            // 선택된 행에 selected 클래스 추가
-            const selectedRow = document.querySelector(`[data-store-id="${selectedStoreId}"]`);
-            if (selectedRow) {
-                selectedRow.classList.add('selected');
-            }
+            // 선택된 행 찾아서 배경색 변경
+            allRows.forEach(row => {
+                const selectBtn = row.querySelector('button[onclick*="selectStore"]');
+                if (selectBtn && selectBtn.getAttribute('onclick').includes(selectedStoreId)) {
+                    row.style.background = '#eff6ff';
+                }
+            });
         }
 
         // 현재 선택된 가게 정보 업데이트
@@ -2582,14 +2588,8 @@
                 const stores = await apiRequest(`${API_BASE}/stores`);
                 const currentStore = stores.find(s => s.id === storeId);
                 if (currentStore) {
-                    // 메인 영역의 현재 가게 정보 업데이트
-                    document.getElementById('currentStoreInfo').innerHTML = `
-                        <strong>${currentStore.name}</strong><br>
-                        <small>${currentStore.subtitle || '부제목 없음'}</small>
-                    `;
-                    
                     // 사이드바의 선택된 가게 정보 업데이트
-                    updateSelectedStoreCard(storeId);
+                    await updateSelectedStoreCard(storeId);
                 }
             } catch (error) {
                 console.error('현재 가게 정보 업데이트 실패:', error);
