@@ -692,22 +692,34 @@
 
         /* 배달앱 그리드 설정 스타일 */
         .delivery-grid-section {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
             margin-bottom: 30px;
+            border: 1px solid #e1e5e9;
+        }
+        
+        .delivery-grid-section-header {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #f8fafc;
         }
 
         .delivery-grid-section h3 {
-            margin: 0 0 10px 0;
-            color: #333;
-            font-size: 1.2em;
+            margin: 0;
+            color: #1a202c;
+            font-size: 20px;
+            font-weight: 700;
         }
 
         .order-description {
-            margin: 0 0 20px 0;
-            color: #666;
-            font-size: 14px;
+            margin: 0;
+            color: #64748b;
+            font-size: 15px;
+            line-height: 1.5;
         }
 
         .delivery-grid-container {
@@ -896,6 +908,11 @@
         .settings-form.active {
             opacity: 1;
         }
+        
+        /* UI 순서 변경은 항상 활성 상태 (활성/비활성 개념 없음) */
+        #section-order .settings-form {
+            opacity: 1;
+        }
 
         .form-card {
             background: white;
@@ -913,10 +930,16 @@
 
         .form-header {
             display: flex;
-            align-items: center;
+            flex-direction: column;
+            gap: 8px;
             margin-bottom: 32px;
             padding-bottom: 20px;
             border-bottom: 2px solid #f8fafc;
+        }
+        
+        .form-header-title {
+            display: flex;
+            align-items: center;
         }
 
         .form-icon {
@@ -933,6 +956,13 @@
             font-weight: 700;
             color: #1a202c;
             margin: 0;
+        }
+        
+        .form-header p {
+            font-size: 15px;
+            color: #64748b;
+            margin: 0;
+            padding-left: 48px; /* icon + margin */
         }
 
         /* 현대적인 폼 라벨 */
@@ -1324,8 +1354,10 @@
                 </h2>
                 
                 <div class="delivery-grid-section">
-                    <h3>배달앱 표시 순서</h3>
-                    <p class="order-description">드래그하여 순서를 변경할 수 있습니다. 가게 페이지와 동일한 형태로 표시됩니다.</p>
+                    <div class="delivery-grid-section-header">
+                        <h3>배달앱 표시 순서</h3>
+                        <p class="order-description">드래그하여 순서를 변경할 수 있습니다. 가게 페이지와 동일한 형태로 표시됩니다.</p>
+                    </div>
                     
                     <div class="delivery-grid-container">
                         <div class="delivery-grid" id="deliveryOrderGrid">
@@ -1530,8 +1562,10 @@
                 
                 <div class="settings-form">
                     <div class="form-header">
-                        <div class="form-icon">🔄</div>
-                        <h3>가게 페이지 섹션 순서 관리</h3>
+                        <div class="form-header-title">
+                            <div class="form-icon">🔄</div>
+                            <h3>가게 페이지 섹션 순서 관리</h3>
+                        </div>
                         <p>드래그로 간편하게 순서를 변경하세요</p>
                     </div>
                     
