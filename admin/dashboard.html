@@ -3532,9 +3532,18 @@
                     orderItem.className = 'order-item';
                     orderItem.dataset.sectionId = section.id;
                     
+                    // 아이콘 기본값 설정
+                    const iconMap = {
+                        'discount': '🎉',
+                        'delivery': '🚚',
+                        'address': '📍'
+                    };
+                    const icon = section.icon || iconMap[section.id] || '📌';
+                    
                     orderItem.innerHTML = `
                         <div class="order-number">${index + 1}</div>
                         <div class="order-content">
+                            <div class="order-icon" style="display: none;">${icon}</div>
                             <div class="order-title">${section.title}</div>
                             <div class="order-description">${section.description}</div>
                         </div>

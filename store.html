@@ -1037,7 +1037,16 @@
 
       // 영업시간 렌더링
       function renderBusinessHours(settings) {
-        if (!settings?.businessHours) return '';
+        // 영업시간 설정이 없으면 기본값 사용
+        const businessHours = settings?.businessHours || {
+          mon: { enabled: true, open: '09:00', close: '22:00' },
+          tue: { enabled: true, open: '09:00', close: '22:00' },
+          wed: { enabled: true, open: '09:00', close: '22:00' },
+          thu: { enabled: true, open: '09:00', close: '22:00' },
+          fri: { enabled: true, open: '09:00', close: '22:00' },
+          sat: { enabled: true, open: '09:00', close: '22:00' },
+          sun: { enabled: true, open: '09:00', close: '22:00' }
+        };
         
         const dayNames = {
           mon: '월요일',
@@ -1050,7 +1059,7 @@
         };
         
         const today = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()];
-        const todayHours = settings.businessHours[today];
+        const todayHours = businessHours[today];
         
         if (!todayHours || !todayHours.enabled) {
           return `
@@ -1076,7 +1085,7 @@
               <summary style="cursor: pointer; color: #3b82f6; font-size: 14px; font-weight: 600;">전체 영업시간 보기</summary>
               <div style="margin-top: 12px; padding: 12px; background: white; border-radius: 8px;">
                 ${Object.entries(dayNames).map(([day, name]) => {
-                  const hours = settings.businessHours[day];
+                  const hours = businessHours[day];
                   const isToday = day === today;
                   return `
                     <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb; ${isToday ? 'background: #eff6ff; padding: 8px; border-radius: 6px; margin: 4px 0;' : ''}">
@@ -1097,7 +1106,10 @@
       function renderDynamicSections() {
         try {
           const dynamicSections = document.getElementById('dynamicSections');
-          if (!dynamicSections) return;
+          if (!dynamicSections) {
+            console.error('❌ dynamicSections 요소를 찾을 수 없습니다');
+            return;
+          }
 
           // 기본 섹션 순서 (설정이 없으면 기본값 사용)
           const defaultOrder = [
@@ -1107,6 +1119,8 @@
           ];
 
           const sectionOrder = settings?.sectionOrder || defaultOrder;
+          console.log('✅ 섹션 순서 로드:', sectionOrder);
+          console.log('📊 settings 객체:', settings);
           
           dynamicSections.innerHTML = '';
 
