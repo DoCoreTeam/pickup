@@ -7,6 +7,12 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import uuid
 from datetime import datetime
+import sys
+
+# QR 생성기 import
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from backend.qr_generator import get_qr_generator
+from backend.ai_content_generator import get_generator as get_ai_generator
 
 # 로그 레벨 정의
 class LogLevel:
@@ -1163,8 +1169,36 @@ class DataHandler(BaseHTTPRequestHandler):
                 log(LogLevel.INFO, f"현재 가게 설정: {data['storeId']}")
                 
                 store_data = self.load_data()
+                
+                # 변경 전 정보 저장 (활동 로그용)
+                old_store_id = store_data.get('currentStoreId')
+                old_store = next((s for s in store_data.get('stores', []) if s['id'] == old_store_id), None) if old_store_id else None
+                old_store_name = old_store['name'] if old_store else '없음'
+                
+                # 새 가게 정보
+                new_store = next((s for s in store_data.get('stores', []) if s['id'] == data['storeId']), None)
+                new_store_name = new_store['name'] if new_store else data['storeId']
+                
                 store_data['currentStoreId'] = data['storeId']
                 self.save_data(store_data)
+                
+                # 활동 로그 기록
+                self.log_activity(
+                    log_type="store",
+                    action="가게 전환",
+                    description=f"현재 가게를 전환했습니다.\n이전: {old_store_name}\n현재: {new_store_name}",
+                    user_id="admin",
+                    user_name="관리자",
+                    target_type="store",
+                    target_id=data['storeId'],
+                    target_name=new_store_name,
+                    details={
+                        "oldStoreId": old_store_id,
+                        "oldStoreName": old_store_name,
+                        "newStoreId": data['storeId'],
+                        "newStoreName": new_store_name
+                    }
+                )
                 
                 self.send_json_response({"success": True})
             
@@ -1428,6 +1462,12 @@ class DataHandler(BaseHTTPRequestHandler):
                 
                 store_data = self.load_data()
                 
+                # 변경 전 설정 저장 (활동 로그용)
+                old_settings = {}
+                if store_id in store_data['settings']:
+                    import copy
+                    old_settings = copy.deepcopy(store_data['settings'][store_id])
+                
                 # 기존 설정이 있으면 병합, 없으면 새로 생성
                 if store_id not in store_data['settings']:
                     store_data['settings'][store_id] = {}
@@ -1504,17 +1544,76 @@ class DataHandler(BaseHTTPRequestHandler):
                     }, 500)
                     return
                 
-                # 활동 로그 기록
+                # 활동 로그 기록 (변경 전/후 명확히)
+                store_name = store_data['stores'][next(i for i, s in enumerate(store_data['stores']) if s['id'] == store_id)]['name']
+                new_settings = store_data['settings'][store_id]
+                
+                # 변경 사항 추적
+                changes = []
+                setting_names = {
+                    'basic': '기본 정보',
+                    'discount': '할인 설정',
+                    'delivery': '배달앱 설정',
+                    'pickup': '픽업 안내',
+                    'images': '이미지 관리',
+                    'qrCode': 'QR 코드',
+                    'sectionOrder': 'UI 순서'
+                }
+                
+                for setting_type in data.keys():
+                    setting_name = setting_names.get(setting_type, setting_type)
+                    old_value = old_settings.get(setting_type, {})
+                    new_value = new_settings.get(setting_type, {})
+                    
+                    if old_value != new_value:
+                        # 세부 변경 내용 추적
+                        if setting_type == 'discount':
+                            if old_value.get('enabled') != new_value.get('enabled'):
+                                changes.append(f"{setting_name}: {'활성화' if new_value.get('enabled') else '비활성화'}")
+                            elif old_value.get('title') != new_value.get('title') or old_value.get('description') != new_value.get('description'):
+                                changes.append(f"{setting_name}: 내용 수정")
+                        elif setting_type == 'pickup':
+                            if old_value.get('enabled') != new_value.get('enabled'):
+                                changes.append(f"{setting_name}: {'활성화' if new_value.get('enabled') else '비활성화'}")
+                            elif old_value.get('title') != new_value.get('title') or old_value.get('description') != new_value.get('description'):
+                                changes.append(f"{setting_name}: 내용 수정")
+                        elif setting_type == 'delivery':
+                            # 배달앱 URL 변경 확인
+                            changed_apps = []
+                            for app in ['ttaengUrl', 'baeminUrl', 'coupangUrl', 'yogiyoUrl']:
+                                if old_value.get(app) != new_value.get(app):
+                                    app_names = {'ttaengUrl': '땡겨요', 'baeminUrl': '배달의민족', 'coupangUrl': '쿠팡이츠', 'yogiyoUrl': '요기요'}
+                                    changed_apps.append(app_names.get(app, app))
+                            if changed_apps:
+                                changes.append(f"{setting_name}: {', '.join(changed_apps)} 변경")
+                            elif old_value.get('deliveryOrder') != new_value.get('deliveryOrder'):
+                                changes.append(f"{setting_name}: 순서 변경")
+                        elif setting_type == 'sectionOrder':
+                            changes.append(f"{setting_name}: 순서 변경")
+                        else:
+                            changes.append(f"{setting_name}: 변경됨")
+                
+                # 로그 설명 생성
+                if changes:
+                    description = f"'{store_name}' 가게 설정이 변경되었습니다.\n\n변경 항목:\n" + "\n".join(f"• {change}" for change in changes)
+                else:
+                    description = f"'{store_name}' 가게 설정이 저장되었습니다."
+                
                 self.log_activity(
                     log_type="settings",
-                    action="설정 저장",
-                    description="가게 설정을 저장했습니다.",
+                    action="가게 설정 변경",
+                    description=description,
                     user_id="admin",
                     user_name="관리자",
                     target_type="store",
                     target_id=store_id,
-                    target_name=store_data['stores'][next(i for i, s in enumerate(store_data['stores']) if s['id'] == store_id)]['name'],
-                    details={"settings": list(data.keys())}
+                    target_name=store_name,
+                    details={
+                        "changedSettings": list(data.keys()),
+                        "changes": changes,
+                        "before": old_settings,
+                        "after": new_settings
+                    }
                 )
                 
                 log(LogLevel.INFO, f"설정 저장 완료: {store_id}")
@@ -1535,9 +1634,44 @@ class DataHandler(BaseHTTPRequestHandler):
                 if (data.get('username') == superadmin.get('username') and 
                     data.get('password') == superadmin.get('password')):
                     log(LogLevel.INFO, f"슈퍼어드민 로그인 성공: {data.get('username')}")
+                    
+                    # 활동 로그 기록
+                    self.log_activity(
+                        log_type="admin",
+                        action="슈퍼어드민 로그인",
+                        description=f"슈퍼어드민 '{data.get('username')}'이(가) 로그인했습니다.",
+                        user_id=data.get('username'),
+                        user_name="슈퍼어드민",
+                        target_type="admin",
+                        target_id="superadmin",
+                        target_name="슈퍼어드민",
+                        details={
+                            "loginTime": datetime.now().isoformat(),
+                            "username": data.get('username')
+                        }
+                    )
+                    
                     self.send_json_response({"success": True, "message": "로그인 성공"})
                 else:
                     log(LogLevel.WARN, f"슈퍼어드민 로그인 실패: {data.get('username')}")
+                    
+                    # 실패 로그 기록
+                    self.log_activity(
+                        log_type="admin",
+                        action="슈퍼어드민 로그인 실패",
+                        description=f"슈퍼어드민 로그인 시도 실패 (사용자명: {data.get('username')})",
+                        user_id=data.get('username', 'unknown'),
+                        user_name="알 수 없음",
+                        target_type="admin",
+                        target_id="superadmin",
+                        target_name="슈퍼어드민",
+                        details={
+                            "attemptTime": datetime.now().isoformat(),
+                            "username": data.get('username'),
+                            "reason": "잘못된 사용자명 또는 비밀번호"
+                        }
+                    )
+                    
                     self.send_json_response({"success": False, "message": "로그인 실패"})
             
             elif parsed_path.path == '/api/superadmin/update':
@@ -1550,6 +1684,11 @@ class DataHandler(BaseHTTPRequestHandler):
                 log(LogLevel.INFO, f"슈퍼어드민 정보 업데이트: {data.get('username', 'Unknown')}")
                 
                 store_data = self.load_data()
+                
+                # 변경 전 정보 저장 (활동 로그용)
+                old_superadmin = store_data.get('superadmin', {})
+                old_username = old_superadmin.get('username', '없음')
+                
                 store_data['superadmin'] = {
                     "username": data.get('username', ''),
                     "password": data.get('password', ''),
@@ -1558,8 +1697,195 @@ class DataHandler(BaseHTTPRequestHandler):
                 }
                 self.save_data(store_data)
                 
+                # 활동 로그 기록
+                self.log_activity(
+                    log_type="admin",
+                    action="슈퍼어드민 정보 수정",
+                    description=f"슈퍼어드민 정보가 수정되었습니다.\n이전 사용자명: {old_username}\n새 사용자명: {data.get('username')}\n비밀번호: 변경됨",
+                    user_id="admin",
+                    user_name="관리자",
+                    target_type="admin",
+                    target_id="superadmin",
+                    target_name="슈퍼어드민",
+                    details={
+                        "oldUsername": old_username,
+                        "newUsername": data.get('username'),
+                        "passwordChanged": True,
+                        "updatedAt": datetime.now().isoformat()
+                    }
+                )
+                
                 log(LogLevel.INFO, f"슈퍼어드민 정보 업데이트 완료: {data.get('username')}")
                 self.send_json_response({"success": True})
+            
+            elif parsed_path.path == '/api/qr/generate':
+                # QR 코드 생성
+                data = self.get_request_data()
+                if not data:
+                    self.send_json_response({"error": "Invalid data"}, 400)
+                    return
+                
+                store_id = data.get('storeId')
+                if not store_id:
+                    self.send_json_response({"error": "storeId is required"}, 400)
+                    return
+                
+                log(LogLevel.INFO, f"QR 코드 생성 요청: {store_id}")
+                
+                try:
+                    # 가게 정보 로드
+                    store_data = self.load_data()
+                    store = next((s for s in store_data.get('stores', []) if s['id'] == store_id), None)
+                    
+                    if not store:
+                        self.send_json_response({"error": "Store not found"}, 404)
+                        return
+                    
+                    # QR 코드에 인코딩할 URL 생성
+                    base_url = data.get('baseUrl', 'http://localhost:8081')
+                    qr_data = f"{base_url}/store.html?id={store_id}"
+                    
+                    # 로고 경로 가져오기 (images 객체에서)
+                    logo_path = None
+                    settings = store_data.get('settings', {}).get(store_id, {})
+                    if 'images' in settings and 'mainLogo' in settings['images']:
+                        logo_path = settings['images']['mainLogo']
+                        log(LogLevel.INFO, f"로고 경로 발견: {logo_path}")
+                    
+                    # QR 생성기 가져오기
+                    qr_gen = get_qr_generator()
+                    
+                    # QR 코드 생성 및 저장
+                    result = qr_gen.generate_and_save(
+                        data=qr_data,
+                        store_id=store_id,
+                        logo_path=logo_path,
+                        size=1024
+                    )
+                    
+                    if result['success']:
+                        # settings에 QR 코드 정보 저장
+                        if store_id not in store_data.get('settings', {}):
+                            if 'settings' not in store_data:
+                                store_data['settings'] = {}
+                            store_data['settings'][store_id] = {}
+                        
+                        store_data['settings'][store_id]['qrCode'] = {
+                            'url': result['url'],
+                            'filepath': result['filepath'],
+                            'createdAt': datetime.now().isoformat()
+                        }
+                        
+                        self.save_data(store_data)
+                        
+                        # 활동 로그 기록
+                        self.log_activity(
+                            log_type="qr",
+                            action="QR 코드 생성",
+                            description=f"'{store['name']}' 가게의 QR 코드가 생성되었습니다.\n대상 URL: {qr_data}\n로고 포함: {'예 (' + logo_path + ')' if logo_path else '아니오'}",
+                            user_id="admin",
+                            user_name="관리자",
+                            target_type="qr",
+                            target_id=store_id,
+                            target_name=store['name'],
+                            details={
+                                "qrCodeUrl": result['url'],
+                                "targetUrl": qr_data,
+                                "hasLogo": bool(logo_path),
+                                "logoPath": logo_path,
+                                "filepath": result['filepath']
+                            }
+                        )
+                        
+                        log(LogLevel.INFO, f"QR 코드 생성 완료: {store_id}")
+                        self.send_json_response({
+                            "success": True,
+                            "qrCode": result['url'],
+                            "message": result['message']
+                        })
+                    else:
+                        log_error(f"QR 코드 생성 실패: {store_id}")
+                        self.send_json_response({
+                            "error": result['message']
+                        }, 500)
+                
+                except Exception as e:
+                    log_error(f"QR 코드 생성 중 오류: {store_id}", e)
+                    self.send_json_response({"error": str(e)}, 500)
+            
+            elif parsed_path.path == '/api/ai/generate-content':
+                # AI 콘텐츠 자동 생성
+                data = self.get_request_data()
+                if not data:
+                    self.send_json_response({"error": "Invalid data"}, 400)
+                    return
+                
+                store_name = data.get('storeName')
+                store_id = data.get('storeId')
+                
+                if not store_name:
+                    self.send_json_response({"error": "storeName is required"}, 400)
+                    return
+                
+                log(LogLevel.INFO, f"AI 콘텐츠 생성 요청: {store_name}")
+                
+                try:
+                    # 기존 고객 작성 예시 수집 (학습용)
+                    db_data = self.load_data()
+                    existing_examples = []
+                    
+                    for store in db_data.get('stores', []):
+                        settings = db_data.get('settings', {}).get(store['id'], {})
+                        discount = settings.get('discount', {})
+                        pickup = settings.get('pickup', {})
+                        
+                        if discount.get('enabled') or pickup.get('enabled'):
+                            existing_examples.append({
+                                'storeName': store.get('name', ''),
+                                'discountTitle': discount.get('title', ''),
+                                'discountDescription': discount.get('description', ''),
+                                'pickupTitle': pickup.get('title', ''),
+                                'pickupDescription': pickup.get('description', '')
+                            })
+                    
+                    # AI 생성기 호출
+                    ai_generator = get_ai_generator()
+                    result = ai_generator.generate_content(
+                        store_name=store_name,
+                        existing_examples=existing_examples[:5]  # 최대 5개 예시
+                    )
+                    
+                    if result['success']:
+                        log(LogLevel.INFO, f"AI 콘텐츠 생성 성공: {store_name}")
+                        
+                        # 활동 로그 기록
+                        self.log_activity(
+                            log_type="ai",
+                            action="AI 콘텐츠 생성",
+                            description=f"'{store_name}' 가게의 할인 설정과 픽업 안내를 AI가 자동 생성했습니다.\n분석: {result['data'].get('analysis', {}).get('category', '알 수 없음')} - {result['data'].get('analysis', {}).get('reasoning', '')}",
+                            user_id="admin",
+                            user_name="관리자",
+                            target_type="ai",
+                            target_id=store_id or store_name,
+                            target_name=store_name,
+                            details={
+                                "model": result.get('model', 'gpt-4o-mini'),
+                                "discountTitle": result['data']['discount']['title'],
+                                "discountDescription": result['data']['discount']['description'],
+                                "pickupTitle": result['data']['pickup']['title'],
+                                "pickupDescription": result['data']['pickup']['description'],
+                                "analysis": result['data'].get('analysis', {})
+                            }
+                        )
+                        
+                        self.send_json_response(result)
+                    else:
+                        log_error(f"AI 콘텐츠 생성 실패: {store_name}", result.get('error'))
+                        self.send_json_response(result, 500)
+                
+                except Exception as e:
+                    log_error(f"AI 콘텐츠 생성 중 오류: {store_name}", e)
+                    self.send_json_response({"error": str(e)}, 500)
             
             else:
                 log(LogLevel.WARN, f"알 수 없는 POST 경로: {parsed_path.path}")
@@ -1614,14 +1940,34 @@ class DataHandler(BaseHTTPRequestHandler):
                     self.send_json_response({"error": "Store not found"}, 404)
                     return
                 
+                # 변경 전 정보 저장 (활동 로그용)
+                old_data = {
+                    'name': store.get('name', ''),
+                    'subtitle': store.get('subtitle', ''),
+                    'phone': store.get('phone', ''),
+                    'address': store.get('address', '')
+                }
+                
+                # 변경된 항목 추적
+                changed_fields = []
+                changes = {}
+                
                 # 가게 정보 업데이트
-                if 'name' in data:
+                if 'name' in data and data['name'] != old_data['name']:
+                    changes['name'] = {'old': old_data['name'], 'new': data['name']}
+                    changed_fields.append('가게명')
                     store['name'] = data['name']
-                if 'subtitle' in data:
+                if 'subtitle' in data and data['subtitle'] != old_data['subtitle']:
+                    changes['subtitle'] = {'old': old_data['subtitle'], 'new': data['subtitle']}
+                    changed_fields.append('하단 텍스트')
                     store['subtitle'] = data['subtitle']
-                if 'phone' in data:
+                if 'phone' in data and data['phone'] != old_data['phone']:
+                    changes['phone'] = {'old': old_data['phone'], 'new': data['phone']}
+                    changed_fields.append('전화번호')
                     store['phone'] = data['phone']
-                if 'address' in data:
+                if 'address' in data and data['address'] != old_data['address']:
+                    changes['address'] = {'old': old_data['address'], 'new': data['address']}
+                    changed_fields.append('주소')
                     store['address'] = data['address']
                 
                 # 데이터 저장 시도
@@ -1633,18 +1979,33 @@ class DataHandler(BaseHTTPRequestHandler):
                     }, 500)
                     return
                 
-                # 활동 로그 기록
-                self.log_activity(
-                    log_type="store",
-                    action="가게 정보 수정",
-                    description=f"'{store['name']}' 가게의 기본 정보를 수정했습니다.",
-                    user_id="admin",
-                    user_name="관리자",
-                    target_type="store",
-                    target_id=store_id,
-                    target_name=store['name'],
-                    details=data
-                )
+                # 활동 로그 기록 (변경된 항목이 있을 때만)
+                if changed_fields:
+                    change_description = '\n'.join([
+                        f"{field}: {changes[key]['old']} → {changes[key]['new']}"
+                        for field, key in [
+                            ('가게명', 'name'),
+                            ('하단 텍스트', 'subtitle'),
+                            ('전화번호', 'phone'),
+                            ('주소', 'address')
+                        ]
+                        if key in changes
+                    ])
+                    
+                    self.log_activity(
+                        log_type="store",
+                        action="가게 정보 수정",
+                        description=f"'{store['name']}' 가게의 기본 정보를 수정했습니다.\n변경 항목: {', '.join(changed_fields)}\n\n{change_description}",
+                        user_id="admin",
+                        user_name="관리자",
+                        target_type="store",
+                        target_id=store_id,
+                        target_name=store['name'],
+                        details={
+                            "changedFields": changed_fields,
+                            "changes": changes
+                        }
+                    )
                 
                 log(LogLevel.INFO, f"가게 정보 업데이트 완료: {store_id}")
                 self.send_json_response({"success": True, "message": "가게 정보가 업데이트되었습니다."})
@@ -1670,6 +2031,7 @@ class DataHandler(BaseHTTPRequestHandler):
                 store_found = False
                 
                 # 가게 목록에서 해당 가게 찾기 및 삭제
+                deleted_store = None
                 for i, store in enumerate(data['stores']):
                     if store['id'] == store_id:
                         # 현재 선택된 가게가 삭제되는 가게라면 선택 해제
@@ -1689,12 +2051,98 @@ class DataHandler(BaseHTTPRequestHandler):
                     return
                 
                 # 해당 가게의 설정도 삭제
+                had_settings = False
                 if store_id in data.get('settings', {}):
                     del data['settings'][store_id]
+                    had_settings = True
                     log(LogLevel.INFO, f"가게 설정 삭제 완료: {store_id}")
                 
                 self.save_data(data)
+                
+                # 활동 로그 기록
+                self.log_activity(
+                    log_type="store",
+                    action="가게 삭제",
+                    description=f"'{deleted_store.get('name', 'Unknown')}' 가게가 삭제되었습니다.\n가게 ID: {store_id}\n전화번호: {deleted_store.get('phone', '없음')}\n주소: {deleted_store.get('address', '없음')}\n설정 삭제: {'예' if had_settings else '아니오'}",
+                    user_id="admin",
+                    user_name="관리자",
+                    target_type="store",
+                    target_id=store_id,
+                    target_name=deleted_store.get('name', 'Unknown'),
+                    details={
+                        "deletedStore": {
+                            "id": store_id,
+                            "name": deleted_store.get('name', ''),
+                            "phone": deleted_store.get('phone', ''),
+                            "address": deleted_store.get('address', ''),
+                            "createdAt": deleted_store.get('createdAt', '')
+                        },
+                        "hadSettings": had_settings,
+                        "deletedAt": datetime.now().isoformat()
+                    }
+                )
+                
                 self.send_json_response({"success": True, "message": "가게가 삭제되었습니다."})
+            
+            elif self.path.startswith('/api/qr/'):
+                # QR 코드 삭제
+                store_id = self.path.split('/')[-1]
+                log(LogLevel.INFO, f"QR 코드 삭제 요청: {store_id}")
+                
+                try:
+                    data = self.load_data()
+                    
+                    # 가게 정보 가져오기
+                    store = next((s for s in data.get('stores', []) if s['id'] == store_id), None)
+                    store_name = store['name'] if store else store_id
+                    
+                    # QR 코드 정보 가져오기
+                    settings = data.get('settings', {}).get(store_id, {})
+                    qr_code = settings.get('qrCode')
+                    
+                    if not qr_code:
+                        log(LogLevel.WARN, f"삭제할 QR 코드가 없음: {store_id}")
+                        self.send_json_response({"error": "QR code not found"}, 404)
+                        return
+                    
+                    # 삭제 전 정보 저장 (활동 로그용)
+                    deleted_filepath = qr_code.get('filepath', '')
+                    deleted_url = qr_code.get('url', '')
+                    
+                    # 파일 삭제
+                    if 'filepath' in qr_code:
+                        filepath = qr_code['filepath']
+                        if os.path.exists(filepath):
+                            os.remove(filepath)
+                            log(LogLevel.INFO, f"QR 코드 파일 삭제: {filepath}")
+                    
+                    # settings에서 QR 코드 정보 삭제
+                    del data['settings'][store_id]['qrCode']
+                    self.save_data(data)
+                    
+                    # 활동 로그 기록
+                    self.log_activity(
+                        log_type="qr",
+                        action="QR 코드 삭제",
+                        description=f"'{store_name}' 가게의 QR 코드가 삭제되었습니다.\n삭제된 파일: {deleted_filepath}\n삭제된 URL: {deleted_url}",
+                        user_id="admin",
+                        user_name="관리자",
+                        target_type="qr",
+                        target_id=store_id,
+                        target_name=store_name,
+                        details={
+                            "deletedFile": deleted_filepath,
+                            "deletedUrl": deleted_url,
+                            "deletedAt": datetime.now().isoformat()
+                        }
+                    )
+                    
+                    log(LogLevel.INFO, f"QR 코드 삭제 완료: {store_id}")
+                    self.send_json_response({"success": True, "message": "QR 코드가 삭제되었습니다."})
+                    
+                except Exception as e:
+                    log_error(f"QR 코드 삭제 중 오류: {store_id}", e)
+                    self.send_json_response({"error": str(e)}, 500)
                 
             else:
                 log(LogLevel.WARN, f"지원하지 않는 DELETE 경로: {self.path}")
