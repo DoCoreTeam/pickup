@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>릴리즈 노트 - Pickup Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 60px;
+            animation: fadeInDown 0.6s ease-out;
+        }
+
+        .header h1 {
+            color: white;
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            color: rgba(255,255,255,0.9);
+            font-size: 18px;
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.3);
+            margin-bottom: 40px;
+        }
+
+        .back-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .release-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            animation: fadeInUp 0.6s ease-out;
+            transition: all 0.3s ease;
+        }
+
+        .release-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0,0,0,0.15);
+        }
+
+        .release-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .version-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .version-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 50px;
+            font-size: 24px;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .codename {
+            font-size: 20px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .release-date {
+            color: #999;
+            font-size: 16px;
+        }
+
+        .release-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .highlights {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 30px;
+        }
+
+        .highlights h3 {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .highlights ul {
+            list-style: none;
+        }
+
+        .highlights li {
+            padding: 8px 0;
+            color: #555;
+            font-size: 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .highlights li::before {
+            content: "⭐";
+            flex-shrink: 0;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section h3 {
+            color: #333;
+            font-size: 22px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .feature-category {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .feature-category h4 {
+            color: #667eea;
+            font-size: 18px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .feature-category ul {
+            list-style: none;
+        }
+
+        .feature-category li {
+            padding: 6px 0;
+            color: #555;
+            font-size: 15px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .feature-category li::before {
+            content: "✓";
+            color: #667eea;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .improvements-list,
+        .bugfixes-list {
+            list-style: none;
+        }
+
+        .improvements-list li,
+        .bugfixes-list li {
+            padding: 10px 0;
+            color: #555;
+            font-size: 15px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .improvements-list li:last-child,
+        .bugfixes-list li:last-child {
+            border-bottom: none;
+        }
+
+        .improvements-list li::before {
+            content: "🔧";
+            flex-shrink: 0;
+        }
+
+        .bugfixes-list li::before {
+            content: "🐛";
+            flex-shrink: 0;
+        }
+
+        .no-releases {
+            text-align: center;
+            padding: 80px 20px;
+            color: white;
+        }
+
+        .no-releases h2 {
+            font-size: 32px;
+            margin-bottom: 16px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 80px 20px;
+            color: white;
+            font-size: 24px;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 36px;
+            }
+
+            .release-card {
+                padding: 24px;
+            }
+
+            .release-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .version-badge {
+                font-size: 20px;
+            }
+
+            .release-title {
+                font-size: 22px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/admin/dashboard.html" class="back-btn">
+            ← 대시보드로 돌아가기
+        </a>
+
+        <div class="header">
+            <h1>📝 릴리즈 노트</h1>
+            <p>Pickup 서비스의 업데이트 히스토리를 확인하세요</p>
+        </div>
+
+        <div id="releaseNotesContainer">
+            <div class="loading">로딩 중...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+
+        // 릴리즈 노트 로드
+        async function loadReleaseNotes() {
+            try {
+                const response = await fetch(`${API_BASE}/release-notes`);
+                const data = await response.json();
+
+                if (!data.success || !data.releaseNotes || data.releaseNotes.length === 0) {
+                    document.getElementById('releaseNotesContainer').innerHTML = `
+                        <div class="no-releases">
+                            <h2>📭 릴리즈 노트가 없습니다</h2>
+                            <p>아직 등록된 릴리즈 노트가 없습니다.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const container = document.getElementById('releaseNotesContainer');
+                container.innerHTML = '';
+
+                data.releaseNotes.forEach((release, index) => {
+                    const card = createReleaseCard(release);
+                    card.style.animationDelay = `${index * 0.1}s`;
+                    container.appendChild(card);
+                });
+
+            } catch (error) {
+                console.error('릴리즈 노트 로드 실패:', error);
+                document.getElementById('releaseNotesContainer').innerHTML = `
+                    <div class="no-releases">
+                        <h2>❌ 로드 실패</h2>
+                        <p>릴리즈 노트를 불러오는데 실패했습니다.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // 릴리즈 카드 생성
+        function createReleaseCard(release) {
+            const card = document.createElement('div');
+            card.className = 'release-card';
+
+            let html = `
+                <div class="release-header">
+                    <div class="version-info">
+                        <div class="version-badge">v${release.version}</div>
+                        ${release.codename ? `<div class="codename">"${release.codename}"</div>` : ''}
+                    </div>
+                    <div class="release-date">${formatDate(release.releaseDate)}</div>
+                </div>
+
+                <h2 class="release-title">${release.title}</h2>
+            `;
+
+            // 주요 기능
+            if (release.highlights && release.highlights.length > 0) {
+                html += `
+                    <div class="highlights">
+                        <h3>🌟 주요 기능</h3>
+                        <ul>
+                            ${release.highlights.map(h => `<li>${h}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            // 새로운 기능
+            if (release.features && release.features.length > 0) {
+                html += `
+                    <div class="section">
+                        <h3>✨ 새로운 기능</h3>
+                        ${release.features.map(category => `
+                            <div class="feature-category">
+                                <h4>${category.category}</h4>
+                                <ul>
+                                    ${category.items.map(item => `<li>${item}</li>`).join('')}
+                                </ul>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            // 개선 사항
+            if (release.improvements && release.improvements.length > 0) {
+                html += `
+                    <div class="section">
+                        <h3>🔧 개선 사항</h3>
+                        <ul class="improvements-list">
+                            ${release.improvements.map(i => `<li>${i}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            // 버그 수정
+            if (release.bugFixes && release.bugFixes.length > 0) {
+                html += `
+                    <div class="section">
+                        <h3>🐛 버그 수정</h3>
+                        <ul class="bugfixes-list">
+                            ${release.bugFixes.map(b => `<li>${b}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            card.innerHTML = html;
+            return card;
+        }
+
+        // 날짜 포맷
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('ko-KR', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+
+        // 페이지 로드 시 실행
+        document.addEventListener('DOMContentLoaded', loadReleaseNotes);
+    </script>
+</body>
+</html>
+

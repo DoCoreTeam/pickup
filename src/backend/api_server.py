@@ -619,6 +619,19 @@ class DataHandler(BaseHTTPRequestHandler):
                 log(LogLevel.INFO, f"가게 재개: {store_id}")
                 self.send_json_response({"success": True})
             
+            elif parsed_path.path == '/api/release-notes':
+                # 릴리즈 노트 조회
+                data = self.load_data()
+                release_notes = data.get('releaseNotes', [])
+                
+                # 최신순 정렬
+                release_notes.sort(key=lambda x: x.get('releaseDate', ''), reverse=True)
+                
+                self.send_json_response({
+                    "success": True,
+                    "releaseNotes": release_notes
+                })
+            
             elif parsed_path.path == '/api/activity-logs':
                 if self.command == 'GET':
                     # 활동 로그 조회

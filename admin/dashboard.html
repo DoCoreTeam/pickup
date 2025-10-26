@@ -29,6 +29,48 @@
             background: #2c3e50;
             color: white;
             padding: 20px 0;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar-footer {
+            margin-top: auto;
+            padding: 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .version-info {
+            text-align: center;
+            margin-bottom: 12px;
+        }
+        
+        .version-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.1);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            color: rgba(255,255,255,0.8);
+            font-weight: 500;
+        }
+        
+        .release-notes-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+        
+        .release-notes-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
         }
 
         .admin-header {
@@ -1540,6 +1582,16 @@
                 <div class="menu-item" onclick="showSection('superadmin')">
                     <span>👤</span> 슈퍼어드민
                 </div>
+            </div>
+            
+            <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) -->
+            <div class="sidebar-footer">
+                <div class="version-info">
+                    <div class="version-badge">v1.3.0</div>
+                </div>
+                <a href="/admin/release-notes.html" class="release-notes-btn">
+                    📝 릴리즈 노트
+                </a>
             </div>
         </div>
 
