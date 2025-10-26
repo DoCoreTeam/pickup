@@ -1047,24 +1047,24 @@
         }
 
         .order-item {
-            background: #ffffff;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 16px;
+            background: #f8fafc;
+            border: 2px solid #cbd5e1;
+            border-radius: 12px;
+            padding: 20px;
             cursor: move;
             transition: all 0.3s ease;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 16px;
             position: relative;
-            opacity: 1;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
         .order-item:hover {
-            background: #f1f5f9;
+            background: #ffffff;
             border-color: #3b82f6;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.2);
         }
 
         .order-item.dragging {
@@ -1079,59 +1079,68 @@
         }
 
         .order-handle {
-            width: 20px;
-            height: 20px;
-            background: #6b7280;
-            border-radius: 4px;
+            width: 24px;
+            height: 40px;
+            background: #94a3b8;
+            border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 12px;
+            font-size: 14px;
             cursor: grab;
+            flex-shrink: 0;
         }
 
         .order-handle:active {
             cursor: grabbing;
+            background: #64748b;
         }
 
         .order-icon {
-            font-size: 20px;
-            width: 32px;
-            height: 32px;
+            font-size: 28px;
+            width: 48px;
+            height: 48px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #f1f5f9;
-            border-radius: 8px;
+            background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%);
+            border-radius: 12px;
+            flex-shrink: 0;
         }
 
         .order-content {
             flex: 1;
+            min-width: 0;
         }
 
         .order-title {
-            font-weight: 600;
-            color: #1f2937;
-            margin-bottom: 4px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 6px;
+            line-height: 1.3;
         }
 
         .order-description {
             font-size: 14px;
-            color: #6b7280;
+            color: #64748b;
+            line-height: 1.4;
         }
 
         .order-number {
-            background: #3b82f6;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
             color: white;
-            width: 24px;
-            height: 24px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
-            font-weight: 600;
+            font-size: 16px;
+            font-weight: 700;
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
         }
 
         .save-indicator {
@@ -1522,8 +1531,8 @@
                 <div class="settings-form">
                     <div class="form-header">
                         <div class="form-icon">🔄</div>
-                        <h3>가게 페이지 섹션 순서</h3>
-                        <p>드래그하여 섹션 순서를 변경할 수 있습니다</p>
+                        <h3>가게 페이지 섹션 순서 관리</h3>
+                        <p>드래그로 간편하게 순서를 변경하세요</p>
                     </div>
                     
                     <div class="section-order-container">
@@ -1536,8 +1545,8 @@
                         <div class="guide-message">
                             <div class="guide-icon">💡</div>
                             <div class="guide-text">
-                                <strong>UI 순서 변경 팁!</strong><br>
-                                드래그하여 원하는 순서로 배치하세요. 변경사항은 자동으로 저장되고 즉시 가게 페이지에 반영됩니다.
+                                <strong>드래그하여 순서를 변경하세요</strong><br>
+                                변경사항은 자동 저장되며 즉시 반영됩니다
                             </div>
                         </div>
                     </div>
