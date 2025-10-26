@@ -1713,19 +1713,19 @@
                 
                 <!-- 통계 대시보드 -->
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
-                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                    <div onclick="filterByStatCard('all')" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'">
                         <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">전체 가게</div>
                         <div style="font-size: 32px; font-weight: 700;" id="totalStoresCount">0</div>
                     </div>
-                    <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                    <div onclick="filterByStatCard('active')" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'">
                         <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">활성 가게</div>
                         <div style="font-size: 32px; font-weight: 700;" id="activeStoresCount">0</div>
                     </div>
-                    <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                    <div onclick="filterByStatCard('paused')" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'">
                         <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">일시정지</div>
                         <div style="font-size: 32px; font-weight: 700;" id="pausedStoresCount">0</div>
                     </div>
-                    <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                    <div onclick="filterByStatCard('today')" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'">
                         <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">오늘 추가</div>
                         <div style="font-size: 32px; font-weight: 700;" id="todayStoresCount">0</div>
                     </div>
@@ -1751,17 +1751,23 @@
                 </div>
                 
                 <div class="form-group">
-                    <label>현재 선택된 가게</label>
-                    <div id="currentStoreInfo" style="padding: 10px; background: #f8f9fa; border-radius: 4px; margin-bottom: 15px;">
-                        로딩 중...
-                    </div>
-                </div>
-
-                <div class="form-group">
                     <label>가게 목록 (<span id="filteredStoresCount">0</span>개)</label>
-                    <ul id="storeList" class="store-list">
-                        <li>로딩 중...</li>
-                    </ul>
+                    <div id="storeTableContainer" style="overflow-x: auto;">
+                        <table id="storeTable" style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden;">
+                            <thead style="background: #f8fafc;">
+                                <tr>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 2px solid #e2e8f0;">ID</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 2px solid #e2e8f0;">가게명</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 2px solid #e2e8f0;">전화번호</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 2px solid #e2e8f0;">상태</th>
+                                    <th style="padding: 12px; text-align: center; font-weight: 600; color: #475569; border-bottom: 2px solid #e2e8f0;">작업</th>
+                                </tr>
+                            </thead>
+                            <tbody id="storeTableBody">
+                                <tr><td colspan="5" style="padding: 20px; text-align: center; color: #94a3b8;">로딩 중...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <div class="button-group" style="display: flex; gap: 12px; flex-wrap: wrap;">
@@ -1786,6 +1792,13 @@
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                     기본 정보
                 </h2>
+                
+                <div style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-left: 4px solid #667eea; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 8px; color: #667eea; font-weight: 600; font-size: 14px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        입력 후 자동 저장됩니다
+                    </div>
+                </div>
                 
                 <div class="form-group">
                     <label for="storeName">가게명</label>
@@ -1847,6 +1860,13 @@
                     배달앱 설정
                 </h2>
                 
+                <div style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-left: 4px solid #667eea; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 8px; color: #667eea; font-weight: 600; font-size: 14px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        드래그 및 URL 입력 시 자동 저장됩니다
+                    </div>
+                </div>
+                
                 <div class="delivery-grid-section">
                     <div class="delivery-grid-section-header">
                         <h3>배달앱 표시 순서</h3>
@@ -1891,6 +1911,13 @@
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
                     이미지 관리
                 </h2>
+                
+                <div style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-left: 4px solid #667eea; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 8px; color: #667eea; font-weight: 600; font-size: 14px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        이미지 업로드 시 자동 저장됩니다
+                    </div>
+                </div>
                 
                 <div class="form-group">
                     <label for="mainLogo">메인 로고</label>
@@ -2347,49 +2374,41 @@
             
             tbody.innerHTML = '';
             
+            if (filteredStores.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="padding: 40px; text-align: center; color: #94a3b8;">검색 결과가 없습니다</td></tr>';
+                return;
+            }
+            
             filteredStores.forEach(store => {
                 const tr = document.createElement('tr');
-                tr.className = 'store-row';
-                tr.setAttribute('data-store-id', store.id);
+                tr.style.borderBottom = '1px solid #e2e8f0';
+                tr.style.transition = 'background 0.2s';
+                tr.onmouseover = () => tr.style.background = '#f8fafc';
+                tr.onmouseout = () => tr.style.background = currentStoreId === store.id ? '#eff6ff' : 'white';
                 
-                // 현재 선택된 가게인지 확인
                 if (currentStoreId === store.id) {
-                    tr.classList.add('selected');
+                    tr.style.background = '#eff6ff';
                 }
                 
-                // 부제목 처리 (긴 경우 짧게 표시)
-                const subtitle = store.subtitle || '부제목 없음';
-                const maxSubtitleLength = 40;
-                let subtitleHtml = '';
-                
-                if (subtitle.length > maxSubtitleLength) {
-                    const shortSubtitle = subtitle.substring(0, maxSubtitleLength);
-                    subtitleHtml = `
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <span class="subtitle-short" id="subtitle-short-${store.id}">${shortSubtitle}...</span>
-                            <span class="subtitle-full" id="subtitle-full-${store.id}">${subtitle}</span>
-                            <button class="subtitle-toggle-btn" onclick="event.stopPropagation(); toggleSubtitle('${store.id}')">
-                                더보기
-                            </button>
-                        </div>
-                    `;
-                } else {
-                    subtitleHtml = subtitle;
-                }
+                const storeUrl = `${window.location.origin}/store.html?id=${store.id}`;
+                const shortId = store.id.split('_').pop().substring(0, 8);
                 
                 const statusBadge = store.status === 'paused' 
-                    ? '<span class="status-badge status-paused">일시정지</span>'
-                    : '<span class="status-badge status-active">활성</span>';
+                    ? '<span style="display: inline-block; padding: 4px 12px; background: #fef3c7; color: #92400e; border-radius: 12px; font-size: 12px; font-weight: 600;">일시정지</span>'
+                    : '<span style="display: inline-block; padding: 4px 12px; background: #d1fae5; color: #065f46; border-radius: 12px; font-size: 12px; font-weight: 600;">활성</span>';
                 
                 tr.innerHTML = `
-                    <td><strong>${store.name}</strong></td>
-                    <td>${subtitleHtml}</td>
-                    <td>${store.phone || '전화번호 없음'}</td>
-                    <td>${store.address || '주소 없음'}</td>
-                    <td>${statusBadge}</td>
-                    <td class="table-actions">
-                        <button class="btn btn-small" onclick="event.stopPropagation(); selectStore('${store.id}')">선택</button>
-                        <button class="btn btn-small btn-danger" onclick="event.stopPropagation(); deleteStore('${store.id}')">삭제</button>
+                    <td style="padding: 16px 12px;">
+                        <code style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-size: 12px; color: #475569;">${shortId}</code>
+                    </td>
+                    <td style="padding: 16px 12px; font-weight: 600; color: #1e293b;">${store.name}</td>
+                    <td style="padding: 16px 12px; color: #64748b;">${store.phone || '-'}</td>
+                    <td style="padding: 16px 12px;">${statusBadge}</td>
+                    <td style="padding: 16px 12px; text-align: center;">
+                        <div style="display: flex; gap: 8px; justify-content: center;">
+                            <button onclick="selectStore('${store.id}')" style="padding: 6px 12px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">선택</button>
+                            <button onclick="copyStoreUrl('${storeUrl}')" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">URL 복사</button>
+                            <button onclick="deleteStore('${store.id}')" style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">삭제</button>
                     </td>
                 `;
                 
@@ -2421,6 +2440,45 @@
         }
         
         // CSV 내보내기
+        // 통계 카드 클릭 필터
+        function filterByStatCard(type) {
+            const statusFilter = document.getElementById('storeStatusFilter');
+            const searchInput = document.getElementById('storeSearchInput');
+            
+            // 검색 초기화
+            searchInput.value = '';
+            
+            if (type === 'all') {
+                statusFilter.value = '';
+            } else if (type === 'active') {
+                statusFilter.value = 'active';
+            } else if (type === 'paused') {
+                statusFilter.value = 'paused';
+            } else if (type === 'today') {
+                statusFilter.value = '';
+                const today = new Date().toISOString().split('T')[0];
+                filteredStores = allStores.filter(store => {
+                    const storeDate = store.createdAt ? store.createdAt.split('T')[0] : '';
+                    return storeDate === today;
+                });
+                document.getElementById('filteredStoresCount').textContent = filteredStores.length;
+                renderStoreTable();
+                return;
+            }
+            
+            filterStoreList();
+        }
+        
+        // URL 복사
+        async function copyStoreUrl(url) {
+            try {
+                await navigator.clipboard.writeText(url);
+                showToast('URL이 클립보드에 복사되었습니다', 'success');
+            } catch (err) {
+                showToast('URL 복사 실패', 'error');
+            }
+        }
+        
         async function exportStoresCSV() {
             try {
                 const response = await fetch(`${API_BASE}/stores/bulk-export?format=csv`);
