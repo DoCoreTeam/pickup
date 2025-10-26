@@ -975,6 +975,8 @@
                 📞 전화하기
               </button>
             </div>
+            
+            ${renderBusinessHours(settings)}
           </div>
 
           <div class="quick-actions">
@@ -1027,6 +1029,64 @@
         showPickupModal();
       }
 
+      // 영업시간 렌더링
+      function renderBusinessHours(settings) {
+        if (!settings?.businessHours) return '';
+        
+        const dayNames = {
+          mon: '월요일',
+          tue: '화요일',
+          wed: '수요일',
+          thu: '목요일',
+          fri: '금요일',
+          sat: '토요일',
+          sun: '일요일'
+        };
+        
+        const today = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()];
+        const todayHours = settings.businessHours[today];
+        
+        if (!todayHours || !todayHours.enabled) {
+          return `
+            <div style="margin-top: 16px; padding: 16px; background: #fef3c7; border-radius: 12px; border-left: 4px solid #f59e0b;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <span style="font-size: 16px;">⏰</span>
+                <strong style="color: #92400e;">오늘은 휴무일입니다</strong>
+              </div>
+            </div>
+          `;
+        }
+        
+        return `
+          <div style="margin-top: 16px; padding: 16px; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 12px; border-left: 4px solid #3b82f6;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+              <span style="font-size: 16px;">⏰</span>
+              <strong style="color: #1e40af;">오늘 영업시간</strong>
+            </div>
+            <div style="font-size: 24px; font-weight: 700; color: #1e3a8a; text-align: center; margin: 8px 0;">
+              ${todayHours.open} - ${todayHours.close}
+            </div>
+            <details style="margin-top: 12px;">
+              <summary style="cursor: pointer; color: #3b82f6; font-size: 14px; font-weight: 600;">전체 영업시간 보기</summary>
+              <div style="margin-top: 12px; padding: 12px; background: white; border-radius: 8px;">
+                ${Object.entries(dayNames).map(([day, name]) => {
+                  const hours = settings.businessHours[day];
+                  const isToday = day === today;
+                  return `
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb; ${isToday ? 'background: #eff6ff; padding: 8px; border-radius: 6px; margin: 4px 0;' : ''}">
+                      <span style="font-weight: ${isToday ? '700' : '500'}; color: ${isToday ? '#1e40af' : '#4b5563'};">${name}</span>
+                      <span style="color: ${hours?.enabled ? '#059669' : '#ef4444'}; font-weight: 600;">
+                        ${hours?.enabled ? `${hours.open} - ${hours.close}` : '휴무'}
+                      </span>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </details>
+          </div>
+        `;
+      }
+      
       // 동적 섹션 렌더링
       function renderDynamicSections() {
         try {

@@ -1820,6 +1820,74 @@
                     <textarea id="storeAddress" class="form-input" rows="3" placeholder="주소를 입력하세요" onblur="saveBasicInfo()"></textarea>
                 </div>
                 
+                <!-- 영업시간 설정 -->
+                <div class="form-group">
+                    <label>영업시간</label>
+                    <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin-top: 8px;">
+                        <div id="businessHoursContainer">
+                            <!-- 월요일 -->
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; background: white; border-radius: 6px;">
+                                <label style="min-width: 60px; font-weight: 600; color: #475569;">월요일</label>
+                                <input type="checkbox" id="mon_enabled" onchange="saveBusinessHours()" style="width: 20px; height: 20px; cursor: pointer;">
+                                <input type="time" id="mon_open" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                                <span style="color: #94a3b8;">~</span>
+                                <input type="time" id="mon_close" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                            </div>
+                            <!-- 화요일 -->
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; background: white; border-radius: 6px;">
+                                <label style="min-width: 60px; font-weight: 600; color: #475569;">화요일</label>
+                                <input type="checkbox" id="tue_enabled" onchange="saveBusinessHours()" style="width: 20px; height: 20px; cursor: pointer;">
+                                <input type="time" id="tue_open" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                                <span style="color: #94a3b8;">~</span>
+                                <input type="time" id="tue_close" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                            </div>
+                            <!-- 수요일 -->
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; background: white; border-radius: 6px;">
+                                <label style="min-width: 60px; font-weight: 600; color: #475569;">수요일</label>
+                                <input type="checkbox" id="wed_enabled" onchange="saveBusinessHours()" style="width: 20px; height: 20px; cursor: pointer;">
+                                <input type="time" id="wed_open" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                                <span style="color: #94a3b8;">~</span>
+                                <input type="time" id="wed_close" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                            </div>
+                            <!-- 목요일 -->
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; background: white; border-radius: 6px;">
+                                <label style="min-width: 60px; font-weight: 600; color: #475569;">목요일</label>
+                                <input type="checkbox" id="thu_enabled" onchange="saveBusinessHours()" style="width: 20px; height: 20px; cursor: pointer;">
+                                <input type="time" id="thu_open" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                                <span style="color: #94a3b8;">~</span>
+                                <input type="time" id="thu_close" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                            </div>
+                            <!-- 금요일 -->
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; background: white; border-radius: 6px;">
+                                <label style="min-width: 60px; font-weight: 600; color: #475569;">금요일</label>
+                                <input type="checkbox" id="fri_enabled" onchange="saveBusinessHours()" style="width: 20px; height: 20px; cursor: pointer;">
+                                <input type="time" id="fri_open" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                                <span style="color: #94a3b8;">~</span>
+                                <input type="time" id="fri_close" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                            </div>
+                            <!-- 토요일 -->
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; background: white; border-radius: 6px;">
+                                <label style="min-width: 60px; font-weight: 600; color: #475569;">토요일</label>
+                                <input type="checkbox" id="sat_enabled" onchange="saveBusinessHours()" style="width: 20px; height: 20px; cursor: pointer;">
+                                <input type="time" id="sat_open" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                                <span style="color: #94a3b8;">~</span>
+                                <input type="time" id="sat_close" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                            </div>
+                            <!-- 일요일 -->
+                            <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: white; border-radius: 6px;">
+                                <label style="min-width: 60px; font-weight: 600; color: #475569;">일요일</label>
+                                <input type="checkbox" id="sun_enabled" onchange="saveBusinessHours()" style="width: 20px; height: 20px; cursor: pointer;">
+                                <input type="time" id="sun_open" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                                <span style="color: #94a3b8;">~</span>
+                                <input type="time" id="sun_close" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                            </div>
+                        </div>
+                        <div style="margin-top: 12px; padding: 12px; background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 6px;">
+                            <p style="font-size: 13px; color: #92400e; margin: 0;">💡 체크박스를 해제하면 해당 요일은 휴무로 표시됩니다.</p>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- QR 코드 생성 -->
                 <div class="form-group">
                     <label>QR 코드</label>
@@ -2913,6 +2981,9 @@
                     pickupForm.classList.remove('active');
                 }
                 
+                // 영업시간 로드
+                loadBusinessHours(settings);
+                
                 // 이미지 설정
                 if (settings.images) {
                     updateImagePreview('mainLogo', settings.images.mainLogo);
@@ -2935,6 +3006,60 @@
         }
 
         // 기본 정보 저장
+        // 영업시간 저장
+        async function saveBusinessHours() {
+            try {
+                const currentStoreId = await getCurrentStoreId();
+                if (!currentStoreId) return;
+                
+                const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+                const businessHours = {};
+                
+                days.forEach(day => {
+                    const enabled = document.getElementById(`${day}_enabled`).checked;
+                    const open = document.getElementById(`${day}_open`).value;
+                    const close = document.getElementById(`${day}_close`).value;
+                    
+                    businessHours[day] = {
+                        enabled: enabled,
+                        open: open || '09:00',
+                        close: close || '22:00'
+                    };
+                });
+                
+                const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                settings.businessHours = businessHours;
+                
+                await apiRequest(`${API_BASE}/settings`, 'POST', {
+                    storeId: currentStoreId,
+                    settings: settings
+                });
+                
+                showToast('영업시간이 저장되었습니다', 'success');
+            } catch (error) {
+                console.error('영업시간 저장 실패:', error);
+                showToast('영업시간 저장 실패', 'error');
+            }
+        }
+        
+        // 영업시간 로드
+        function loadBusinessHours(settings) {
+            const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+            const businessHours = settings.businessHours || {};
+            
+            days.forEach(day => {
+                const dayData = businessHours[day] || { enabled: true, open: '09:00', close: '22:00' };
+                
+                const enabledCheckbox = document.getElementById(`${day}_enabled`);
+                const openInput = document.getElementById(`${day}_open`);
+                const closeInput = document.getElementById(`${day}_close`);
+                
+                if (enabledCheckbox) enabledCheckbox.checked = dayData.enabled !== false;
+                if (openInput) openInput.value = dayData.open || '09:00';
+                if (closeInput) closeInput.value = dayData.close || '22:00';
+            });
+        }
+        
         async function saveBasicInfo() {
             try {
                 const currentStoreId = await getCurrentStoreId();
