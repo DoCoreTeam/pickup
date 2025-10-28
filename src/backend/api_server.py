@@ -51,8 +51,14 @@ class DataHandler(BaseHTTPRequestHandler):
     _cache_timestamp = 0
     _cache_ttl = 5  # 5초 캐시
     
+    # 활동 로그 캐시
+    _activity_logs_cache = None
+    _activity_logs_timestamp = 0
+    
     def __init__(self, *args, **kwargs):
         self.data_file = 'assets/data/data.json'
+        self.activity_logs_file = 'assets/data/activity_logs.json'
+        self.release_notes_file = 'assets/data/release_notes.json'
         super().__init__(*args, **kwargs)
     
     def log_message(self, format, *args):
@@ -209,14 +215,124 @@ class DataHandler(BaseHTTPRequestHandler):
         
         return False
     
-    def log_activity(self, log_type, action, description, user_id="system", user_name="시스템", target_type=None, target_id=None, target_name=None, details=None):
-        """사용자 친화적 활동 로그 기록"""
+    def load_activity_logs(self, use_cache=True):
+        """활동 로그 파일 로드 (캐싱 지원)"""
         try:
-            data = self.load_data()
+            # 캐시 사용 가능하고 유효한 경우
+            current_time = time.time()
+            if use_cache and DataHandler._activity_logs_cache is not None:
+                if (current_time - DataHandler._activity_logs_timestamp) < DataHandler._cache_ttl:
+                    return DataHandler._activity_logs_cache
             
-            # activityLogs 배열이 없으면 생성
-            if 'activityLogs' not in data:
-                data['activityLogs'] = []
+            # 파일에서 로드
+            if os.path.exists(self.activity_logs_file):
+                with open(self.activity_logs_file, 'r', encoding='utf-8') as f:
+                    logs = json.load(f)
+                    log(LogLevel.DEBUG, f"활동 로그 파일 로드 성공: {len(logs)}개")
+                    
+                    # 캐시 업데이트
+                    DataHandler._activity_logs_cache = logs
+                    DataHandler._activity_logs_timestamp = current_time
+                    
+                    return logs
+            else:
+                log(LogLevel.WARN, f"활동 로그 파일이 존재하지 않음: {self.activity_logs_file}")
+                return []
+        except Exception as e:
+            log_error(f"활동 로그 파일 로드 실패: {self.activity_logs_file}", e)
+            return []
+    
+    def save_activity_logs(self, logs):
+        """활동 로그 파일 저장 (파일 락 사용)"""
+        lock_file = self.activity_logs_file + '.lock'
+        max_retries = 3
+        retry_delay = 0.1
+        
+        for attempt in range(max_retries):
+            try:
+                # 파일 락 획득 시도
+                with open(lock_file, 'w') as lock_f:
+                    try:
+                        fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        
+                        # 임시 파일에 먼저 저장 (원자적 쓰기)
+                        temp_file = self.activity_logs_file + '.tmp'
+                        with open(temp_file, 'w', encoding='utf-8') as f:
+                            json.dump(logs, f, ensure_ascii=False, indent=2)
+                        
+                        # 임시 파일을 원본 파일로 이동 (원자적 교체)
+                        import shutil
+                        shutil.move(temp_file, self.activity_logs_file)
+                        
+                        # 캐시 무효화
+                        DataHandler._activity_logs_cache = None
+                        DataHandler._activity_logs_timestamp = 0
+                        
+                        log(LogLevel.DEBUG, f"활동 로그 파일 저장 성공: {len(logs)}개")
+                        return True
+                        
+                    except BlockingIOError:
+                        # 다른 프로세스가 파일을 사용 중
+                        if attempt < max_retries - 1:
+                            log(LogLevel.WARN, f"활동 로그 파일 락 대기 중... (시도 {attempt + 1}/{max_retries})")
+                            time.sleep(retry_delay * (attempt + 1))
+                            continue
+                        else:
+                            log_error(f"활동 로그 파일 락 획득 실패: {self.activity_logs_file}")
+                            return False
+                    finally:
+                        # 락 해제
+                        fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
+                        
+            except Exception as e:
+                log_error(f"활동 로그 파일 저장 실패: {self.activity_logs_file}", e)
+                # 임시 파일이 남아있으면 삭제
+                try:
+                    temp_file = self.activity_logs_file + '.tmp'
+                    if os.path.exists(temp_file):
+                        os.remove(temp_file)
+                except:
+                    pass
+                return False
+            finally:
+                # 락 파일 정리
+                try:
+                    if os.path.exists(lock_file):
+                        os.remove(lock_file)
+                except:
+                    pass
+        
+        return False
+    
+    def load_release_notes(self):
+        """릴리즈 노트 데이터 로드 (별도 파일에서)"""
+        try:
+            file_path = self.release_notes_file
+            
+            if not os.path.exists(file_path):
+                log(LogLevel.WARN, f"릴리즈 노트 파일이 존재하지 않음: {file_path}")
+                return []
+            
+            with open(file_path, 'r', encoding='utf-8') as f:
+                notes = json.load(f)
+            
+            log(LogLevel.DEBUG, f"릴리즈 노트 로드 성공: {len(notes)}개")
+            return notes
+        except FileNotFoundError:
+            log(LogLevel.WARN, f"릴리즈 노트 파일을 찾을 수 없음: {self.release_notes_file}")
+            return []
+        except json.JSONDecodeError as e:
+            log_error("릴리즈 노트 파일 JSON 파싱 오류", e)
+            return []
+        except Exception as e:
+            log_error("릴리즈 노트 로드 실패", e)
+            return []
+    
+    def log_activity(self, log_type, action, description, user_id="system", user_name="시스템", target_type=None, target_id=None, target_name=None, details=None):
+        """사용자 친화적 활동 로그 기록 (별도 파일 사용)"""
+        try:
+            # 활동 로그 파일에서 로드
+            logs = self.load_activity_logs()
             
             # 새 로그 엔트리 생성
             log_entry = {
@@ -234,19 +350,20 @@ class DataHandler(BaseHTTPRequestHandler):
             }
             
             # 로그를 배열의 맨 앞에 추가 (최신순)
-            data['activityLogs'].insert(0, log_entry)
+            logs.insert(0, log_entry)
             
             # 최대 1000개 로그만 유지 (성능 고려)
-            if len(data['activityLogs']) > 1000:
-                data['activityLogs'] = data['activityLogs'][:1000]
+            if len(logs) > 1000:
+                logs = logs[:1000]
             
-            self.save_data(data)
+            # 별도 파일에 저장
+            self.save_activity_logs(logs)
             log(LogLevel.INFO, f"활동 로그 기록: {action} - {description}")
             
         except Exception as e:
             log_error(f"활동 로그 기록 실패: {action}", e)
     
-    def serve_static_file(self, path):
+    def serve_static_file(self, path, query_params=None):
         """정적 파일 서빙"""
         import mimetypes
         import os
@@ -281,6 +398,32 @@ class DataHandler(BaseHTTPRequestHandler):
             # 파일 읽기
             with open(file_path, 'rb') as f:
                 content = f.read()
+            
+            # HTML 파일이고 쿼리 파라미터가 있는 경우 JavaScript로 추가
+            if mime_type == 'text/html' and query_params:
+                content_str = content.decode('utf-8')
+                # URL에 쿼리 파라미터 추가하는 JavaScript 코드 삽입
+                js_code = f"""
+                <script>
+                // 서브도메인에서 전달된 쿼리 파라미터를 URL에 추가
+                if (!window.location.search && '{query_params}') {{
+                    window.history.replaceState({{}}, '', window.location.pathname + '?{query_params}');
+                }}
+                
+                // 서브도메인 접속 시 URL을 깔끔하게 표시
+                if (window.location.pathname !== '/' && !window.location.pathname.includes('store.html')) {{
+                    // 서브도메인 접속인 경우 URL을 서브도메인만 표시하도록 설정
+                    const subdomain = window.location.pathname.split('/')[1];
+                    if (subdomain && subdomain !== 'admin' && subdomain !== 'api') {{
+                        // 브라우저 히스토리를 서브도메인만 표시하도록 변경
+                        window.history.replaceState({{}}, '', '/' + subdomain);
+                    }}
+                }}
+                </script>
+                """
+                # </head> 태그 앞에 JavaScript 코드 삽입
+                content_str = content_str.replace('</head>', js_code + '</head>')
+                content = content_str.encode('utf-8')
             
             # 응답 전송
             self.send_response(200)
@@ -622,9 +765,8 @@ class DataHandler(BaseHTTPRequestHandler):
                 self.send_json_response({"success": True})
             
             elif parsed_path.path == '/api/release-notes':
-                # 릴리즈 노트 조회
-                data = self.load_data()
-                release_notes = data.get('releaseNotes', [])
+                # 릴리즈 노트 조회 (별도 파일에서)
+                release_notes = self.load_release_notes()
                 
                 # 최신순 정렬
                 release_notes.sort(key=lambda x: x.get('releaseDate', ''), reverse=True)
@@ -636,9 +778,8 @@ class DataHandler(BaseHTTPRequestHandler):
             
             elif parsed_path.path == '/api/activity-logs':
                 if self.command == 'GET':
-                    # 활동 로그 조회
-                    data = self.load_data()
-                    logs = data.get('activityLogs', [])
+                    # 활동 로그 조회 (별도 파일에서)
+                    logs = self.load_activity_logs()
                     
                     # 페이지네이션 지원
                     query_params = parse_qs(parsed_path.query)
@@ -659,7 +800,7 @@ class DataHandler(BaseHTTPRequestHandler):
                     })
                 
                 elif self.command == 'POST':
-                    # 활동 로그 추가
+                    # 활동 로그 추가 (별도 파일에)
                     try:
                         log_data = self.get_request_data()
                         
@@ -674,12 +815,8 @@ class DataHandler(BaseHTTPRequestHandler):
                                 self.send_json_response({"error": f"필수 필드 '{field}'가 누락되었습니다"}, 400)
                                 return
                         
-                        # 데이터 로드
-                        data = self.load_data()
-                        
-                        # activityLogs 배열 초기화 (없는 경우)
-                        if 'activityLogs' not in data:
-                            data['activityLogs'] = []
+                        # 활동 로그 로드
+                        logs = self.load_activity_logs()
                         
                         # 새 로그 엔트리 생성 (클라이언트에서 보내는 구조에 맞게 수정)
                         new_log = {
@@ -693,14 +830,14 @@ class DataHandler(BaseHTTPRequestHandler):
                         }
                         
                         # 로그 추가 (최신 순으로 정렬)
-                        data['activityLogs'].insert(0, new_log)
+                        logs.insert(0, new_log)
                         
                         # 최대 1000개 로그만 유지 (메모리 절약)
-                        if len(data['activityLogs']) > 1000:
-                            data['activityLogs'] = data['activityLogs'][:1000]
+                        if len(logs) > 1000:
+                            logs = logs[:1000]
                         
-                        # 데이터 저장
-                        self.save_data(data)
+                        # 별도 파일에 저장
+                        self.save_activity_logs(logs)
                         
                         log(LogLevel.INFO, f"활동 로그 추가: {log_data['action']} - {log_data.get('user', 'admin')}")
                         self.send_json_response({"success": True, "logId": new_log['id']}, 201)
@@ -1070,6 +1207,10 @@ class DataHandler(BaseHTTPRequestHandler):
                 # 가게별 페이지 서빙
                 self.serve_static_file('/store.html')
             
+            elif self._is_subdomain_request(parsed_path.path):
+                # 서브도메인 요청 처리
+                self._handle_subdomain_request(parsed_path.path)
+            
             elif parsed_path.path == '/admin':
                 # /admin을 /admin/으로 리다이렉트
                 self.send_response(301)
@@ -1154,6 +1295,36 @@ class DataHandler(BaseHTTPRequestHandler):
                     log_error(f"대량 가게 내보내기 중 오류", e)
                     self.send_json_response({"error": str(e)}, 500)
             
+            elif parsed_path.path == '/api/subdomain/check':
+                # 서브도메인 중복 체크 (GET)
+                query_params = parse_qs(parsed_path.query)
+                subdomain = query_params.get('subdomain', [None])[0]
+                
+                if not subdomain:
+                    self.send_json_response({"error": "subdomain parameter is required"}, 400)
+                    return
+                
+                log(LogLevel.INFO, f"서브도메인 중복 체크: {subdomain}")
+                
+                try:
+                    store_data = self.load_data()
+                    
+                    # 서브도메인 중복 체크
+                    is_available = True
+                    for store in store_data.get('stores', []):
+                        if store.get('subdomain') == subdomain.lower():
+                            is_available = False
+                            break
+                    
+                    if is_available:
+                        self.send_json_response({"available": True, "message": "사용 가능한 서브도메인입니다"})
+                    else:
+                        self.send_json_response({"available": False, "message": "이미 사용 중인 서브도메인입니다"})
+                        
+                except Exception as e:
+                    log_error(f"서브도메인 중복 체크 실패: {subdomain}", e)
+                    self.send_json_response({"error": "서브도메인 중복 체크 중 오류가 발생했습니다"}, 500)
+            
             else:
                 # 정적 파일 서빙 (API가 아닌 경우)
                 self.serve_static_file(parsed_path.path)
@@ -1164,6 +1335,77 @@ class DataHandler(BaseHTTPRequestHandler):
         finally:
             response_time = int((time.time() - start_time) * 1000)
             log_request("GET", parsed_path.path, 200, response_time)
+    
+    def _is_subdomain_request(self, path):
+        """서브도메인 요청인지 확인"""
+        # 개발 환경: /{subdomain} 형태
+        # 프로덕션: 서브도메인은 Host 헤더로 구분됨
+        path_parts = path.strip('/').split('/')
+        if len(path_parts) == 1 and path_parts[0]:
+            subdomain = path_parts[0]
+            # 예약된 경로가 아닌 경우 서브도메인으로 간주
+            reserved_paths = ['admin', 'api', 'store.html', 'index.html', 'assets']
+            return subdomain not in reserved_paths
+        return False
+    
+    def _handle_subdomain_request(self, path):
+        """서브도메인 요청 처리"""
+        try:
+            subdomain = path.strip('/')
+            log(LogLevel.INFO, f"서브도메인 요청: {subdomain}")
+            
+            # 가게 데이터 로드
+            store_data = self.load_data()
+            
+            # 서브도메인으로 가게 찾기
+            store = None
+            for s in store_data.get('stores', []):
+                if s.get('subdomain') == subdomain:
+                    store = s
+                    break
+            
+            if not store:
+                log(LogLevel.WARN, f"서브도메인에 해당하는 가게 없음: {subdomain}")
+                self.send_response(404)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.end_headers()
+                self.wfile.write(f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>가게를 찾을 수 없습니다</title>
+                    <meta charset="utf-8">
+                </head>
+                <body>
+                    <h1>가게를 찾을 수 없습니다</h1>
+                    <p>서브도메인 '{subdomain}'에 해당하는 가게가 존재하지 않습니다.</p>
+                </body>
+                </html>
+                """.encode('utf-8'))
+                return
+            
+            # store.html 서빙 (가게 ID를 쿼리 파라미터로 추가)
+            log(LogLevel.INFO, f"서브도메인으로 가게 찾음: {subdomain} -> {store['id']}")
+            self.serve_static_file('/store.html', query_params=f"id={store['id']}")
+            
+        except Exception as e:
+            log_error(f"서브도메인 요청 처리 실패: {path}", e)
+            self.send_response(500)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>서버 오류</title>
+                <meta charset="utf-8">
+            </head>
+            <body>
+                <h1>서버 오류가 발생했습니다</h1>
+                <p>잠시 후 다시 시도해주세요.</p>
+            </body>
+            </html>
+            """.encode('utf-8'))
     
     def do_POST(self):
         """POST 요청 처리"""
@@ -1293,6 +1535,105 @@ class DataHandler(BaseHTTPRequestHandler):
                 )
                 
                 self.send_json_response({"success": True})
+            
+            elif parsed_path.path == '/api/subdomain/check':
+                # 서브도메인 중복 체크
+                query_params = parse_qs(parsed_path.query)
+                subdomain = query_params.get('subdomain', [None])[0]
+                
+                if not subdomain:
+                    self.send_json_response({"error": "subdomain parameter is required"}, 400)
+                    return
+                
+                log(LogLevel.INFO, f"서브도메인 중복 체크: {subdomain}")
+                
+                try:
+                    store_data = self.load_data()
+                    
+                    # 서브도메인 중복 체크
+                    is_available = True
+                    for store in store_data.get('stores', []):
+                        if store.get('subdomain') == subdomain.lower():
+                            is_available = False
+                            break
+                    
+                    if is_available:
+                        self.send_json_response({"available": True, "message": "사용 가능한 서브도메인입니다"})
+                    else:
+                        self.send_json_response({"available": False, "message": "이미 사용 중인 서브도메인입니다"})
+                        
+                except Exception as e:
+                    log_error(f"서브도메인 중복 체크 실패: {subdomain}", e)
+                    self.send_json_response({"error": "서브도메인 중복 체크 중 오류가 발생했습니다"}, 500)
+            
+            elif parsed_path.path.startswith('/api/stores/') and parsed_path.path.endswith('/subdomain'):
+                # 서브도메인 설정
+                store_id = parsed_path.path.split('/')[-2]
+                data = self.get_request_data()
+                
+                if not data or 'subdomain' not in data:
+                    self.send_json_response({"error": "subdomain is required"}, 400)
+                    return
+                
+                subdomain = data['subdomain'].lower().strip()
+                
+                log(LogLevel.INFO, f"서브도메인 설정 요청: {store_id} -> {subdomain}")
+                
+                try:
+                    store_data = self.load_data()
+                    
+                    # 가게 찾기
+                    store = None
+                    for s in store_data['stores']:
+                        if s['id'] == store_id:
+                            store = s
+                            break
+                    
+                    if not store:
+                        self.send_json_response({"error": "Store not found"}, 404)
+                        return
+                    
+                    # 서브도메인 수정 허용 (기존 서브도메인이 있는 경우에도 수정 가능)
+                    # 단, QR 코드가 생성된 경우에 대한 경고는 클라이언트에서 처리
+                    
+                    # 서브도메인 중복 체크
+                    for s in store_data['stores']:
+                        if s.get('subdomain') == subdomain:
+                            self.send_json_response({"error": "이미 사용 중인 서브도메인입니다"}, 400)
+                            return
+                    
+                    # 서브도메인 설정
+                    store['subdomain'] = subdomain
+                    store['subdomainStatus'] = 'active'
+                    store['subdomainCreatedAt'] = datetime.now().isoformat()
+                    store['subdomainLastModified'] = datetime.now().isoformat()
+                    store['lastModified'] = datetime.now().isoformat()
+                    
+                    # 데이터 저장
+                    if not self.save_data(store_data):
+                        log_error(f"서브도메인 저장 실패: {store_id}")
+                        self.send_json_response({"error": "서브도메인 저장에 실패했습니다"}, 500)
+                        return
+                    
+                    # 활동 로그 기록
+                    self.log_activity(
+                        log_type="store",
+                        action="서브도메인 설정",
+                        description=f"'{store['name']}' 가게에 서브도메인 '{subdomain}'을 설정했습니다.",
+                        user_id="admin",
+                        user_name="관리자",
+                        target_type="store",
+                        target_id=store_id,
+                        target_name=store['name'],
+                        details={"subdomain": subdomain}
+                    )
+                    
+                    log(LogLevel.INFO, f"서브도메인 설정 완료: {store_id} -> {subdomain}")
+                    self.send_json_response({"success": True, "subdomain": subdomain})
+                    
+                except Exception as e:
+                    log_error(f"서브도메인 설정 실패: {store_id}", e)
+                    self.send_json_response({"error": str(e)}, 500)
             
             elif parsed_path.path.startswith('/api/stores/') and parsed_path.path.endswith('/images'):
                 # 이미지 업로드
@@ -1609,6 +1950,11 @@ class DataHandler(BaseHTTPRequestHandler):
                         for key, value in setting_data.items():
                             store_data['settings'][store_id]['pickup'][key] = value
                     
+                    elif setting_type == 'businessHours':
+                        # 영업시간 설정
+                        store_data['settings'][store_id]['businessHours'] = setting_data
+                        log(LogLevel.INFO, f"영업시간 설정 저장: {store_id}")
+                    
                     else:
                         # 기타 설정
                         store_data['settings'][store_id][setting_type] = setting_data
@@ -1835,7 +2181,22 @@ class DataHandler(BaseHTTPRequestHandler):
                     
                     # QR 코드에 인코딩할 URL 생성
                     base_url = data.get('baseUrl', 'http://localhost:8081')
-                    qr_data = f"{base_url}/store.html?id={store_id}"
+                    
+                    # 서브도메인이 설정되어 있으면 서브도메인 URL 사용
+                    subdomain = store.get('subdomain')
+                    if subdomain:
+                        # 프로덕션 환경에서는 subdomain.pickup.com 형태로 사용
+                        # 개발 환경에서는 localhost:8081/{subdomain} 형태로 사용
+                        if 'localhost' in base_url or '127.0.0.1' in base_url:
+                            qr_data = f"{base_url}/{subdomain}"
+                        else:
+                            # 프로덕션: subdomain.pickup.com
+                            domain = base_url.replace('http://', '').replace('https://', '').split(':')[0]
+                            protocol = 'https://' if 'https' in base_url else 'http://'
+                            qr_data = f"{protocol}{subdomain}.{domain}"
+                    else:
+                        # 서브도메인이 없으면 기존 방식 사용
+                        qr_data = f"{base_url}/store.html?id={store_id}"
                     
                     # 로고 경로 가져오기 (images 객체에서)
                     logo_path = None

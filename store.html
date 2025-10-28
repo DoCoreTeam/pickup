@@ -111,6 +111,36 @@
         min-height: 100vh;
         box-sizing: border-box;
       }
+      
+      .service-tagline {
+        text-align: center;
+        padding: 12px 16px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        margin-bottom: 20px;
+        border-radius: 8px;
+        animation: fadeInDown 0.5s ease-out;
+      }
+      
+      @keyframes fadeInDown {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      
+      .service-tagline .highlight {
+        color: #fbbf24;
+        font-size: 15px;
+      }
 
       .store-hero {
         background: var(--card);
@@ -173,33 +203,33 @@
       }
 
       .store-name {
-        font-size: 28px;
+        font-size: 19px;
         font-weight: 800;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
         color: var(--fg);
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 8px;
+        gap: 6px;
       }
       
       .store-name::before {
         content: '🍽️';
-        font-size: 24px;
+        font-size: 16px;
       }
 
       .store-subtitle {
-        font-size: 16px;
+        font-size: 11px;
         color: var(--muted);
-        margin-bottom: 20px;
+        margin-bottom: 8px;
         font-weight: 500;
       }
 
       .phone-section {
         text-align: center;
         background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-        border-radius: 12px;
-        padding: 20px;
+        border-radius: 8px;
+        padding: 8px 12px;
         border: 1px solid rgba(0, 0, 0, 0.05);
         position: relative;
         overflow: hidden;
@@ -222,18 +252,18 @@
       }
 
       .phone-btn {
-        background: white;
-        color: var(--primary);
+        background: var(--primary);
+        color: white;
         border: none;
         border-radius: var(--radius);
-        padding: 16px 32px;
-        font-size: 18px;
+        padding: 14px 24px;
+        font-size: 16px;
         font-weight: 700;
         cursor: pointer;
         transition: all 0.3s ease;
         width: 100%;
-        margin-top: 16px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        margin-top: 8px;
+        box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
         position: relative;
         overflow: hidden;
       }
@@ -245,7 +275,7 @@
         left: -100%;
         width: 100%;
         height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(79, 70, 229, 0.1), transparent);
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
         transition: left 0.5s ease;
       }
       
@@ -254,24 +284,31 @@
       }
 
       .phone-btn:hover {
-        background: #f8fafc;
+        background: #3730a3;
         transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 4px 16px rgba(79, 70, 229, 0.4);
+      }
+      
+      .phone-btn:active {
+        transform: translateY(0);
       }
 
       .phone-number {
-        font-size: 20px;
-        font-weight: 600;
-        margin-bottom: 8px;
-        color: var(--fg);
+        font-size: 16px;
+        font-weight: 700;
+        margin-bottom: 0;
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+      }
+      
+      .phone-number::before {
+        content: '📞';
+        font-size: 14px;
       }
 
-      .phone-label {
-        font-size: 14px;
-        color: var(--muted);
-        margin-bottom: 16px;
-        font-weight: 500;
-      }
 
       .quick-actions {
         display: grid;
@@ -289,7 +326,7 @@
         background: var(--card);
         border: 1px solid var(--border);
         border-radius: 6px;
-        padding: 16px;
+        padding: 12px 8px;
         text-align: center;
         cursor: pointer;
         transition: all 0.2s ease;
@@ -304,14 +341,12 @@
       }
 
       .action-icon {
-        font-size: 20px;
-        margin-bottom: 8px;
-        display: block;
+        display: none;
       }
 
       .action-text {
-        font-size: 13px;
-        font-weight: 500;
+        font-size: 15px;
+        font-weight: 600;
       }
 
       .delivery-section {
@@ -784,7 +819,7 @@
         }
         
         .store-name {
-          font-size: 20px;
+          font-size: 13px;
         }
         
         .quick-actions {
@@ -865,8 +900,36 @@
         }
       }
 
-      function getStoreIdFromUrl() {
-        // URL 파라미터에서 storeId 또는 id 확인
+      async function getStoreIdFromUrl() {
+        // 1. 서브도메인 확인 (개발 환경: localhost:8081/{subdomain})
+        const hostname = window.location.hostname;
+        const pathname = window.location.pathname;
+        
+        // 개발 환경에서 서브도메인 접속 확인
+        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+          const subdomain = pathname.split('/')[1]; // /{subdomain} 형태
+          if (subdomain && subdomain !== 'store.html' && subdomain !== 'admin' && subdomain !== 'api') {
+            log('INFO', '서브도메인 접속 감지', { subdomain });
+            
+            // 서브도메인으로 가게 찾기
+            try {
+              const response = await apiRequest('/api/data');
+              const store = response.stores.find(s => s.subdomain === subdomain);
+              if (store) {
+                log('INFO', '서브도메인으로 가게 찾음', { subdomain, storeId: store.id, storeName: store.name });
+                return store.id;
+              } else {
+                log('WARN', '서브도메인에 해당하는 가게 없음', { subdomain });
+                throw new Error(`서브도메인 '${subdomain}'에 해당하는 가게를 찾을 수 없습니다.`);
+              }
+            } catch (error) {
+              log('ERROR', '서브도메인 가게 조회 실패', error);
+              throw error;
+            }
+          }
+        }
+        
+        // 2. URL 파라미터에서 storeId 또는 id 확인
         const urlParams = new URLSearchParams(window.location.search);
         const storeIdFromParam = urlParams.get('storeId') || urlParams.get('id');
         
@@ -874,7 +937,7 @@
           return storeIdFromParam;
         }
         
-        // 기존 경로 기반 파싱 (하위 호환성)
+        // 3. 기존 경로 기반 파싱 (하위 호환성)
         const path = window.location.pathname;
         const match = path.match(/\/store\/([^\/]+)/);
         return match ? match[1] : null;
@@ -1021,6 +1084,10 @@
         const logoImage = settings?.images?.mainLogo || '/assets/images/logos/default-logo.svg';
 
         contentDiv.innerHTML = `
+          <div class="service-tagline">
+            🏠 우리집 5분거리 <span class="highlight">픽업(pickup)</span>
+          </div>
+          
           <div class="store-hero">
             <div class="store-info">
               <div class="store-logo">
@@ -1028,31 +1095,26 @@
               </div>
               <div class="store-name">${currentStore.name || '가게명 없음'}</div>
               <div class="store-subtitle">${currentStore.subtitle || '전화·앱 한 번으로 바로 주문하세요'}</div>
+              <div id="businessHoursSection"></div>
             </div>
             
             <div class="phone-section">
               <div class="phone-number">${currentStore.phone || '전화번호 없음'}</div>
-              <div class="phone-label">바로 전화 주문하기</div>
               <button class="phone-btn" onclick="callStore()">
-                📞 전화하기
+                📞 바로 전화 주문하기
               </button>
             </div>
-            
-            <div id="businessHoursSection"></div>
           </div>
 
           <div class="quick-actions">
             <button class="action-btn" onclick="showMenu()">
-              <span class="action-icon">📋</span>
               <span class="action-text">메뉴 보기</span>
             </button>
             <button class="action-btn" onclick="showLocation()">
-              <span class="action-icon">📍</span>
               <span class="action-text">위치 보기</span>
             </button>
             ${settings?.pickup?.enabled ? `
             <button class="action-btn pickup-action" onclick="showPickupInfo()">
-              <span class="action-icon">📦</span>
               <span class="action-text">픽업 안내</span>
             </button>
             ` : ''}
@@ -1120,36 +1182,114 @@
           sun: '일요일'
         };
         
-        const today = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()];
-        const todayHours = businessHours[today];
+        const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        const currentTime = currentHour * 60 + currentMinute; // 분 단위로 변환
+        
+        let today = dayKeys[now.getDay()];
+        let todayHours = businessHours[today];
+        
+        // 자정(00시) 이후면 다음날 영업시간 확인
+        if (currentHour < 4) { // 새벽 4시까지는 전날 연장 영업 고려
+          const yesterday = dayKeys[(now.getDay() + 6) % 7];
+          const yesterdayHours = businessHours[yesterday];
+          
+          if (yesterdayHours?.enabled && yesterdayHours.close) {
+            const [closeH, closeM] = yesterdayHours.close.split(':').map(Number);
+            // 전날 종료 시간이 자정 넘어가는 경우 (예: 26:00 → 02:00)
+            if (closeH >= 24) {
+              const actualCloseTime = (closeH - 24) * 60 + closeM;
+              if (currentTime < actualCloseTime) {
+                todayHours = yesterdayHours;
+                today = yesterday;
+              }
+            }
+          }
+        }
         
         if (!todayHours || !todayHours.enabled) {
+          // 영업시간 데이터를 전역 변수에 저장
+          window.businessHoursData = { dayNames, businessHours, today };
+          
           return `
-            <div style="margin-top: 12px; padding: 12px 16px; background: #fef3c7; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="margin-top: 12px; padding: 10px 14px; background: #fef3c7; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
               <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 14px;">⏰</span>
-                <span style="color: #92400e; font-weight: 600; font-size: 14px;">오늘은 휴무일입니다</span>
+                <span style="color: #92400e; font-weight: 600; font-size: 13px;">오늘은 휴무일입니다</span>
               </div>
-              <button onclick="showAllBusinessHours()" style="padding: 4px 12px; background: white; border: 1px solid #f59e0b; border-radius: 6px; color: #f59e0b; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">전체보기</button>
+              <button onclick="showAllBusinessHours()" style="padding: 6px 12px; background: white; border: 1px solid #f59e0b; border-radius: 6px; color: #f59e0b; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.2s ease;">전체보기</button>
             </div>
           `;
         }
         
-        return `
-          <div style="margin-top: 12px; padding: 12px 16px; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <span style="font-size: 14px;">⏰</span>
-              <div>
-                <div style="font-size: 18px; font-weight: 700; color: #1e3a8a;">
-                  ${todayHours.open} - ${todayHours.close}
+        // 24시간 영업 체크
+        const is24Hours = todayHours.open === '00:00' && todayHours.close === '24:00';
+        
+        if (is24Hours) {
+          window.businessHoursData = { dayNames, businessHours, today };
+          return `
+            <div style="margin-top: 12px; padding: 10px 14px; background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border-radius: 8px; border: 1px solid #10b981; display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 14px;">⏰</span>
+                <div style="display: flex; align-items: baseline; gap: 4px;">
+                  <span style="font-size: 13px; color: #065f46; font-weight: 600;">24시간 영업</span>
                 </div>
               </div>
+              <button onclick="showAllBusinessHours()" style="padding: 6px 12px; background: white; border: 1px solid #10b981; border-radius: 6px; color: #10b981; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.2s ease;">전체보기</button>
             </div>
-            <button onclick="showAllBusinessHours()" style="padding: 4px 12px; background: white; border: 1px solid #3b82f6; border-radius: 6px; color: #3b82f6; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">전체보기</button>
+          `;
+        }
+        
+        // 영업 시간 파싱
+        const [openH, openM] = todayHours.open.split(':').map(Number);
+        const [closeH, closeM] = todayHours.close.split(':').map(Number);
+        const openTime = openH * 60 + openM;
+        const closeTime = closeH * 60 + closeM;
+        
+        // 영업 상태 판단
+        let status, statusText, bgColor, textColor, borderColor;
+        
+        if (currentTime < openTime) {
+          // 영업 준비 중
+          status = 'preparing';
+          statusText = '영업 준비 중';
+          bgColor = 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)';
+          textColor = '#92400e';
+          borderColor = '#f59e0b';
+        } else if (currentTime >= openTime && currentTime < closeTime) {
+          // 영업 중
+          status = 'open';
+          statusText = '영업중';
+          bgColor = 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)';
+          textColor = '#065f46';
+          borderColor = '#10b981';
+        } else {
+          // 영업 종료
+          status = 'closed';
+          statusText = '영업 종료';
+          bgColor = 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)';
+          textColor = '#991b1b';
+          borderColor = '#ef4444';
+        }
+        
+        // 영업시간 데이터를 전역 변수에 저장
+        window.businessHoursData = { dayNames, businessHours, today };
+        
+        return `
+          <div style="margin-top: 12px; padding: 10px 14px; background: ${bgColor}; border-radius: 8px; border: 1px solid ${borderColor}; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 14px;">⏰</span>
+              <div style="display: flex; align-items: baseline; gap: 4px;">
+                <span style="font-size: 13px; color: ${textColor}; font-weight: 600;">${statusText}</span>
+                <span style="font-size: 15px; font-weight: 700; color: ${textColor};">
+                  ${todayHours.open} - ${todayHours.close}
+                </span>
+              </div>
+            </div>
+            <button onclick="showAllBusinessHours()" style="padding: 6px 12px; background: white; border: 1px solid ${borderColor}; border-radius: 6px; color: ${borderColor}; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.2s ease;">전체보기</button>
           </div>
-          <script>
-            window.businessHoursData = ${JSON.stringify({ dayNames, businessHours, today })};
-          </script>
         `;
       }
       
@@ -1657,7 +1797,7 @@
         try {
           log('INFO', '페이지 초기화 시작');
           
-          const storeId = getStoreIdFromUrl();
+          const storeId = await getStoreIdFromUrl();
           if (!storeId) {
             throw new Error('가게 ID가 없습니다');
           }
@@ -1712,6 +1852,7 @@
         const { dayNames, businessHours, today } = data;
         
         const modal = document.createElement('div');
+        modal.id = 'businessHoursModal';
         modal.style.cssText = `
           position: fixed;
           top: 0;
@@ -1731,7 +1872,7 @@
           <div style="background: white; border-radius: 16px; padding: 24px; max-width: 400px; width: 100%; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
               <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: #1e293b;">📅 전체 영업시간</h3>
-              <button onclick="this.closest('div').parentElement.remove()" style="background: none; border: none; font-size: 24px; color: #94a3b8; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s;">×</button>
+              <button onclick="closeBusinessHoursModal()" style="background: none; border: none; font-size: 24px; color: #94a3b8; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s;">×</button>
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px;">
               ${Object.entries(dayNames).map(([day, name]) => {
@@ -1750,11 +1891,20 @@
           </div>
         `;
         
+        // 오버레이 클릭 시 모달 닫기
         modal.onclick = (e) => {
-          if (e.target === modal) modal.remove();
+          if (e.target === modal) closeBusinessHoursModal();
         };
         
         document.body.appendChild(modal);
+      }
+      
+      // 영업시간 모달 닫기
+      function closeBusinessHoursModal() {
+        const modal = document.getElementById('businessHoursModal');
+        if (modal) {
+          modal.remove();
+        }
       }
 
       // 설정 변경 감지 및 페이지 자동 새로고침

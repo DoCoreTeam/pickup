@@ -13,6 +13,94 @@
             box-sizing: border-box;
         }
 
+        /* 모달 스타일 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            overflow-y: auto;
+        }
+        
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 0;
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            position: relative;
+            animation: modalSlideIn 0.3s ease-out;
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+            color: white;
+            border-radius: 12px 12px 0 0;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: white;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color 0.2s;
+        }
+        
+        .modal-close:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .modal-body {
+            padding: 24px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            background-color: #f9fafb;
+            border-radius: 0 0 12px 12px;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #f5f7fa;
@@ -921,7 +1009,194 @@
             color: #155724;
         }
         
-        /* QR 코드 섹션 스타일 */
+        /* 도메인 & QR 섹션 스타일 */
+        .domain-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .domain-item {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .domain-item:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 6px rgba(59, 130, 246, 0.1);
+        }
+        
+        .domain-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .domain-header h4 {
+            color: #1e293b;
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0;
+        }
+        
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-badge:not(.completed):not(.pending) {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+        
+        .status-badge.completed {
+            background: #dcfce7;
+            color: #166534;
+        }
+        
+        .status-badge.pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .domain-body {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .input-group .form-input {
+            flex: 1;
+        }
+        
+        .subdomain-display {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        
+        .display-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .display-row .label {
+            color: #64748b;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .display-row .value {
+            color: #1e293b;
+            font-weight: 600;
+            font-family: monospace;
+            font-size: 15px;
+        }
+        
+        .rules {
+            color: #64748b;
+            font-size: 13px;
+            line-height: 1.5;
+            background: #f8fafc;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border-left: 3px solid #3b82f6;
+        }
+        
+        .qr-preview {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        
+        .qr-image {
+            width: 100px;
+            height: 100px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .qr-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .qr-info {
+            flex: 1;
+        }
+        
+        .qr-info strong {
+            color: #1e293b;
+            font-size: 16px;
+            display: block;
+            margin-bottom: 6px;
+        }
+        
+        .qr-info small {
+            color: #64748b;
+            font-size: 13px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .hints {
+            color: #64748b;
+            font-size: 13px;
+            line-height: 1.5;
+            background: #f0f9ff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border-left: 3px solid #0ea5e9;
+        }
+        
+        .url-display {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .url-text {
+            flex: 1;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-family: monospace;
+            font-size: 14px;
+            color: #1e293b;
+            word-break: break-all;
+        }
+        
+        /* QR 코드 섹션 스타일 (기존) */
         .qr-code-section {
             background: #f8f9fa;
             border-radius: 12px;
@@ -1644,6 +1919,10 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                     기본 정보
                 </div>
+                <div class="menu-item" onclick="showSection('domain')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3 4-3 9-3 9 1.34 9 3z"/><path d="M3 5c0 1.66 4 3 9 3s9-1.34 9-3-4-3-9-3-9 1.34-9 3z"/><path d="M3 19c0 1.66 4 3 9 3s9-1.34 9-3-4-3-9-3-9 1.34-9 3z"/></svg>
+                    도메인 & QR
+                </div>
                 <div class="menu-item" onclick="showSection('delivery')">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
                     배달앱 설정
@@ -1691,7 +1970,8 @@
             <div class="admin-header">
                 <div class="header-info">
                     <h1>픽업 - 관리자 페이지</h1>
-                    <p>가게 정보와 설정을 관리하세요</p>
+                    <p style="color: #667eea; font-weight: 600; font-size: 14px; margin-top: 4px;">🏠 우리집 5분거리 픽업(pickup)</p>
+                    <p style="margin-top: 4px;">가게 정보와 설정을 관리하세요</p>
                 </div>
                 <div class="header-actions">
                     <a href="/admin/bulk-management.html" id="bulkManagementBtn" class="btn btn-primary" style="display: none; margin-right: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;">
@@ -1808,6 +2088,7 @@
                     <input type="text" id="storeName" class="form-input" placeholder="가게명을 입력하세요" onblur="saveBasicInfo()">
                 </div>
                 
+                
                 <div class="form-group">
                     <label for="storeSubtitle">하단 텍스트</label>
                     <input type="text" id="storeSubtitle" class="form-input" placeholder="하단 텍스트를 입력하세요" onblur="saveBasicInfo()">
@@ -1827,98 +2108,105 @@
                 <div class="form-group">
                     <label>영업시간</label>
                     <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin-top: 8px;">
-                        <div id="businessHoursContainer">
-                            <!-- 월요일 -->
-                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; background: white; border-radius: 6px;">
-                                <label style="min-width: 60px; font-weight: 600; color: #475569;">월요일</label>
-                                <input type="checkbox" id="mon_enabled" onchange="saveBusinessHours()" style="width: 20px; height: 20px; cursor: pointer;">
-                                <input type="time" id="mon_open" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
-                                <span style="color: #94a3b8;">~</span>
-                                <input type="time" id="mon_close" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div id="businessHoursSummary" style="flex: 1;">
+                                <div style="font-size: 14px; color: #64748b; margin-bottom: 8px;">영업시간을 설정해주세요</div>
+                                <div id="businessHoursDisplay" style="font-size: 13px; color: #475569; line-height: 1.4;">
+                                    아직 설정되지 않았습니다
                             </div>
-                            <!-- 화요일 -->
-                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; background: white; border-radius: 6px;">
-                                <label style="min-width: 60px; font-weight: 600; color: #475569;">화요일</label>
-                                <input type="checkbox" id="tue_enabled" onchange="saveBusinessHours()" style="width: 20px; height: 20px; cursor: pointer;">
-                                <input type="time" id="tue_open" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
-                                <span style="color: #94a3b8;">~</span>
-                                <input type="time" id="tue_close" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
                             </div>
-                            <!-- 수요일 -->
-                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; background: white; border-radius: 6px;">
-                                <label style="min-width: 60px; font-weight: 600; color: #475569;">수요일</label>
-                                <input type="checkbox" id="wed_enabled" onchange="saveBusinessHours()" style="width: 20px; height: 20px; cursor: pointer;">
-                                <input type="time" id="wed_open" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
-                                <span style="color: #94a3b8;">~</span>
-                                <input type="time" id="wed_close" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                            <button type="button" onclick="openBusinessHoursModal()" class="btn btn-secondary" style="margin-left: 16px;">
+                                설정하기
+                            </button>
                             </div>
-                            <!-- 목요일 -->
-                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; background: white; border-radius: 6px;">
-                                <label style="min-width: 60px; font-weight: 600; color: #475569;">목요일</label>
-                                <input type="checkbox" id="thu_enabled" onchange="saveBusinessHours()" style="width: 20px; height: 20px; cursor: pointer;">
-                                <input type="time" id="thu_open" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
-                                <span style="color: #94a3b8;">~</span>
-                                <input type="time" id="thu_close" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
                             </div>
-                            <!-- 금요일 -->
-                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; background: white; border-radius: 6px;">
-                                <label style="min-width: 60px; font-weight: 600; color: #475569;">금요일</label>
-                                <input type="checkbox" id="fri_enabled" onchange="saveBusinessHours()" style="width: 20px; height: 20px; cursor: pointer;">
-                                <input type="time" id="fri_open" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
-                                <span style="color: #94a3b8;">~</span>
-                                <input type="time" id="fri_close" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
                             </div>
-                            <!-- 토요일 -->
-                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; background: white; border-radius: 6px;">
-                                <label style="min-width: 60px; font-weight: 600; color: #475569;">토요일</label>
-                                <input type="checkbox" id="sat_enabled" onchange="saveBusinessHours()" style="width: 20px; height: 20px; cursor: pointer;">
-                                <input type="time" id="sat_open" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
-                                <span style="color: #94a3b8;">~</span>
-                                <input type="time" id="sat_close" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                
                             </div>
-                            <!-- 일요일 -->
-                            <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: white; border-radius: 6px;">
-                                <label style="min-width: 60px; font-weight: 600; color: #475569;">일요일</label>
-                                <input type="checkbox" id="sun_enabled" onchange="saveBusinessHours()" style="width: 20px; height: 20px; cursor: pointer;">
-                                <input type="time" id="sun_open" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
-                                <span style="color: #94a3b8;">~</span>
-                                <input type="time" id="sun_close" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+
+            <!-- 도메인 & QR 설정 -->
+            <div class="admin-section" id="domain">
+                <h2 class="section-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3 4-3 9-3 9 1.34 9 3z"/><path d="M3 5c0 1.66 4 3 9 3s9-1.34 9-3-4-3-9-3-9 1.34-9 3z"/><path d="M3 19c0 1.66 4 3 9 3s9-1.34 9-3-4-3-9-3-9 1.34-9 3z"/></svg>
+                    도메인 & QR 설정
+                </h2>
+                
+                <div style="background: linear-gradient(135deg, #3b82f615 0%, #1e40af15 100%); border-left: 4px solid #3b82f6; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 8px; color: #3b82f6; font-weight: 600; font-size: 14px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        서브도메인 설정과 QR 코드 생성을 통해 고객들이 쉽게 접속할 수 있는 고유한 링크를 만드세요
                             </div>
                         </div>
-                        <div style="margin-top: 12px; padding: 12px; background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 6px;">
-                            <p style="font-size: 13px; color: #92400e; margin: 0;">💡 체크박스를 해제하면 해당 요일은 휴무로 표시됩니다.</p>
+                
+                <div class="domain-content">
+                    <!-- 서브도메인 설정 -->
+                    <div class="domain-item">
+                        <div class="domain-header">
+                            <h4>서브도메인 설정</h4>
+                            <span class="status-badge" id="subdomainStatus">미설정</span>
                         </div>
+                        
+                        <div class="domain-body">
+                            <div class="input-group">
+                                <input type="text" id="storeSubdomain" class="form-input" placeholder="예: michinjeuk" maxlength="20">
+                                <button onclick="saveSubdomain()" class="btn btn-primary" id="subdomainBtn">설정</button>
+                            </div>
+                            
+                            <div id="subdomainDisplay" class="subdomain-display" style="display: none;">
+                                <div class="display-row">
+                                    <span class="label">현재 서브도메인:</span>
+                                    <span id="currentSubdomain" class="value"></span>
+                                    <button onclick="enableSubdomainEdit()" class="btn btn-warning btn-sm" id="editSubdomainBtn">수정</button>
+                                </div>
+                            </div>
+                            
+                            <div class="rules">
+                                <small>3-20자, 영문자/숫자/하이픈(-)만 사용, 영문자나 숫자로 시작하고 끝나야 함</small>
+                            </div>
                     </div>
                 </div>
                 
                 <!-- QR 코드 생성 -->
-                <div class="form-group">
-                    <label>QR 코드</label>
-                    <div class="qr-code-section">
-                        <div id="qrCodePreview" class="qr-code-preview" style="display: none;">
+                    <div class="domain-item">
+                        <div class="domain-header">
+                            <h4>QR 코드</h4>
+                            <span class="status-badge" id="qrStatus">미생성</span>
+                        </div>
+                        
+                        <div class="domain-body">
+                            <div id="qrCodePreview" class="qr-preview" style="display: none;">
+                                <div class="qr-image">
                             <img id="qrCodeImage" src="" alt="QR 코드">
-                            <div class="qr-code-info">
-                                <p>✅ QR 코드가 생성되었습니다</p>
+                                </div>
+                                <div class="qr-info">
+                                    <strong>QR 코드 생성 완료</strong>
                                 <small id="qrCodeDate"></small>
                             </div>
                         </div>
-                        <div class="qr-code-actions">
-                            <button id="generateQrBtn" class="btn btn-primary" onclick="generateQRCode()">
-                                <span>🎨</span> QR 코드 생성
-                            </button>
-                            <button id="regenerateQrBtn" class="btn btn-secondary" onclick="regenerateQRCode()" style="display: none;">
-                                <span>🔄</span> QR 코드 재생성
-                            </button>
-                            <button id="downloadQrBtn" class="btn btn-success" onclick="downloadQRCode()" style="display: none;">
-                                <span>⬇️</span> QR 코드 다운로드
-                            </button>
-                            <button id="deleteQrBtn" class="btn btn-danger" onclick="deleteQRCode()" style="display: none;">
-                                <span>🗑️</span> QR 코드 삭제
-                            </button>
+                            
+                            <div class="action-buttons">
+                                <button id="generateQrBtn" class="btn btn-primary" onclick="generateQRCode()">QR 코드 생성</button>
+                                <button id="regenerateQrBtn" class="btn btn-secondary" onclick="regenerateQRCode()" style="display: none;">재생성</button>
+                                <button id="downloadQrBtn" class="btn btn-success" onclick="downloadQRCode()" style="display: none;">다운로드</button>
+                                <button id="deleteQrBtn" class="btn btn-danger" onclick="deleteQRCode()" style="display: none;">삭제</button>
                         </div>
-                        <div class="qr-code-hint">
-                            <p>💡 QR 코드는 가게 페이지 링크를 포함하며, 로고가 있으면 중앙에 표시됩니다.</p>
-                            <p>📱 로고를 변경한 경우 '재생성' 버튼을 눌러 새로운 QR 코드를 만드세요.</p>
+                            
+                            <div class="hints">
+                                <small>QR 코드는 서브도메인 링크를 포함하며, 로고가 있으면 중앙에 표시됩니다</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 최종 URL 표시 -->
+                    <div class="domain-item" id="finalUrlDisplay" style="display: none;">
+                        <div class="domain-header">
+                            <h4>접속 URL</h4>
+                        </div>
+                        <div class="domain-body">
+                            <div class="url-display">
+                                <div class="url-text" id="finalUrlText"></div>
+                                <button onclick="copyFinalUrl()" class="btn btn-info btn-sm">복사</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2220,7 +2508,7 @@
     </div>
 
     <script>
-        const API_BASE = '/api';
+        const API_BASE = 'http://localhost:8081/api';
         
         // 전역 가게 목록 (필터링용)
         let allStores = [];
@@ -2491,13 +2779,33 @@
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-store-id', store.id);
                 tr.style.borderBottom = '1px solid #e2e8f0';
-                tr.style.transition = 'background 0.2s';
-                tr.onmouseover = () => tr.style.background = '#f8fafc';
-                tr.onmouseout = () => tr.style.background = currentStoreId === store.id ? '#eff6ff' : 'white';
+                tr.style.transition = 'all 0.2s ease';
+                tr.style.cursor = 'pointer';
                 
-                if (currentStoreId === store.id) {
-                    tr.style.background = '#eff6ff';
+                const isSelected = currentStoreId === store.id;
+                
+                // 선택된 행 스타일링
+                if (isSelected) {
+                    tr.style.background = 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)';
+                    tr.style.borderLeft = '4px solid #667eea';
+                    tr.style.boxShadow = '0 2px 4px rgba(102, 126, 234, 0.1)';
                 }
+                
+                tr.onmouseover = () => {
+                    if (!isSelected) {
+                        tr.style.background = '#f8fafc';
+                    }
+                };
+                tr.onmouseout = () => {
+                    if (isSelected) {
+                        tr.style.background = 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)';
+                    } else {
+                        tr.style.background = 'white';
+                    }
+                };
+                
+                // 테이블 행 클릭 시 가게 전환
+                tr.onclick = () => selectStore(store.id);
                 
                 const storeUrl = `${window.location.origin}/store.html?id=${store.id}`;
                 const shortId = store.id.split('_').pop().substring(0, 8);
@@ -2507,22 +2815,25 @@
                     : '<span style="display: inline-block; padding: 4px 12px; background: #d1fae5; color: #065f46; border-radius: 12px; font-size: 12px; font-weight: 600;">활성</span>';
                 
                 const pauseResumeBtn = store.status === 'paused'
-                    ? `<button onclick="event.stopPropagation(); resumeStore('${store.id}')" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">재개</button>`
-                    : `<button onclick="event.stopPropagation(); pauseStore('${store.id}')" style="padding: 6px 12px; background: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">일시정지</button>`;
+                    ? `<button onclick="event.stopPropagation(); resumeStore('${store.id}')" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s;">재개</button>`
+                    : `<button onclick="event.stopPropagation(); pauseStore('${store.id}')" style="padding: 6px 12px; background: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s;">일시정지</button>`;
+                
+                const selectedIcon = isSelected ? '<span style="margin-right: 8px; color: #667eea;">✓</span>' : '';
                 
                 tr.innerHTML = `
                     <td style="padding: 16px 12px;">
                         <code style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-size: 12px; color: #475569;">${shortId}</code>
                     </td>
-                    <td style="padding: 16px 12px; font-weight: 600; color: #1e293b;">${store.name}</td>
+                    <td style="padding: 16px 12px; font-weight: 600; color: #1e293b;">
+                        ${selectedIcon}${store.name}
+                    </td>
                     <td style="padding: 16px 12px; color: #64748b;">${store.phone || '-'}</td>
                     <td style="padding: 16px 12px;">${statusBadge}</td>
                     <td style="padding: 16px 12px; text-align: center;">
                         <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
-                            <button onclick="event.stopPropagation(); selectStore('${store.id}')" style="padding: 6px 12px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">선택</button>
                             ${pauseResumeBtn}
-                            <button onclick="event.stopPropagation(); copyStoreUrl('${storeUrl}')" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">URL 복사</button>
-                            <button onclick="event.stopPropagation(); deleteStore('${store.id}')" style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">삭제</button>
+                            <button onclick="event.stopPropagation(); copyStoreUrl('${storeUrl}')" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s;">URL 복사</button>
+                            <button onclick="event.stopPropagation(); deleteStore('${store.id}')" style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s;">삭제</button>
                         </div>
                     </td>
                 `;
@@ -2651,8 +2962,8 @@
                 // 현재 가게 정보 업데이트 (사이드바)
                 await updateCurrentStoreInfo(storeId);
                 
-                // 선택된 가게 시각적 표시 업데이트 (테이블)
-                updateSelectedStoreVisual(storeId);
+                // 선택된 가게 시각적 표시 업데이트 (테이블 전체 재렌더링)
+                await renderStoreTable();
                 
                 // 설정 로드
                 await loadSettings();
@@ -2662,10 +2973,12 @@
                 await loadUserInfo(storeId);
                 console.log('✅ [DEBUG] 가게 선택 후 사용자 정보 로딩 완료');
                 
-                // 토스트 알림
-                const stores = allStores.length > 0 ? allStores : await apiRequest(`${API_BASE}/stores`);
+                // 서브도메인 로드 및 토스트 알림
+                const stores = await apiRequest(`${API_BASE}/stores`);
                 const selectedStore = stores.find(s => s.id === storeId);
+                console.log('🔍 [DEBUG] 선택된 가게 데이터:', selectedStore);
                 if (selectedStore) {
+                    loadSubdomain(selectedStore);
                     showToast(`${selectedStore.name} 가게가 선택되었습니다.`, 'success', '가게 선택');
                 }
                 
@@ -2952,9 +3265,30 @@
         }
 
         // 가게 페이지 보기
-        function viewStorePage(storeId) {
+        async function viewStorePage(storeId) {
+            try {
+                // 가게의 서브도메인 확인
+                const stores = await apiRequest(`${API_BASE}/stores`);
+                const store = stores.find(s => s.id === storeId);
+                
+                let storeUrl;
+                if (store && store.subdomain) {
+                    // 서브도메인이 설정된 경우 서브도메인 URL 사용
+                    storeUrl = `/${store.subdomain}`;
+                    console.log('서브도메인 페이지 URL:', storeUrl);
+                } else {
+                    // 서브도메인이 없는 경우 기존 방식 사용
+                    storeUrl = `/store.html?id=${storeId}`;
+                    console.log('기존 페이지 URL:', storeUrl);
+                }
+                
+                window.open(storeUrl, '_blank');
+            } catch (error) {
+                console.error('가게 페이지 열기 실패:', error);
+                // 오류 발생 시 기존 방식으로 폴백
             const storeUrl = `/store.html?id=${storeId}`;
             window.open(storeUrl, '_blank');
+            }
         }
 
         // 가게명으로 ID 찾기
@@ -2988,6 +3322,14 @@
                 document.getElementById('storeSubtitle').value = settings.basic?.storeSubtitle || '';
                 document.getElementById('storePhone').value = settings.basic?.storePhone || '';
                 document.getElementById('storeAddress').value = settings.basic?.storeAddress || '';
+                
+                // 서브도메인 로드 (설정 로드 시에도 실행)
+                const stores = await apiRequest(`${API_BASE}/stores`);
+                const currentStore = stores.find(s => s.id === currentStoreId);
+                if (currentStore) {
+                    console.log('🔍 [DEBUG] loadSettings에서 서브도메인 로드:', currentStore);
+                    loadSubdomain(currentStore);
+                }
                 
                 // 배달앱 설정
                 document.getElementById('ttaengUrl').value = settings.delivery?.ttaengUrl || '';
@@ -3050,12 +3392,837 @@
             }
         }
 
+        // 기존 영업시간 백업 저장소
+        let originalBusinessHours = {};
+        let allDaysSameMode = false;
+        
+        // 24시간 영업 모드 토글
+        function toggle24HoursMode() {
+            const is24Hours = document.getElementById('allDays24Hours').checked;
+            const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+            
+            // 다른 모드들 비활성화
+            if (is24Hours) {
+                document.getElementById('allDaysSame').checked = false;
+                allDaysSameMode = false;
+                clearDay24Hours();
+            }
+            
+            if (is24Hours) {
+                // 24시간 모드로 전환: 현재 설정을 백업하고 24시간으로 설정
+                days.forEach(day => {
+                    const enabled = document.getElementById(`${day}_enabled`);
+                    const open = document.getElementById(`${day}_open`);
+                    const close = document.getElementById(`${day}_close`);
+                    
+                    // 현재 설정 백업
+                    originalBusinessHours[day] = {
+                        enabled: enabled.checked,
+                        open: open.value,
+                        close: close.value
+                    };
+                    
+                    // 24시간으로 설정
+                    enabled.checked = true;
+                    open.value = '00:00';
+                    close.value = '24:00';
+                    enabled.disabled = true;
+                    open.disabled = true;
+                    close.disabled = true;
+                });
+            } else {
+                // 일반 모드로 복원: 백업된 설정으로 복원
+                days.forEach(day => {
+                    const enabled = document.getElementById(`${day}_enabled`);
+                    const open = document.getElementById(`${day}_open`);
+                    const close = document.getElementById(`${day}_close`);
+                    
+                    // 입력 필드 활성화
+                    enabled.disabled = false;
+                    open.disabled = false;
+                    close.disabled = false;
+                    
+                    // 백업된 설정으로 복원 (백업이 있는 경우만)
+                    if (originalBusinessHours[day]) {
+                        enabled.checked = originalBusinessHours[day].enabled;
+                        open.value = originalBusinessHours[day].open;
+                        close.value = originalBusinessHours[day].close;
+                    }
+                });
+            }
+            
+            saveBusinessHours();
+        }
+        
+        // 모든 요일 동일 설정 토글
+        function toggleAllDaysSame() {
+            allDaysSameMode = document.getElementById('allDaysSame').checked;
+            const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+            
+            // 다른 모드들 비활성화
+            if (allDaysSameMode) {
+                document.getElementById('allDays24Hours').checked = false;
+                clearDay24Hours();
+            }
+            
+            if (allDaysSameMode) {
+                // 월요일 설정을 기준으로 다른 요일들 동기화
+                const monEnabled = document.getElementById('mon_enabled').checked;
+                const monOpen = document.getElementById('mon_open').value;
+                const monClose = document.getElementById('mon_close').value;
+                
+                days.forEach(day => {
+                    const enabled = document.getElementById(`${day}_enabled`);
+                    const open = document.getElementById(`${day}_open`);
+                    const close = document.getElementById(`${day}_close`);
+                    
+                    // 월요일 설정으로 동기화
+                    enabled.checked = monEnabled;
+                    open.value = monOpen;
+                    close.value = monClose;
+                    
+                    // 월요일이 아닌 경우 비활성화
+                    if (day !== 'mon') {
+                        enabled.disabled = true;
+                        open.disabled = true;
+                        close.disabled = true;
+                    }
+                });
+            } else {
+                // 모든 요일 개별 설정으로 복원
+                days.forEach(day => {
+                    const enabled = document.getElementById(`${day}_enabled`);
+                    const open = document.getElementById(`${day}_open`);
+                    const close = document.getElementById(`${day}_close`);
+                    
+                    enabled.disabled = false;
+                    open.disabled = false;
+                    close.disabled = false;
+                });
+            }
+            
+            saveBusinessHours();
+        }
+        
+        // 특정 요일 24시간 설정 토글
+        function toggleDay24Hours(day) {
+            const is24h = document.getElementById(`${day}_24h`).checked;
+            const enabled = document.getElementById(`${day}_enabled`);
+            const open = document.getElementById(`${day}_open`);
+            const close = document.getElementById(`${day}_close`);
+            
+            if (is24h) {
+                // 24시간으로 설정
+                enabled.checked = true;
+                open.value = '00:00';
+                close.value = '24:00';
+                enabled.disabled = true;
+                open.disabled = true;
+                close.disabled = true;
+            } else {
+                // 일반 설정으로 복원
+                enabled.disabled = false;
+                open.disabled = false;
+                close.disabled = false;
+                
+                // 백업된 설정이 있으면 복원
+                if (originalBusinessHours[day]) {
+                    enabled.checked = originalBusinessHours[day].enabled;
+                    open.value = originalBusinessHours[day].open;
+                    close.value = originalBusinessHours[day].close;
+                }
+            }
+            
+            saveBusinessHours();
+        }
+        
+        // 특정 요일 24시간 체크박스들 초기화
+        function clearDay24Hours() {
+            const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+            days.forEach(day => {
+                document.getElementById(`${day}_24h`).checked = false;
+            });
+        }
+        
+        // 서브도메인 유효성 검증
+        function validateSubdomain(subdomain) {
+            if (!subdomain) return { valid: false, message: '서브도메인을 입력해주세요' };
+            
+            // 길이 체크 (3-20자)
+            if (subdomain.length < 3 || subdomain.length > 20) {
+                return { valid: false, message: '서브도메인은 3-20자 사이여야 합니다' };
+            }
+            
+            // 허용 문자 체크 (영문자, 숫자, 하이픈만)
+            if (!/^[a-z0-9-]+$/.test(subdomain)) {
+                return { valid: false, message: '서브도메인은 영문자, 숫자, 하이픈(-)만 사용할 수 있습니다' };
+            }
+            
+            // 시작/끝 문자 체크 (영문자나 숫자로만)
+            if (!/^[a-z0-9]/.test(subdomain) || !/[a-z0-9]$/.test(subdomain)) {
+                return { valid: false, message: '서브도메인은 영문자나 숫자로 시작하고 끝나야 합니다' };
+            }
+            
+            // 연속 하이픈 체크
+            if (subdomain.includes('--')) {
+                return { valid: false, message: '연속된 하이픈(--)은 사용할 수 없습니다' };
+            }
+            
+            // 예약어 체크
+            const reservedWords = ['admin', 'api', 'www', 'mail', 'ftp', 'blog', 'shop', 'store', 'app', 'dev', 'test', 'staging', 'prod', 'production'];
+            if (reservedWords.includes(subdomain.toLowerCase())) {
+                return { valid: false, message: `'${subdomain}'은 예약어로 사용할 수 없습니다` };
+            }
+            
+            return { valid: true, message: '사용 가능한 서브도메인입니다' };
+        }
+        
+        // 서브도메인 중복 체크
+        async function checkSubdomainAvailability(subdomain) {
+            try {
+                const response = await fetch(`${API_BASE}/subdomain/check?subdomain=${encodeURIComponent(subdomain)}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                return result;
+            } catch (error) {
+                console.error('서브도메인 중복 체크 실패:', error);
+                
+                // 서버 연결 실패 시 임시로 사용 가능으로 처리 (개발 중)
+                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    console.warn('서버 연결 실패 - 임시로 사용 가능으로 처리');
+                    return { available: true, message: '서버 연결 실패 - 임시로 사용 가능으로 처리' };
+                }
+                
+                return { available: false, message: '중복 체크 중 오류가 발생했습니다' };
+            }
+        }
+        
+        // 최종 URL 복사 함수
+        async function copyFinalUrl() {
+            const urlText = document.getElementById('finalUrlText');
+            if (urlText) {
+                try {
+                    await navigator.clipboard.writeText(urlText.textContent);
+                    showToast('URL이 클립보드에 복사되었습니다', 'success');
+                } catch (err) {
+                    // 폴백: 텍스트 선택
+                    urlText.select();
+                    document.execCommand('copy');
+                    showToast('URL이 복사되었습니다', 'success');
+                }
+            }
+        }
+        
+        // 최종 URL 업데이트 함수
+        function updateFinalUrl(subdomain) {
+            const finalUrlDisplay = document.getElementById('finalUrlDisplay');
+            const finalUrlText = document.getElementById('finalUrlText');
+            
+            if (subdomain) {
+                const baseUrl = window.location.origin;
+                const finalUrl = `${baseUrl}/${subdomain}`;
+                finalUrlText.textContent = finalUrl;
+                finalUrlDisplay.style.display = 'block';
+            } else {
+                finalUrlDisplay.style.display = 'none';
+            }
+        }
+        
+        // 현재 가게 정보 가져오기
+        async function getCurrentStore() {
+            try {
+                const currentStoreId = await getCurrentStoreId();
+                if (!currentStoreId) return null;
+                
+                const stores = await apiRequest(`${API_BASE}/stores`);
+                return stores.find(s => s.id === currentStoreId);
+            } catch (error) {
+                console.error('현재 가게 정보 조회 실패:', error);
+                return null;
+            }
+        }
+        
+        // 도메인 섹션 로드
+        async function loadDomainSection() {
+            try {
+                const currentStoreId = await getCurrentStoreId();
+                if (!currentStoreId) {
+                    showToast('가게를 먼저 선택해주세요.', 'error');
+                    return;
+                }
+                
+                // 현재 가게 정보 가져오기
+                const currentStore = await getCurrentStore();
+                if (currentStore) {
+                    // 서브도메인 로드
+                    loadSubdomain(currentStore);
+                }
+                
+                // 설정 로드 (QR 코드 포함)
+                const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                loadQRCode(settings);
+                
+                // 상태 배지 업데이트
+                const qrCode = settings?.qrCode;
+                updateStatusBadges(currentStore?.subdomain, qrCode);
+                
+            } catch (error) {
+                console.error('도메인 섹션 로드 실패:', error);
+                showToast('도메인 섹션 로드에 실패했습니다.', 'error');
+            }
+        }
+        
+        // 영업시간 모달 열기
+        async function openBusinessHoursModal() {
+            const modal = document.getElementById('businessHoursModal');
+            if (modal) {
+                modal.style.display = 'block';
+                // 현재 설정된 영업시간 로드
+                try {
+                    const currentStoreId = await getCurrentStoreId();
+                    if (currentStoreId) {
+                        const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                        loadBusinessHours(settings);
+                    }
+                } catch (error) {
+                    console.error('영업시간 설정 로드 실패:', error);
+                    showToast('영업시간 설정을 불러올 수 없습니다.', 'error');
+                }
+            }
+        }
+        
+        // 영업시간 모달 닫기
+        function closeBusinessHoursModal() {
+            const modal = document.getElementById('businessHoursModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        // 모달에서 영업시간 저장
+        async function saveBusinessHoursFromModal() {
+            try {
+                await saveBusinessHours();
+                closeBusinessHoursModal();
+                updateBusinessHoursDisplay();
+                showToast('영업시간이 저장되었습니다.', 'success');
+            } catch (error) {
+                console.error('영업시간 저장 실패:', error);
+                showToast('영업시간 저장에 실패했습니다.', 'error');
+            }
+        }
+        
+        // 영업시간 표시 업데이트
+        function updateBusinessHoursDisplay() {
+            const display = document.getElementById('businessHoursDisplay');
+            if (!display) return;
+            
+            const allDays24Hours = document.getElementById('allDays24Hours')?.checked;
+            const allDaysSame = document.getElementById('allDaysSame')?.checked;
+            
+            if (allDays24Hours) {
+                display.innerHTML = '24시간 영업 (모든 요일)';
+                return;
+            }
+            
+            if (allDaysSame) {
+                const monEnabled = document.getElementById('mon_enabled')?.checked;
+                const monOpen = document.getElementById('mon_open')?.value;
+                const monClose = document.getElementById('mon_close')?.value;
+                
+                if (monEnabled && monOpen && monClose) {
+                    display.innerHTML = `매일 ${monOpen} ~ ${monClose}`;
+                } else {
+                    display.innerHTML = '영업시간 설정 필요';
+                }
+                return;
+            }
+            
+            // 개별 요일 설정 표시
+            const days = ['월', '화', '수', '목', '금', '토', '일'];
+            const dayNames = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+            const hours = [];
+            
+            dayNames.forEach((day, index) => {
+                const enabled = document.getElementById(`${day}_enabled`)?.checked;
+                const open = document.getElementById(`${day}_open`)?.value;
+                const close = document.getElementById(`${day}_close`)?.value;
+                const is24h = document.getElementById(`${day}_24h`)?.checked;
+                
+                if (enabled) {
+                    if (is24h) {
+                        hours.push(`${days[index]}: 24시간`);
+                    } else if (open && close) {
+                        hours.push(`${days[index]}: ${open}~${close}`);
+                    }
+                }
+            });
+            
+            if (hours.length > 0) {
+                display.innerHTML = hours.join('<br>');
+            } else {
+                display.innerHTML = '영업시간 설정 필요';
+            }
+        }
+        
+        // 상태 배지 업데이트 함수
+        function updateStatusBadges(subdomain, qrCode) {
+            // 서브도메인 상태 업데이트
+            const subdomainStatus = document.getElementById('subdomainStatus');
+            if (subdomain) {
+                subdomainStatus.textContent = '설정완료';
+                subdomainStatus.className = 'status-badge completed';
+            } else {
+                subdomainStatus.textContent = '미설정';
+                subdomainStatus.className = 'status-badge';
+            }
+            
+            // QR 코드 상태 업데이트
+            const qrStatus = document.getElementById('qrStatus');
+            if (qrCode && qrCode.url) {
+                qrStatus.textContent = '생성완료';
+                qrStatus.className = 'status-badge completed';
+            } else {
+                qrStatus.textContent = '미생성';
+                qrStatus.className = 'status-badge';
+            }
+        }
+        
+        // 서브도메인 설정 저장
+        async function saveSubdomain() {
+            const subdomainInput = document.getElementById('storeSubdomain');
+            const subdomain = subdomainInput.value.trim().toLowerCase();
+            
+            // 유효성 검증
+            const validation = validateSubdomain(subdomain);
+            if (!validation.valid) {
+                showToast(validation.message, 'error');
+                return;
+            }
+            
+            // 중복 체크
+            const availability = await checkSubdomainAvailability(subdomain);
+            if (!availability.available) {
+                showToast(availability.message, 'error');
+                return;
+            }
+            
+            try {
+                const currentStoreId = await getCurrentStoreId();
+                if (!currentStoreId) {
+                    showToast('가게를 선택해주세요', 'error');
+                    return;
+                }
+                
+                // QR 코드 생성 여부 확인
+                const settingsResponse = await fetch(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                if (settingsResponse.ok) {
+                    const settings = await settingsResponse.json();
+                    if (settings.qrCode && settings.qrCode.url) {
+                        // QR 코드가 이미 생성된 경우 경고 모달 표시
+                        showQRCodeWarningModal(subdomain);
+                        return;
+                    }
+                }
+                
+                // 서브도메인 설정 저장
+                await saveSubdomainToServer(subdomain);
+                
+                // 상태 업데이트
+                updateStatusBadges(subdomain, null);
+                updateFinalUrl(subdomain);
+                
+            } catch (error) {
+                console.error('서브도메인 저장 실패:', error);
+                
+                // 서버 연결 실패 시 로컬 스토리지에 임시 저장
+                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    localStorage.setItem(`temp_subdomain_${currentStoreId}`, subdomain);
+                    showToast('서브도메인이 임시로 저장되었습니다 (서버 연결 후 다시 시도해주세요)', 'warning');
+                } else {
+                    showToast(`서브도메인 저장 실패: ${error.message || error}`, 'error');
+                }
+            }
+        }
+        
+        // QR 코드 경고 모달 표시 (2단계 확인)
+        function showQRCodeWarningModal(subdomain) {
+            showFirstWarningModal(subdomain);
+        }
+        
+        // 1단계 경고 모달
+        function showFirstWarningModal(subdomain) {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.8);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+            `;
+            
+            modal.innerHTML = `
+                <div style="
+                    background: white;
+                    border-radius: 12px;
+                    padding: 24px;
+                    max-width: 500px;
+                    width: 90%;
+                    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+                    text-align: center;
+                ">
+                    <div style="
+                        color: #ef4444;
+                        font-size: 48px;
+                        margin-bottom: 16px;
+                    ">⚠️</div>
+                    <h3 style="
+                        color: #1f2937;
+                        font-size: 20px;
+                        font-weight: 600;
+                        margin-bottom: 16px;
+                    ">QR 코드가 이미 생성되었습니다!</h3>
+                    <p style="
+                        color: #6b7280;
+                        font-size: 14px;
+                        line-height: 1.6;
+                        margin-bottom: 24px;
+                    ">
+                        이 가게의 QR 코드가 이미 생성되어 고객들에게 배포되었을 수 있습니다.<br>
+                        서브도메인을 변경하면 기존 QR 코드가 작동하지 않게 됩니다.
+                    </p>
+                    <div style="
+                        background: #fef2f2;
+                        border: 1px solid #fecaca;
+                        border-radius: 8px;
+                        padding: 12px;
+                        margin-bottom: 24px;
+                    ">
+                        <p style="
+                            color: #dc2626;
+                            font-size: 13px;
+                            font-weight: 500;
+                            margin: 0;
+                        ">
+                            <strong>경고:</strong> 서브도메인 변경 시 기존 QR 코드를 다시 생성해야 합니다.
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 12px; justify-content: center;">
+                        <button id="cancelSubdomainChange" style="
+                            background: #6b7280;
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            padding: 12px 24px;
+                            font-size: 14px;
+                            font-weight: 500;
+                            cursor: pointer;
+                        ">취소</button>
+                        <button id="proceedToSecondWarning" style="
+                            background: #f59e0b;
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            padding: 12px 24px;
+                            font-size: 14px;
+                            font-weight: 500;
+                            cursor: pointer;
+                        ">계속 진행</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // 이벤트 리스너
+            document.getElementById('cancelSubdomainChange').onclick = () => {
+                document.body.removeChild(modal);
+            };
+            
+            document.getElementById('proceedToSecondWarning').onclick = () => {
+                document.body.removeChild(modal);
+                showSecondWarningModal(subdomain);
+            };
+        }
+        
+        // 2단계 최종 확인 모달
+        function showSecondWarningModal(subdomain) {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.9);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10001;
+            `;
+            
+            modal.innerHTML = `
+                <div style="
+                    background: white;
+                    border-radius: 12px;
+                    padding: 24px;
+                    max-width: 500px;
+                    width: 90%;
+                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                    text-align: center;
+                    border: 2px solid #ef4444;
+                ">
+                    <div style="
+                        color: #ef4444;
+                        font-size: 64px;
+                        margin-bottom: 16px;
+                    ">🚨</div>
+                    <h3 style="
+                        color: #dc2626;
+                        font-size: 22px;
+                        font-weight: 700;
+                        margin-bottom: 16px;
+                    ">정말로 서브도메인을 변경하시겠습니까?</h3>
+                    <p style="
+                        color: #6b7280;
+                        font-size: 15px;
+                        line-height: 1.6;
+                        margin-bottom: 24px;
+                    ">
+                        <strong>이 작업은 되돌릴 수 없습니다!</strong><br>
+                        기존 QR 코드가 모두 무효화되며, 고객들이 접속할 수 없게 됩니다.
+                    </p>
+                    <div style="
+                        background: #fef2f2;
+                        border: 2px solid #fecaca;
+                        border-radius: 8px;
+                        padding: 16px;
+                        margin-bottom: 24px;
+                    ">
+                        <p style="
+                            color: #dc2626;
+                            font-size: 14px;
+                            font-weight: 600;
+                            margin: 0;
+                        ">
+                            ⚠️ <strong>최종 경고:</strong> 서브도메인 변경 후에는 반드시 새로운 QR 코드를 생성해야 합니다.
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 12px; justify-content: center;">
+                        <button id="finalCancel" style="
+                            background: #6b7280;
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            padding: 14px 28px;
+                            font-size: 15px;
+                            font-weight: 600;
+                            cursor: pointer;
+                        ">취소</button>
+                        <button id="finalConfirm" style="
+                            background: #dc2626;
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            padding: 14px 28px;
+                            font-size: 15px;
+                            font-weight: 600;
+                            cursor: pointer;
+                        ">네, 변경하겠습니다</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // 이벤트 리스너
+            document.getElementById('finalCancel').onclick = () => {
+                document.body.removeChild(modal);
+            };
+            
+            document.getElementById('finalConfirm').onclick = async () => {
+                document.body.removeChild(modal);
+                await saveSubdomainToServer(subdomain);
+            };
+        }
+        
+        // 서브도메인 서버 저장 함수
+        async function saveSubdomainToServer(subdomain) {
+            const currentStoreId = await getCurrentStoreId();
+            const subdomainInput = document.getElementById('storeSubdomain');
+            const subdomainDisplay = document.getElementById('subdomainDisplay');
+            
+            const response = await fetch(`${API_BASE}/stores/${currentStoreId}/subdomain`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subdomain: subdomain })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `서브도메인 저장 실패: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            showToast('서브도메인이 설정되었습니다', 'success');
+            
+            // UI 업데이트
+            updateSubdomainDisplay(subdomain);
+            
+            // 입력 필드 비활성화 및 숨김
+            subdomainInput.disabled = true;
+            subdomainInput.placeholder = '이미 설정된 서브도메인';
+            subdomainInput.style.display = 'none';
+            
+            // 표시 영역 보이기
+            if (subdomainDisplay) {
+                subdomainDisplay.style.display = 'block';
+            }
+        }
+        
+        // 서브도메인 표시 업데이트
+        function updateSubdomainDisplay(subdomain) {
+            const subdomainDisplay = document.getElementById('subdomainDisplay');
+            const currentSubdomain = document.getElementById('currentSubdomain');
+            if (subdomainDisplay && currentSubdomain) {
+                currentSubdomain.textContent = subdomain;
+                subdomainDisplay.style.display = 'block';
+            }
+        }
+        
+        // 서브도메인 로드
+        function loadSubdomain(store) {
+            console.log('🔍 [DEBUG] loadSubdomain 호출됨:', store);
+            const subdomainInput = document.getElementById('storeSubdomain');
+            const subdomainDisplay = document.getElementById('subdomainDisplay');
+            const currentSubdomain = document.getElementById('currentSubdomain');
+            
+            // 서버 데이터에서 서브도메인 확인
+            let subdomain = store && store.subdomain ? store.subdomain : null;
+            console.log('🔍 [DEBUG] 서버에서 로드된 서브도메인:', subdomain);
+            
+            // 서버 데이터가 없으면 로컬 스토리지 확인 (개발 중)
+            if (!subdomain && store && store.id) {
+                const tempSubdomain = localStorage.getItem(`temp_subdomain_${store.id}`);
+                if (tempSubdomain) {
+                    subdomain = tempSubdomain;
+                    console.warn('로컬 스토리지에서 서브도메인 로드:', subdomain);
+                }
+            }
+            
+            if (subdomain) {
+                // 이미 서브도메인이 설정된 경우
+                console.log('🔍 [DEBUG] 서브도메인 설정됨, UI 업데이트 중:', subdomain);
+                if (subdomainInput) {
+                    subdomainInput.value = subdomain;
+                    subdomainInput.disabled = true;
+                    subdomainInput.placeholder = '이미 설정된 서브도메인';
+                    console.log('🔍 [DEBUG] 입력 필드 업데이트 완료');
+                }
+                if (subdomainDisplay && currentSubdomain) {
+                    currentSubdomain.textContent = subdomain;
+                    subdomainDisplay.style.display = 'block';
+                    
+                    // 수정 버튼 표시
+                    const editBtn = document.getElementById('editSubdomainBtn');
+                    if (editBtn) {
+                        editBtn.style.display = 'inline-block';
+                    }
+                    
+                    console.log('🔍 [DEBUG] 서브도메인 표시 영역 업데이트 완료');
+                } else {
+                    console.warn('⚠️ [DEBUG] 서브도메인 표시 요소를 찾을 수 없음:', {
+                        subdomainDisplay: !!subdomainDisplay,
+                        currentSubdomain: !!currentSubdomain
+                    });
+                }
+                
+                // 상태 업데이트
+                updateStatusBadges(subdomain, null);
+                updateFinalUrl(subdomain);
+            } else {
+                // 서브도메인이 설정되지 않은 경우
+                console.log('🔍 [DEBUG] 서브도메인 미설정, UI 초기화 중');
+                if (subdomainInput) {
+                    subdomainInput.value = '';
+                    subdomainInput.disabled = false;
+                    subdomainInput.placeholder = '예: michinjeuk';
+                }
+                if (subdomainDisplay) {
+                    subdomainDisplay.style.display = 'none';
+                }
+                
+                // 상태 업데이트
+                updateStatusBadges(null, null);
+                updateFinalUrl(null);
+            }
+        }
+        
+        // 서브도메인 수정 활성화
+        function enableSubdomainEdit() {
+            const subdomainInput = document.getElementById('storeSubdomain');
+            const subdomainDisplay = document.getElementById('subdomainDisplay');
+            const editBtn = document.getElementById('editSubdomainBtn');
+            
+            if (subdomainInput && subdomainDisplay && editBtn) {
+                // 입력 필드 활성화
+                subdomainInput.disabled = false;
+                subdomainInput.placeholder = '예: michinjeuk';
+                subdomainInput.focus();
+                
+                // 표시 영역 숨기기
+                subdomainDisplay.style.display = 'none';
+                
+                // 수정 버튼 숨기기
+                editBtn.style.display = 'none';
+                
+                console.log('🔍 [DEBUG] 서브도메인 수정 모드 활성화');
+            }
+        }
+        
+        // 월요일 변경 시 모든 요일 동일 모드에서 동기화
+        function handleMonChange() {
+            if (allDaysSameMode) {
+                const monEnabled = document.getElementById('mon_enabled').checked;
+                const monOpen = document.getElementById('mon_open').value;
+                const monClose = document.getElementById('mon_close').value;
+                
+                const days = ['tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+                days.forEach(day => {
+                    const enabled = document.getElementById(`${day}_enabled`);
+                    const open = document.getElementById(`${day}_open`);
+                    const close = document.getElementById(`${day}_close`);
+                    
+                    enabled.checked = monEnabled;
+                    open.value = monOpen;
+                    close.value = monClose;
+                });
+            }
+            
+            saveBusinessHours();
+        }
+
         // 기본 정보 저장
         // 영업시간 저장
         async function saveBusinessHours() {
             try {
                 const currentStoreId = await getCurrentStoreId();
-                if (!currentStoreId) return;
+                if (!currentStoreId) {
+                    console.error('현재 가게 ID를 찾을 수 없습니다');
+                    showToast('가게를 선택해주세요', 'error');
+                    return;
+                }
                 
                 const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
                 const businessHours = {};
@@ -3072,18 +4239,36 @@
                     };
                 });
                 
-                const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                console.log('영업시간 데이터:', businessHours);
+                
+                // 기존 설정 로드
+                const settingsResponse = await fetch(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                if (!settingsResponse.ok) {
+                    throw new Error(`설정 로드 실패: ${settingsResponse.status}`);
+                }
+                
+                const settings = await settingsResponse.json();
                 settings.businessHours = businessHours;
                 
-                await apiRequest(`${API_BASE}/settings`, 'POST', {
-                    storeId: currentStoreId,
-                    settings: settings
+                // 설정 저장
+                const saveResponse = await fetch(`${API_BASE}/settings?storeId=${currentStoreId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(settings)
                 });
                 
+                if (!saveResponse.ok) {
+                    throw new Error(`설정 저장 실패: ${saveResponse.status}`);
+                }
+                
+                const result = await saveResponse.json();
+                console.log('영업시간 저장 응답:', result);
                 showToast('영업시간이 저장되었습니다', 'success');
             } catch (error) {
                 console.error('영업시간 저장 실패:', error);
-                showToast('영업시간 저장 실패', 'error');
+                showToast(`영업시간 저장 실패: ${error.message || error}`, 'error');
             }
         }
         
@@ -3091,6 +4276,17 @@
         function loadBusinessHours(settings) {
             const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
             const businessHours = settings.businessHours || {};
+            
+            // 24시간 영업 체크
+            const allDays24Hours = days.every(day => {
+                const dayData = businessHours[day];
+                return dayData && dayData.open === '00:00' && dayData.close === '24:00' && dayData.enabled;
+            });
+            
+            const allDays24HoursCheckbox = document.getElementById('allDays24Hours');
+            if (allDays24HoursCheckbox) {
+                allDays24HoursCheckbox.checked = allDays24Hours;
+            }
             
             days.forEach(day => {
                 const dayData = businessHours[day] || { enabled: true, open: '09:00', close: '22:00' };
@@ -3102,7 +4298,17 @@
                 if (enabledCheckbox) enabledCheckbox.checked = dayData.enabled !== false;
                 if (openInput) openInput.value = dayData.open || '09:00';
                 if (closeInput) closeInput.value = dayData.close || '22:00';
+                
+                // 24시간 영업이면 입력 필드 비활성화
+                if (allDays24Hours) {
+                    enabledCheckbox.disabled = true;
+                    openInput.disabled = true;
+                    closeInput.disabled = true;
+                }
             });
+            
+            // 영업시간 표시 업데이트
+            updateBusinessHoursDisplay();
         }
         
         async function saveBasicInfo() {
@@ -3805,9 +5011,21 @@
             try {
                 const currentStoreId = await getCurrentStoreId();
                 if (currentStoreId) {
-                    // store 파라미터를 사용하여 메인 페이지로 이동
-                    const mainPageUrl = `/?store=${currentStoreId}`;
+                    // 현재 가게의 서브도메인 확인
+                    const stores = await apiRequest(`${API_BASE}/stores`);
+                    const currentStore = stores.find(s => s.id === currentStoreId);
+                    
+                    let mainPageUrl;
+                    if (currentStore && currentStore.subdomain) {
+                        // 서브도메인이 설정된 경우 서브도메인 URL 사용
+                        mainPageUrl = `/${currentStore.subdomain}`;
+                        console.log('서브도메인 페이지 URL:', mainPageUrl);
+                    } else {
+                        // 서브도메인이 없는 경우 기존 방식 사용
+                        mainPageUrl = `/?store=${currentStoreId}`;
                     console.log('메인 페이지 URL:', mainPageUrl);
+                    }
+                    
                     // 새 탭에서 열기
                     window.open(mainPageUrl, '_blank');
                 } else {
@@ -3903,6 +5121,11 @@
             // 활동 로그 섹션인 경우 로그 다시 로드
             if (sectionId === 'activity-logs') {
                 loadActivityLogs();
+            }
+            
+            // 도메인 섹션인 경우 서브도메인과 QR 코드 로드
+            if (sectionId === 'domain') {
+                await loadDomainSection();
             }
             
             // 메뉴 활성화
@@ -4270,6 +5493,10 @@
                 document.getElementById('regenerateQrBtn').style.display = 'inline-block';
                 document.getElementById('downloadQrBtn').style.display = 'inline-block';
                 document.getElementById('deleteQrBtn').style.display = 'inline-block';
+                
+                // 상태 업데이트
+                const currentStore = getCurrentStore();
+                updateStatusBadges(currentStore?.subdomain, qrCode);
             } else {
                 // QR 코드가 없으면 생성 버튼만 표시
                 document.getElementById('qrCodePreview').style.display = 'none';
@@ -4277,6 +5504,10 @@
                 document.getElementById('regenerateQrBtn').style.display = 'none';
                 document.getElementById('downloadQrBtn').style.display = 'none';
                 document.getElementById('deleteQrBtn').style.display = 'none';
+                
+                // 상태 업데이트
+                const currentStore = getCurrentStore();
+                updateStatusBadges(currentStore?.subdomain, null);
             }
         }
         
@@ -4315,6 +5546,10 @@
                     document.getElementById('regenerateQrBtn').style.display = 'inline-block';
                     document.getElementById('downloadQrBtn').style.display = 'inline-block';
                     document.getElementById('deleteQrBtn').style.display = 'inline-block';
+                    
+                    // 상태 업데이트
+                    const currentStore = await getCurrentStore();
+                    updateStatusBadges(currentStore?.subdomain, { url: response.qrCode });
                     
                     // 활동 로그 기록
                     await logActivity('qr', 'QR 코드 생성', `QR 코드가 생성되었습니다. (가게별 고유 URL 포함)`, {
@@ -4381,12 +5616,216 @@
             }
         }
         
-        // QR 코드 삭제
+        // QR 코드 삭제 (2단계 경고 모달)
         async function deleteQRCode() {
-            if (!confirm('QR 코드를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
-                return;
-            }
+            showQRDeleteWarningModal();
+        }
+        
+        // QR 삭제 1단계 경고 모달
+        function showQRDeleteWarningModal() {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.8);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+            `;
             
+            modal.innerHTML = `
+                <div style="
+                    background: white;
+                    border-radius: 12px;
+                    padding: 24px;
+                    max-width: 500px;
+                    width: 90%;
+                    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+                    text-align: center;
+                ">
+                    <div style="
+                        color: #ef4444;
+                        font-size: 48px;
+                        margin-bottom: 16px;
+                    ">⚠️</div>
+                    <h3 style="
+                        color: #1f2937;
+                        font-size: 20px;
+                        font-weight: 600;
+                        margin-bottom: 16px;
+                    ">QR 코드를 삭제하시겠습니까?</h3>
+                    <p style="
+                        color: #6b7280;
+                        font-size: 14px;
+                        line-height: 1.6;
+                        margin-bottom: 24px;
+                    ">
+                        QR 코드를 삭제하면 고객들이 더 이상 이 링크로 접속할 수 없게 됩니다.<br>
+                        이 작업은 되돌릴 수 없습니다.
+                    </p>
+                    <div style="
+                        background: #fef2f2;
+                        border: 1px solid #fecaca;
+                        border-radius: 8px;
+                        padding: 12px;
+                        margin-bottom: 24px;
+                    ">
+                        <p style="
+                            color: #dc2626;
+                            font-size: 13px;
+                            font-weight: 500;
+                            margin: 0;
+                        ">
+                            <strong>경고:</strong> QR 코드 삭제 후에는 다시 생성해야 합니다.
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 12px; justify-content: center;">
+                        <button id="cancelQRDelete" style="
+                            background: #6b7280;
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            padding: 12px 24px;
+                            font-size: 14px;
+                            font-weight: 500;
+                            cursor: pointer;
+                        ">취소</button>
+                        <button id="proceedToQRDeleteSecond" style="
+                            background: #f59e0b;
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            padding: 12px 24px;
+                            font-size: 14px;
+                            font-weight: 500;
+                            cursor: pointer;
+                        ">계속 진행</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // 이벤트 리스너
+            document.getElementById('cancelQRDelete').onclick = () => {
+                document.body.removeChild(modal);
+            };
+            
+            document.getElementById('proceedToQRDeleteSecond').onclick = () => {
+                document.body.removeChild(modal);
+                showQRDeleteSecondWarningModal();
+            };
+        }
+        
+        // QR 삭제 2단계 최종 확인 모달
+        function showQRDeleteSecondWarningModal() {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.9);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10001;
+            `;
+            
+            modal.innerHTML = `
+                <div style="
+                    background: white;
+                    border-radius: 12px;
+                    padding: 24px;
+                    max-width: 500px;
+                    width: 90%;
+                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                    text-align: center;
+                    border: 2px solid #ef4444;
+                ">
+                    <div style="
+                        color: #ef4444;
+                        font-size: 64px;
+                        margin-bottom: 16px;
+                    ">🚨</div>
+                    <h3 style="
+                        color: #dc2626;
+                        font-size: 22px;
+                        font-weight: 700;
+                        margin-bottom: 16px;
+                    ">정말로 QR 코드를 삭제하시겠습니까?</h3>
+                    <p style="
+                        color: #6b7280;
+                        font-size: 15px;
+                        line-height: 1.6;
+                        margin-bottom: 24px;
+                    ">
+                        <strong>이 작업은 되돌릴 수 없습니다!</strong><br>
+                        QR 코드가 완전히 삭제되며, 고객들이 접속할 수 없게 됩니다.
+                    </p>
+                    <div style="
+                        background: #fef2f2;
+                        border: 2px solid #fecaca;
+                        border-radius: 8px;
+                        padding: 16px;
+                        margin-bottom: 24px;
+                    ">
+                        <p style="
+                            color: #dc2626;
+                            font-size: 14px;
+                            font-weight: 600;
+                            margin: 0;
+                        ">
+                            ⚠️ <strong>최종 경고:</strong> QR 코드 삭제 후에는 반드시 새로 생성해야 합니다.
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 12px; justify-content: center;">
+                        <button id="finalCancelQRDelete" style="
+                            background: #6b7280;
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            padding: 14px 28px;
+                            font-size: 15px;
+                            font-weight: 600;
+                            cursor: pointer;
+                        ">취소</button>
+                        <button id="finalConfirmQRDelete" style="
+                            background: #dc2626;
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            padding: 14px 28px;
+                            font-size: 15px;
+                            font-weight: 600;
+                            cursor: pointer;
+                        ">네, 삭제하겠습니다</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // 이벤트 리스너
+            document.getElementById('finalCancelQRDelete').onclick = () => {
+                document.body.removeChild(modal);
+            };
+            
+            document.getElementById('finalConfirmQRDelete').onclick = async () => {
+                document.body.removeChild(modal);
+                await performQRDelete();
+            };
+        }
+        
+        // QR 코드 실제 삭제 수행
+        async function performQRDelete() {
             try {
                 const currentStoreId = await getCurrentStoreId();
                 if (!currentStoreId) {
@@ -4466,5 +5905,141 @@
             }
         });
     </script>
+
+    <!-- 영업시간 설정 모달 -->
+    <div id="businessHoursModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h3>영업시간 설정</h3>
+                <button onclick="closeBusinessHoursModal()" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- 영업시간 설정 옵션들 -->
+                <div style="margin-bottom: 16px; display: flex; gap: 8px; flex-wrap: wrap;">
+                    <!-- 전체 24시간 영업 -->
+                    <div style="padding: 12px; background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border-radius: 6px; border: 2px solid #10b981; flex: 1; min-width: 200px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="allDays24Hours" onchange="toggle24HoursMode()" style="width: 20px; height: 20px; cursor: pointer;">
+                            <span style="font-weight: 700; color: #065f46; font-size: 14px;">🕐 전체 24시간 영업</span>
+                        </label>
+                        <p style="margin: 8px 0 0 28px; font-size: 12px; color: #047857;">모든 요일이 24시간 영업</p>
+                    </div>
+                    
+                    <!-- 모든 요일 동일 설정 -->
+                    <div style="padding: 12px; background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); border-radius: 6px; border: 2px solid #3b82f6; flex: 1; min-width: 200px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="allDaysSame" onchange="toggleAllDaysSame()" style="width: 20px; height: 20px; cursor: pointer;">
+                            <span style="font-weight: 700; color: #1e40af; font-size: 14px;">📅 모든 요일 동일</span>
+                        </label>
+                        <p style="margin: 8px 0 0 28px; font-size: 12px; color: #1d4ed8;">모든 요일을 같은 시간으로 설정</p>
+                    </div>
+                </div>
+                
+                <!-- 특정 요일 24시간 설정 -->
+                <div style="margin-bottom: 16px; padding: 12px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 6px; border: 2px solid #f59e0b;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        <span style="font-weight: 700; color: #92400e; font-size: 14px;">🌟 특정 요일 24시간 설정</span>
+                    </div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 4px 8px; background: white; border-radius: 4px; border: 1px solid #d97706;">
+                            <input type="checkbox" id="mon_24h" onchange="toggleDay24Hours('mon')" style="width: 16px; height: 16px; cursor: pointer;">
+                            <span style="font-size: 12px; color: #92400e;">월</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 4px 8px; background: white; border-radius: 4px; border: 1px solid #d97706;">
+                            <input type="checkbox" id="tue_24h" onchange="toggleDay24Hours('tue')" style="width: 16px; height: 16px; cursor: pointer;">
+                            <span style="font-size: 12px; color: #92400e;">화</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 4px 8px; background: white; border-radius: 4px; border: 1px solid #d97706;">
+                            <input type="checkbox" id="wed_24h" onchange="toggleDay24Hours('wed')" style="width: 16px; height: 16px; cursor: pointer;">
+                            <span style="font-size: 12px; color: #92400e;">수</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 4px 8px; background: white; border-radius: 4px; border: 1px solid #d97706;">
+                            <input type="checkbox" id="thu_24h" onchange="toggleDay24Hours('thu')" style="width: 16px; height: 16px; cursor: pointer;">
+                            <span style="font-size: 12px; color: #92400e;">목</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 4px 8px; background: white; border-radius: 4px; border: 1px solid #d97706;">
+                            <input type="checkbox" id="fri_24h" onchange="toggleDay24Hours('fri')" style="width: 16px; height: 16px; cursor: pointer;">
+                            <span style="font-size: 12px; color: #92400e;">금</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 4px 8px; background: white; border-radius: 4px; border: 1px solid #d97706;">
+                            <input type="checkbox" id="sat_24h" onchange="toggleDay24Hours('sat')" style="width: 16px; height: 16px; cursor: pointer;">
+                            <span style="font-size: 12px; color: #92400e;">토</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 4px 8px; background: white; border-radius: 4px; border: 1px solid #d97706;">
+                            <input type="checkbox" id="sun_24h" onchange="toggleDay24Hours('sun')" style="width: 16px; height: 16px; cursor: pointer;">
+                            <span style="font-size: 12px; color: #92400e;">일</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div id="businessHoursContainer">
+                    <!-- 월요일 -->
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; background: white; border-radius: 6px;">
+                        <label style="min-width: 60px; font-weight: 600; color: #475569;">월요일</label>
+                        <input type="checkbox" id="mon_enabled" onchange="handleMonChange()" style="width: 20px; height: 20px; cursor: pointer;">
+                        <input type="time" id="mon_open" class="form-input" style="flex: 1;" onchange="handleMonChange()">
+                        <span style="color: #94a3b8;">~</span>
+                        <input type="time" id="mon_close" class="form-input" style="flex: 1;" onchange="handleMonChange()">
+                    </div>
+                    <!-- 화요일 -->
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; background: white; border-radius: 6px;">
+                        <label style="min-width: 60px; font-weight: 600; color: #475569;">화요일</label>
+                        <input type="checkbox" id="tue_enabled" onchange="saveBusinessHours()" style="width: 20px; height: 20px; cursor: pointer;">
+                        <input type="time" id="tue_open" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                        <span style="color: #94a3b8;">~</span>
+                        <input type="time" id="tue_close" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                    </div>
+                    <!-- 수요일 -->
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; background: white; border-radius: 6px;">
+                        <label style="min-width: 60px; font-weight: 600; color: #475569;">수요일</label>
+                        <input type="checkbox" id="wed_enabled" onchange="saveBusinessHours()" style="width: 20px; height: 20px; cursor: pointer;">
+                        <input type="time" id="wed_open" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                        <span style="color: #94a3b8;">~</span>
+                        <input type="time" id="wed_close" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                    </div>
+                    <!-- 목요일 -->
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; background: white; border-radius: 6px;">
+                        <label style="min-width: 60px; font-weight: 600; color: #475569;">목요일</label>
+                        <input type="checkbox" id="thu_enabled" onchange="saveBusinessHours()" style="width: 20px; height: 20px; cursor: pointer;">
+                        <input type="time" id="thu_open" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                        <span style="color: #94a3b8;">~</span>
+                        <input type="time" id="thu_close" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                    </div>
+                    <!-- 금요일 -->
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; background: white; border-radius: 6px;">
+                        <label style="min-width: 60px; font-weight: 600; color: #475569;">금요일</label>
+                        <input type="checkbox" id="fri_enabled" onchange="saveBusinessHours()" style="width: 20px; height: 20px; cursor: pointer;">
+                        <input type="time" id="fri_open" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                        <span style="color: #94a3b8;">~</span>
+                        <input type="time" id="fri_close" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                    </div>
+                    <!-- 토요일 -->
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; background: white; border-radius: 6px;">
+                        <label style="min-width: 60px; font-weight: 600; color: #475569;">토요일</label>
+                        <input type="checkbox" id="sat_enabled" onchange="saveBusinessHours()" style="width: 20px; height: 20px; cursor: pointer;">
+                        <input type="time" id="sat_open" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                        <span style="color: #94a3b8;">~</span>
+                        <input type="time" id="sat_close" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                    </div>
+                    <!-- 일요일 -->
+                    <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: white; border-radius: 6px;">
+                        <label style="min-width: 60px; font-weight: 600; color: #475569;">일요일</label>
+                        <input type="checkbox" id="sun_enabled" onchange="saveBusinessHours()" style="width: 20px; height: 20px; cursor: pointer;">
+                        <input type="time" id="sun_open" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                        <span style="color: #94a3b8;">~</span>
+                        <input type="time" id="sun_close" class="form-input" style="flex: 1;" onchange="saveBusinessHours()">
+                    </div>
+                </div>
+                <div style="margin-top: 12px; padding: 12px; background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 6px;">
+                    <p style="font-size: 13px; color: #92400e; margin: 0;">💡 체크박스를 해제하면 해당 요일은 휴무로 표시됩니다.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeBusinessHoursModal()" class="btn btn-secondary">취소</button>
+                <button onclick="saveBusinessHoursFromModal()" class="btn btn-primary">저장</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>

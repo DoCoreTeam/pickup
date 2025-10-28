@@ -1,0 +1,59 @@
+# PostgreSQL Docker Compose 설정
+# 로컬 개발 환경용 PostgreSQL 15 데이터베이스
+# 
+# @author DOCORE
+
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: pickup-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pickup_dev
+      POSTGRES_USER: pickup_user
+      POSTGRES_PASSWORD: pickup_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      # 데이터 영속화
+      - postgres_data:/var/lib/postgresql/data
+      # 초기화 스크립트 (선택사항)
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pickup_user -d pickup_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - pickup-network
+
+  # Redis (캐싱용, 선택사항)
+  redis:
+    image: redis:7-alpine
+    container_name: pickup-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pickup-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  pickup-network:
+    driver: bridge

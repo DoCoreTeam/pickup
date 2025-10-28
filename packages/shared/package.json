@@ -1,0 +1,22 @@
+{
+  "name": "@pickup/shared",
+  "version": "1.0.0",
+  "private": true,
+  "description": "픽업 서비스 공용 타입 및 유틸리티 패키지",
+  "author": "DOCORE",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.8.0",
+    "typescript": "^5.2.2"
+  }
+}

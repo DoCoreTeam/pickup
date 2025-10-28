@@ -1,0 +1,110 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // Neon/pgbouncer 전제: pool=prisma 연결 가이드
+  // DATABASE_URL="postgresql://username:password@host:port/database?pgbouncer=true&connection_limit=1"
+}
+
+// 슈퍼어드민 테이블
+model SuperAdmin {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  lastModified DateTime @default(now()) @map("last_modified")
+
+  @@map("superadmin")
+}
+
+// 가게 테이블
+model Store {
+  id               String    @id @default(cuid())
+  name             String
+  subtitle         String?
+  phone            String?
+  address          String?
+  status           String    @default("active")
+  subdomain        String?   @unique
+  subdomainStatus  String?   @map("subdomain_status")
+  order            Int       @default(0)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  lastModified     DateTime  @default(now()) @map("last_modified")
+  pausedAt         DateTime? @map("paused_at")
+
+  // 관계
+  settings StoreSettings?
+
+  @@map("stores")
+}
+
+// 가게 설정 테이블
+model StoreSettings {
+  id            Int      @id @default(autoincrement())
+  storeId       String   @unique @map("store_id")
+  basic         Json?
+  discount      Json?
+  delivery      Json?
+  pickup        Json?
+  images        Json?
+  businessHours Json?    @map("business_hours")
+  sectionOrder  Json?    @map("section_order")
+  qrCode        Json?    @map("qr_code")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @map("updated_at")
+
+  // 관계
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@map("store_settings")
+}
+
+// 활동 로그 테이블
+model ActivityLog {
+  id          String   @id @default(cuid())
+  type        String
+  action      String
+  description String?
+  userId      String?  @map("user_id")
+  userName    String?  @map("user_name")
+  targetType  String?  @map("target_type")
+  targetId    String?  @map("target_id")
+  targetName  String?  @map("target_name")
+  details     Json?
+  timestamp   DateTime @default(now())
+
+  @@map("activity_logs")
+}
+
+// 분석 데이터 테이블
+model Analytics {
+  id           Int      @id @default(autoincrement())
+  siteVisits   Json?    @map("site_visits")
+  storeVisits  Json?    @map("store_visits")
+  phoneClicks  Json?    @map("phone_clicks")
+  lastUpdated  DateTime @default(now()) @map("last_updated")
+
+  @@map("analytics")
+}
+
+// 릴리즈 노트 테이블
+model ReleaseNote {
+  id                    Int      @id @default(autoincrement())
+  version               String
+  codename              String?
+  releaseDate           DateTime @map("release_date")
+  title                 String
+  highlights            Json?
+  features              Json?
+  bugFixes              Json?    @map("bug_fixes")
+  technicalImprovements Json?    @map("technical_improvements")
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  @@map("release_notes")
+}
