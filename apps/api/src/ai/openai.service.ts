@@ -9,6 +9,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { createLogger } from '@pickup/shared';
+import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.service';
 
 const logger = createLogger('openai-service');
 
@@ -17,7 +18,10 @@ export class OpenAIService {
   private readonly openai: OpenAI;
   private readonly logger = new Logger(OpenAIService.name);
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private circuitBreaker: CircuitBreakerService,
+  ) {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
     
     if (!apiKey) {
@@ -27,7 +31,7 @@ export class OpenAIService {
     this.openai = new OpenAI({
       apiKey,
       timeout: 20000, // 20초 타임아웃
-      maxRetries: 3, // 최대 3회 재시도
+      maxRetries: 0, // 서킷 브레이커에서 재시도 처리
     });
 
     this.logger.log('OpenAI 서비스 초기화 완료');
@@ -37,58 +41,109 @@ export class OpenAIService {
    * 채팅 완성 요청 (재시도 및 타임아웃 포함)
    */
   async chatCompletion(messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[], options?: OpenAI.Chat.Completions.ChatCompletionCreateParams) {
-    try {
-      const startTime = Date.now();
-      
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages,
-        max_tokens: 1000,
-        temperature: 0.7,
-        ...options,
-      });
+    return this.circuitBreaker.execute(
+      'openai-chat',
+      async () => {
+        const startTime = Date.now();
+        
+        const response = await this.openai.chat.completions.create({
+          model: 'gpt-3.5-turbo',
+          messages,
+          max_tokens: 1000,
+          temperature: 0.7,
+          ...options,
+        });
 
-      const duration = Date.now() - startTime;
-      
-      // PII/토큰 로깅 금지 (마스킹)
-      logger.info('OpenAI 요청 완료', {
-        duration: `${duration}ms`,
-        model: options?.model || 'gpt-3.5-turbo',
-        tokens: response.usage?.total_tokens || 0,
-        requestId: response.id,
-      });
+        const duration = Date.now() - startTime;
+        
+        // PII/토큰 로깅 금지 (마스킹)
+        logger.info('OpenAI 요청 완료', {
+          duration: `${duration}ms`,
+          model: options?.model || 'gpt-3.5-turbo',
+          tokens: response.usage?.total_tokens || 0,
+          requestId: response.id,
+        });
 
-      return response;
-    } catch (error) {
-      logger.error('OpenAI 요청 실패', {
-        error: error.message,
-        type: error.constructor.name,
-      });
-      throw error;
-    }
+        return response;
+      },
+      {
+        timeout: 20000,
+        errorThreshold: 5,
+        resetTimeout: 60000,
+      }
+    );
   }
 
   /**
-   * 메뉴 설명 생성
+   * 메뉴 설명 생성 (샘플 메서드)
+   * 응답 스키마 고정으로 일관된 결과 제공
    */
-  async generateMenuDescription(menuName: string, ingredients?: string[]): Promise<string> {
+  async generateMenuDescription(menuName: string, ingredients?: string[]): Promise<{
+    success: boolean;
+    data: {
+      menuName: string;
+      description: string;
+      keywords: string[];
+      estimatedTime: string;
+    };
+    error?: string;
+  }> {
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       {
         role: 'system',
-        content: '당신은 음식점 메뉴 설명을 작성하는 전문가입니다. 매력적이고 간결한 설명을 작성해주세요.',
+        content: '당신은 음식점 메뉴 설명을 작성하는 전문가입니다. 매력적이고 간결한 설명을 작성해주세요. 응답은 JSON 형식으로 제공해주세요.',
       },
       {
         role: 'user',
-        content: `메뉴명: ${menuName}${ingredients ? `\n재료: ${ingredients.join(', ')}` : ''}\n\n이 메뉴에 대한 매력적인 설명을 작성해주세요.`,
+        content: `메뉴명: ${menuName}${ingredients ? `\n재료: ${ingredients.join(', ')}` : ''}\n\n이 메뉴에 대한 매력적인 설명을 작성해주세요. 다음 JSON 형식으로 응답해주세요:
+{
+  "description": "메뉴 설명 (2-3문장)",
+  "keywords": ["키워드1", "키워드2", "키워드3"],
+  "estimatedTime": "예상 조리시간"
+}`,
       },
     ];
 
     try {
       const response = await this.chatCompletion(messages);
-      return response.choices[0]?.message?.content || '메뉴 설명을 생성할 수 없습니다.';
+      const content = response.choices[0]?.message?.content || '';
+      
+      // JSON 파싱 시도
+      try {
+        const parsed = JSON.parse(content);
+        return {
+          success: true,
+          data: {
+            menuName,
+            description: parsed.description || '맛있는 메뉴입니다.',
+            keywords: parsed.keywords || ['맛있는', '신선한'],
+            estimatedTime: parsed.estimatedTime || '15-20분',
+          },
+        };
+      } catch (parseError) {
+        // JSON 파싱 실패 시 기본값 반환
+        return {
+          success: true,
+          data: {
+            menuName,
+            description: content || '맛있는 메뉴입니다.',
+            keywords: ['맛있는', '신선한'],
+            estimatedTime: '15-20분',
+          },
+        };
+      }
     } catch (error) {
       logger.error('메뉴 설명 생성 실패', error);
-      throw new Error('메뉴 설명 생성에 실패했습니다.');
+      return {
+        success: false,
+        data: {
+          menuName,
+          description: '메뉴 설명을 생성할 수 없습니다.',
+          keywords: [],
+          estimatedTime: '알 수 없음',
+        },
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
     }
   }
 

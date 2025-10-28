@@ -10,6 +10,8 @@ import { ConfigModule } from '@nestjs/config';
 import { HealthModule } from './health/health.module';
 import { CompatModule } from './compat/compat.module';
 import { AiModule } from './ai/ai.module';
+import { CacheModule } from './cache/cache.module';
+import { CircuitBreakerModule } from './circuit-breaker/circuit-breaker.module';
 
 @Module({
   imports: [
@@ -27,6 +29,12 @@ import { AiModule } from './ai/ai.module';
     
     // AI 서비스 모듈
     AiModule,
+    
+    // 캐시 서비스 모듈
+    CacheModule,
+    
+    // 서킷 브레이커 모듈
+    CircuitBreakerModule,
   ],
 })
 export class AppModule {}

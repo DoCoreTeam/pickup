@@ -8,9 +8,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { OpenAIService } from './openai.service';
+import { CircuitBreakerModule } from '../circuit-breaker/circuit-breaker.module';
 
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule, CircuitBreakerModule],
   providers: [OpenAIService],
   exports: [OpenAIService],
 })

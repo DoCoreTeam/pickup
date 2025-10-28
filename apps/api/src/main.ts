@@ -9,8 +9,9 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
+import * as compression from 'compression';
 import { AppModule } from './app.module';
-import { createLogger } from '@pickup/shared';
+import { createLogger, envConfig, isProduction, shouldLogRequests } from '@pickup/shared';
 
 const logger = createLogger('api-main');
 
@@ -36,23 +37,34 @@ async function bootstrap() {
       }),
     );
 
+    // 압축 미들웨어 (선택적)
+    app.use(compression({
+      filter: (req, res) => {
+        if (req.headers['x-no-compression']) {
+          return false;
+        }
+        return compression.filter(req, res);
+      },
+      threshold: 1024, // 1KB 이상만 압축
+    }));
+
     // Helmet 보안 헤더 설정
     app.use(helmet({
-      contentSecurityPolicy: {
+      contentSecurityPolicy: isProduction ? {
         directives: {
           defaultSrc: ["'self'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
           scriptSrc: ["'self'"],
           imgSrc: ["'self'", "data:", "https:"],
         },
-      },
+      } : false,
       crossOriginEmbedderPolicy: false,
     }));
 
     // CORS 설정
-    const corsOrigin = configService.get('CORS_ORIGIN', 'http://localhost:3000');
+    const corsOrigin = configService.get('CORS_ORIGIN', isProduction ? process.env.ALLOWED_ORIGINS : 'http://localhost:3000');
     app.enableCors({
-      origin: corsOrigin.split(',').map(origin => origin.trim()),
+      origin: isProduction ? corsOrigin?.split(',').map(origin => origin.trim()) : true,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -68,6 +80,9 @@ async function bootstrap() {
     logger.info(`📡 API 엔드포인트: http://localhost:${port}/${apiPrefix}`);
     logger.info(`🏥 헬스체크: http://localhost:${port}/healthz`);
     logger.info(`🔧 데이터 백엔드: ${configService.get('DATA_BACKEND', 'json')}`);
+    logger.info(`🔄 듀얼라이트: ${configService.get('DUAL_WRITE', 'false')}`);
+    logger.info(`📊 환경: ${configService.get('NODE_ENV', 'development')}`);
+    logger.info(`🗄️  데이터베이스: ${configService.get('DATABASE_URL') ? '연결됨' : '연결 안됨'}`);
     
   } catch (error) {
     logger.error('서버 시작 실패', error);

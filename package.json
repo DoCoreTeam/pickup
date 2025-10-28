@@ -37,7 +37,10 @@
     "setup:dev": "tsx scripts/setup-dev.ts",
     "migrate:data": "tsx scripts/migrate-data.ts",
     "backfill:data": "tsx scripts/backfill-data.ts",
-    "logs:api": "tail -f apps/api/logs/app.log"
+    "logs:api": "tail -f apps/api/logs/app.log",
+    "deploy:railway": "railway up",
+    "deploy:status": "railway status",
+    "deploy:logs": "railway logs"
   },
   "devDependencies": {
     "@turbo/gen": "^1.10.12",

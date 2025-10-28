@@ -1,7 +1,6 @@
 /**
- * 상시 404 체커 스크립트
- * route-manifest.json을 읽어 각 라우트에 헬스 프로빙
- * 404/5xx 있으면 프로세스 실패
+ * 404 체크 스크립트
+ * 모든 API 엔드포인트의 404/5xx 에러 확인
  * 
  * @author DOCORE
  */
@@ -10,178 +9,177 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { createLogger } from '@pickup/shared';
 
-const logger = createLogger('404-checker');
+const logger = createLogger('check-404');
 
-interface RouteManifest {
-  routes: {
-    GET: Array<{
-      path: string;
-      description: string;
-      statusCode: number;
-    }>;
-    POST: Array<{
-      path: string;
-      description: string;
-      statusCode: number;
-    }>;
-    PUT: Array<{
-      path: string;
-      description: string;
-      statusCode: number;
-    }>;
-    DELETE: Array<{
-      path: string;
-      description: string;
-      statusCode: number;
-    }>;
-  };
-  baseUrl: string;
+interface RouteInfo {
+  method: string;
+  path: string;
+  description: string;
+}
+
+interface CheckResult {
+  route: RouteInfo;
+  status: number;
+  success: boolean;
+  error?: string;
+  responseTime: number;
 }
 
 class RouteChecker {
   private baseUrl: string;
-  private failedRoutes: Array<{ method: string; path: string; status: number; error: string }> = [];
+  private results: CheckResult[] = [];
 
-  constructor(baseUrl: string) {
+  constructor(baseUrl: string = 'http://localhost:3001') {
     this.baseUrl = baseUrl;
   }
 
-  async checkRoute(method: string, path: string, expectedStatus: number): Promise<boolean> {
+  async checkAllRoutes(): Promise<CheckResult[]> {
+    logger.info('🔍 API 엔드포인트 404 체크 시작...');
+
+    const routes = this.loadRoutesFromManifest();
+    
+    for (const route of routes) {
+      await this.checkRoute(route);
+    }
+
+    this.printResults();
+    return this.results;
+  }
+
+  private loadRoutesFromManifest(): RouteInfo[] {
     try {
-      const url = `${this.baseUrl}${path}`;
-      const startTime = Date.now();
+      const manifestPath = join(process.cwd(), 'docs/route-manifest.json');
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
       
+      const routes: RouteInfo[] = [];
+      
+      for (const [path, methods] of Object.entries(manifest)) {
+        for (const [method, info] of Object.entries(methods as any)) {
+          routes.push({
+            method: method.toUpperCase(),
+            path: path,
+            description: info.description || '',
+          });
+        }
+      }
+
+      return routes;
+    } catch (error) {
+      logger.warn('라우트 매니페스트를 읽을 수 없습니다. 기본 라우트를 사용합니다.');
+      return this.getDefaultRoutes();
+    }
+  }
+
+  private getDefaultRoutes(): RouteInfo[] {
+    return [
+      { method: 'GET', path: '/healthz', description: '헬스체크' },
+      { method: 'GET', path: '/api/data', description: '전체 데이터 조회' },
+      { method: 'GET', path: '/api/stores', description: '가게 목록 조회' },
+      { method: 'GET', path: '/api/current-store', description: '현재 가게 조회' },
+      { method: 'GET', path: '/api/settings', description: '설정 조회' },
+      { method: 'GET', path: '/api/activity-logs', description: '활동 로그 조회' },
+      { method: 'GET', path: '/api/release-notes', description: '릴리즈 노트 조회' },
+      { method: 'GET', path: '/api/superadmin/info', description: '슈퍼어드민 정보 조회' },
+    ];
+  }
+
+  private async checkRoute(route: RouteInfo): Promise<void> {
+    const startTime = Date.now();
+    
+    try {
+      const url = `${this.baseUrl}${route.path}`;
       const response = await fetch(url, {
-        method,
+        method: route.method,
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': 'Pickup-404-Checker/1.0.0',
         },
-        // 타임아웃 설정 (10초)
-        signal: AbortSignal.timeout(10000),
       });
 
-      const duration = Date.now() - startTime;
-      const status = response.status;
+      const responseTime = Date.now() - startTime;
+      const success = response.status < 400;
 
-      // 404 또는 5xx 에러 체크
-      if (status === 404 || status >= 500) {
-        this.failedRoutes.push({
-          method,
-          path,
-          status,
-          error: `HTTP ${status}`,
-        });
-        
-        logger.error(`❌ ${method} ${path} - HTTP ${status} (${duration}ms)`);
-        return false;
+      this.results.push({
+        route,
+        status: response.status,
+        success,
+        responseTime,
+      });
+
+      if (success) {
+        logger.info(`✅ ${route.method} ${route.path} - ${response.status} (${responseTime}ms)`);
+      } else {
+        logger.error(`❌ ${route.method} ${route.path} - ${response.status} (${responseTime}ms)`);
       }
-
-      // 2xx 또는 3xx 성공
-      if (status >= 200 && status < 400) {
-        logger.info(`✅ ${method} ${path} - HTTP ${status} (${duration}ms)`);
-        return true;
-      }
-
-      // 기타 상태 코드 (4xx 클라이언트 에러 등)
-      logger.warn(`⚠️  ${method} ${path} - HTTP ${status} (${duration}ms)`);
-      return true; // 4xx는 정상적인 응답으로 간주
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      this.failedRoutes.push({
-        method,
-        path,
+      const responseTime = Date.now() - startTime;
+      
+      this.results.push({
+        route,
         status: 0,
-        error: errorMessage,
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        responseTime,
       });
-      
-      logger.error(`❌ ${method} ${path} - ${errorMessage}`);
-      return false;
+
+      logger.error(`❌ ${route.method} ${route.path} - 연결 실패 (${responseTime}ms)`, error);
     }
   }
 
-  async checkAllRoutes(manifest: RouteManifest): Promise<boolean> {
-    logger.info('🔍 라우트 404 체크 시작...');
-    logger.info(`📡 대상 서버: ${this.baseUrl}`);
-    
-    const allRoutes = [
-      ...manifest.routes.GET.map(route => ({ method: 'GET', path: route.path, status: route.statusCode })),
-      ...manifest.routes.POST.map(route => ({ method: 'POST', path: route.path, status: route.statusCode })),
-      ...manifest.routes.PUT.map(route => ({ method: 'PUT', path: route.path, status: route.statusCode })),
-      ...manifest.routes.DELETE.map(route => ({ method: 'DELETE', path: route.path, status: route.statusCode })),
-    ];
+  private printResults(): void {
+    const total = this.results.length;
+    const success = this.results.filter(r => r.success).length;
+    const failed = total - success;
 
-    logger.info(`📊 총 ${allRoutes.length}개 라우트 체크 예정`);
+    logger.info('📊 404 체크 결과:');
+    logger.info(`   총 라우트: ${total}개`);
+    logger.info(`   성공: ${success}개`);
+    logger.info(`   실패: ${failed}개`);
+    logger.info(`   성공률: ${((success / total) * 100).toFixed(1)}%`);
 
-    // 병렬로 체크 (최대 10개 동시)
-    const batchSize = 10;
-    for (let i = 0; i < allRoutes.length; i += batchSize) {
-      const batch = allRoutes.slice(i, i + batchSize);
-      await Promise.all(
-        batch.map(route => 
-          this.checkRoute(route.method, route.path, route.status)
-        )
-      );
-      
-      // 배치 간 잠시 대기 (서버 부하 방지)
-      if (i + batchSize < allRoutes.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
+    if (failed > 0) {
+      logger.error('❌ 실패한 라우트:');
+      this.results
+        .filter(r => !r.success)
+        .forEach(r => {
+          logger.error(`   ${r.route.method} ${r.route.path} - ${r.status} ${r.error || ''}`);
+        });
     }
 
-    // 결과 요약
-    const successCount = allRoutes.length - this.failedRoutes.length;
-    const failureCount = this.failedRoutes.length;
+    // 평균 응답 시간
+    const avgResponseTime = this.results.reduce((sum, r) => sum + r.responseTime, 0) / total;
+    logger.info(`   평균 응답 시간: ${avgResponseTime.toFixed(0)}ms`);
 
-    logger.info('📋 체크 결과 요약:');
-    logger.info(`✅ 성공: ${successCount}개`);
-    logger.info(`❌ 실패: ${failureCount}개`);
-
-    if (failureCount > 0) {
-      logger.error('🚨 실패한 라우트 목록:');
-      this.failedRoutes.forEach(route => {
-        logger.error(`  - ${route.method} ${route.path}: ${route.error}`);
-      });
-    }
-
-    return failureCount === 0;
+    // 가장 느린 라우트
+    const slowest = this.results.reduce((prev, current) => 
+      prev.responseTime > current.responseTime ? prev : current
+    );
+    logger.info(`   가장 느린 라우트: ${slowest.route.method} ${slowest.route.path} (${slowest.responseTime}ms)`);
   }
 
-  getFailedRoutes() {
-    return this.failedRoutes;
+  hasFailures(): boolean {
+    return this.results.some(r => !r.success);
   }
 }
 
 async function main() {
-  try {
-    // route-manifest.json 읽기
-    const manifestPath = join(process.cwd(), 'docs/route-manifest.json');
-    const manifestContent = readFileSync(manifestPath, 'utf-8');
-    const manifest: RouteManifest = JSON.parse(manifestContent);
+  const args = process.argv.slice(2);
+  const baseUrl = args[0] || 'http://localhost:3001';
 
-    // 서버 URL 설정
-    const baseUrl = process.env.API_BASE_URL || 'http://localhost:3001';
-    
-    // 체커 실행
-    const checker = new RouteChecker(baseUrl);
-    const success = await checker.checkAllRoutes(manifest);
+  logger.info(`🔍 API 엔드포인트 404 체크 시작 (${baseUrl})`);
 
-    if (success) {
-      logger.info('🎉 모든 라우트 체크 완료 - 문제없음');
-      process.exit(0);
-    } else {
-      logger.error('💥 라우트 체크 실패 - 404/5xx 발견');
-      process.exit(1);
-    }
+  const checker = new RouteChecker(baseUrl);
+  const results = await checker.checkAllRoutes();
 
-  } catch (error) {
-    logger.error('스크립트 실행 실패', error);
+  if (checker.hasFailures()) {
+    logger.error('❌ 일부 라우트에서 404/5xx 에러가 발생했습니다.');
     process.exit(1);
+  } else {
+    logger.info('✅ 모든 라우트가 정상적으로 응답합니다.');
+    process.exit(0);
   }
 }
 
-// 서버 시작 후 체크 실행
 if (require.main === module) {
   main();
 }

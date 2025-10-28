@@ -12,3 +12,6 @@ export * from './types/database';
 // 유틸리티 export
 export * from './utils/logger';
 export * from './utils/validation';
+
+// 설정 export
+export * from './config/env';
