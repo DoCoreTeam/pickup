@@ -1,0 +1,815 @@
+{
+  "apiVersion": "1.0.0",
+  "generatedAt": "2025-01-28T00:00:00.000Z",
+  "description": "픽업 서비스 API 라우트 매니페스트 - 기존 Python HTTP 서버 기반",
+  "baseUrl": "http://localhost:8081",
+  "routes": {
+    "GET": [
+      {
+        "path": "/api/data",
+        "description": "전체 데이터 조회",
+        "queryParams": [],
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "superadmin": {
+              "type": "object",
+              "properties": {
+                "username": { "type": "string" },
+                "password": { "type": "string" },
+                "createdAt": { "type": "string", "format": "date-time" },
+                "lastModified": { "type": "string", "format": "date-time" }
+              }
+            },
+            "stores": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "name": { "type": "string" },
+                  "subtitle": { "type": "string" },
+                  "phone": { "type": "string" },
+                  "address": { "type": "string" },
+                  "status": { "type": "string", "enum": ["active", "paused"] },
+                  "subdomain": { "type": "string" },
+                  "subdomainStatus": { "type": "string" },
+                  "order": { "type": "number" },
+                  "createdAt": { "type": "string", "format": "date-time" },
+                  "lastModified": { "type": "string", "format": "date-time" },
+                  "pausedAt": { "type": "string", "format": "date-time" }
+                }
+              }
+            },
+            "currentStoreId": { "type": "string" },
+            "settings": { "type": "object" },
+            "deliveryOrders": { "type": "object" },
+            "images": { "type": "object" }
+          }
+        },
+        "dataFiles": ["assets/data/data.json"],
+        "statusCode": 200
+      },
+      {
+        "path": "/api/stores",
+        "description": "가게 목록 조회",
+        "queryParams": [],
+        "responseSchema": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "subtitle": { "type": "string" },
+              "phone": { "type": "string" },
+              "address": { "type": "string" },
+              "status": { "type": "string" },
+              "order": { "type": "number" },
+              "createdAt": { "type": "string", "format": "date-time" },
+              "lastModified": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "dataFiles": ["assets/data/data.json"],
+        "statusCode": 200
+      },
+      {
+        "path": "/api/stores/{storeId}",
+        "description": "특정 가게 정보 조회",
+        "pathParams": {
+          "storeId": { "type": "string", "required": true }
+        },
+        "queryParams": [],
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "subtitle": { "type": "string" },
+            "phone": { "type": "string" },
+            "address": { "type": "string" },
+            "status": { "type": "string" },
+            "order": { "type": "number" },
+            "createdAt": { "type": "string", "format": "date-time" },
+            "lastModified": { "type": "string", "format": "date-time" }
+          }
+        },
+        "dataFiles": ["assets/data/data.json"],
+        "statusCode": 200
+      },
+      {
+        "path": "/api/settings",
+        "description": "가게 설정 조회",
+        "queryParams": [
+          {
+            "name": "storeId",
+            "type": "string",
+            "required": true,
+            "description": "가게 ID"
+          }
+        ],
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "basic": {
+              "type": "object",
+              "properties": {
+                "storeName": { "type": "string" },
+                "storeSubtitle": { "type": "string" },
+                "storePhone": { "type": "string" },
+                "storeAddress": { "type": "string" }
+              }
+            },
+            "discount": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "title": { "type": "string" },
+                "description": { "type": "string" }
+              }
+            },
+            "delivery": {
+              "type": "object",
+              "properties": {
+                "ttaengUrl": { "type": "string" },
+                "baeminUrl": { "type": "string" },
+                "coupangUrl": { "type": "string" },
+                "yogiyoUrl": { "type": "string" },
+                "deliveryOrder": { "type": "array", "items": { "type": "string" } }
+              }
+            },
+            "pickup": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "title": { "type": "string" },
+                "description": { "type": "string" }
+              }
+            },
+            "images": {
+              "type": "object",
+              "properties": {
+                "mainLogo": { "type": "string" },
+                "menuImage": { "type": "string" }
+              }
+            },
+            "businessHours": {
+              "type": "object",
+              "properties": {
+                "mon": { "type": "object" },
+                "tue": { "type": "object" },
+                "wed": { "type": "object" },
+                "thu": { "type": "object" },
+                "fri": { "type": "object" },
+                "sat": { "type": "object" },
+                "sun": { "type": "object" }
+              }
+            },
+            "sectionOrder": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "title": { "type": "string" },
+                  "icon": { "type": "string" },
+                  "description": { "type": "string" }
+                }
+              }
+            },
+            "qrCode": {
+              "type": "object",
+              "properties": {
+                "url": { "type": "string" },
+                "filepath": { "type": "string" },
+                "createdAt": { "type": "string", "format": "date-time" }
+              }
+            }
+          }
+        },
+        "dataFiles": ["assets/data/data.json"],
+        "statusCode": 200
+      },
+      {
+        "path": "/api/current-store",
+        "description": "현재 선택된 가게 조회",
+        "queryParams": [],
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "subtitle": { "type": "string" },
+            "phone": { "type": "string" },
+            "address": { "type": "string" },
+            "status": { "type": "string" }
+          }
+        },
+        "dataFiles": ["assets/data/data.json"],
+        "statusCode": 200
+      },
+      {
+        "path": "/api/users/{userId}",
+        "description": "사용자 정보 조회",
+        "pathParams": {
+          "userId": { "type": "string", "required": true }
+        },
+        "queryParams": [],
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "subtitle": { "type": "string" },
+            "phone": { "type": "string" },
+            "address": { "type": "string" },
+            "status": { "type": "string" }
+          }
+        },
+        "dataFiles": ["assets/data/data.json"],
+        "statusCode": 200
+      },
+      {
+        "path": "/api/superadmin/info",
+        "description": "슈퍼어드민 정보 조회",
+        "queryParams": [],
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "username": { "type": "string" },
+            "password": { "type": "string" },
+            "createdAt": { "type": "string", "format": "date-time" },
+            "lastModified": { "type": "string", "format": "date-time" }
+          }
+        },
+        "dataFiles": ["assets/data/data.json"],
+        "statusCode": 200
+      },
+      {
+        "path": "/api/activity-logs",
+        "description": "활동 로그 조회 (페이지네이션 지원)",
+        "queryParams": [
+          {
+            "name": "page",
+            "type": "number",
+            "required": false,
+            "default": 1,
+            "description": "페이지 번호"
+          },
+          {
+            "name": "limit",
+            "type": "number",
+            "required": false,
+            "default": 50,
+            "description": "페이지당 항목 수"
+          }
+        ],
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "logs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "type": { "type": "string" },
+                  "action": { "type": "string" },
+                  "description": { "type": "string" },
+                  "timestamp": { "type": "string", "format": "date-time" },
+                  "userId": { "type": "string" },
+                  "userName": { "type": "string" },
+                  "targetType": { "type": "string" },
+                  "targetId": { "type": "string" },
+                  "targetName": { "type": "string" },
+                  "details": { "type": "object" }
+                }
+              }
+            },
+            "pagination": {
+              "type": "object",
+              "properties": {
+                "page": { "type": "number" },
+                "limit": { "type": "number" },
+                "total": { "type": "number" },
+                "totalPages": { "type": "number" }
+              }
+            }
+          }
+        },
+        "dataFiles": ["assets/data/activity_logs.json"],
+        "statusCode": 200
+      },
+      {
+        "path": "/api/release-notes",
+        "description": "릴리즈 노트 조회",
+        "queryParams": [],
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "releaseNotes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "version": { "type": "string" },
+                  "codename": { "type": "string" },
+                  "releaseDate": { "type": "string", "format": "date" },
+                  "title": { "type": "string" },
+                  "highlights": { "type": "array", "items": { "type": "string" } },
+                  "features": { "type": "array" },
+                  "bugFixes": { "type": "array" },
+                  "technicalImprovements": { "type": "array" }
+                }
+              }
+            }
+          }
+        },
+        "dataFiles": ["assets/data/release_notes.json"],
+        "statusCode": 200
+      },
+      {
+        "path": "/api/subdomain/check",
+        "description": "서브도메인 중복 체크",
+        "queryParams": [
+          {
+            "name": "subdomain",
+            "type": "string",
+            "required": true,
+            "description": "체크할 서브도메인"
+          }
+        ],
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "available": { "type": "boolean" },
+            "message": { "type": "string" }
+          }
+        },
+        "dataFiles": ["assets/data/data.json"],
+        "statusCode": 200
+      },
+      {
+        "path": "/api/stores/bulk-export",
+        "description": "가게 데이터 내보내기 (JSON/CSV)",
+        "queryParams": [
+          {
+            "name": "format",
+            "type": "string",
+            "required": false,
+            "default": "json",
+            "enum": ["json", "csv"],
+            "description": "내보내기 형식"
+          }
+        ],
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "data": { "type": "array" }
+          }
+        },
+        "dataFiles": ["assets/data/data.json"],
+        "statusCode": 200
+      }
+    ],
+    "POST": [
+      {
+        "path": "/api/stores",
+        "description": "가게 생성",
+        "queryParams": [],
+        "requestBody": {
+          "type": "object",
+          "required": ["name"],
+          "properties": {
+            "name": { "type": "string" },
+            "subtitle": { "type": "string" },
+            "phone": { "type": "string" },
+            "address": { "type": "string" }
+          }
+        },
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "storeId": { "type": "string" },
+            "message": { "type": "string" }
+          }
+        },
+        "dataFiles": ["assets/data/data.json", "assets/data/activity_logs.json"],
+        "statusCode": 201
+      },
+      {
+        "path": "/api/stores/{storeId}/pause",
+        "description": "가게 중지",
+        "pathParams": {
+          "storeId": { "type": "string", "required": true }
+        },
+        "queryParams": [],
+        "requestBody": {},
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "message": { "type": "string" }
+          }
+        },
+        "dataFiles": ["assets/data/data.json", "assets/data/activity_logs.json"],
+        "statusCode": 200
+      },
+      {
+        "path": "/api/stores/{storeId}/resume",
+        "description": "가게 재개",
+        "pathParams": {
+          "storeId": { "type": "string", "required": true }
+        },
+        "queryParams": [],
+        "requestBody": {},
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "message": { "type": "string" }
+          }
+        },
+        "dataFiles": ["assets/data/data.json", "assets/data/activity_logs.json"],
+        "statusCode": 200
+      },
+      {
+        "path": "/api/stores/{storeId}/subdomain",
+        "description": "서브도메인 설정",
+        "pathParams": {
+          "storeId": { "type": "string", "required": true }
+        },
+        "queryParams": [],
+        "requestBody": {
+          "type": "object",
+          "required": ["subdomain"],
+          "properties": {
+            "subdomain": { "type": "string" }
+          }
+        },
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "message": { "type": "string" }
+          }
+        },
+        "dataFiles": ["assets/data/data.json", "assets/data/activity_logs.json"],
+        "statusCode": 200
+      },
+      {
+        "path": "/api/settings",
+        "description": "가게 설정 저장",
+        "queryParams": [
+          {
+            "name": "storeId",
+            "type": "string",
+            "required": true,
+            "description": "가게 ID"
+          }
+        ],
+        "requestBody": {
+          "type": "object",
+          "properties": {
+            "basic": { "type": "object" },
+            "discount": { "type": "object" },
+            "delivery": { "type": "object" },
+            "pickup": { "type": "object" },
+            "images": { "type": "object" },
+            "businessHours": { "type": "object" },
+            "sectionOrder": { "type": "array" },
+            "qrCode": { "type": "object" }
+          }
+        },
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "message": { "type": "string" }
+          }
+        },
+        "dataFiles": ["assets/data/data.json", "assets/data/activity_logs.json"],
+        "statusCode": 200
+      },
+      {
+        "path": "/api/current-store",
+        "description": "현재 가게 설정",
+        "queryParams": [],
+        "requestBody": {
+          "type": "object",
+          "properties": {
+            "storeId": { "type": "string" }
+          }
+        },
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "message": { "type": "string" }
+          }
+        },
+        "dataFiles": ["assets/data/data.json"],
+        "statusCode": 200
+      },
+      {
+        "path": "/api/superadmin/update",
+        "description": "슈퍼어드민 정보 수정",
+        "queryParams": [],
+        "requestBody": {
+          "type": "object",
+          "properties": {
+            "username": { "type": "string" },
+            "password": { "type": "string" }
+          }
+        },
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "message": { "type": "string" }
+          }
+        },
+        "dataFiles": ["assets/data/data.json", "assets/data/activity_logs.json"],
+        "statusCode": 200
+      },
+      {
+        "path": "/api/activity-logs",
+        "description": "활동 로그 추가",
+        "queryParams": [],
+        "requestBody": {
+          "type": "object",
+          "required": ["type", "action", "description"],
+          "properties": {
+            "type": { "type": "string" },
+            "action": { "type": "string" },
+            "description": { "type": "string" },
+            "userId": { "type": "string" },
+            "userName": { "type": "string" },
+            "targetType": { "type": "string" },
+            "targetId": { "type": "string" },
+            "targetName": { "type": "string" },
+            "details": { "type": "object" },
+            "timestamp": { "type": "string", "format": "date-time" }
+          }
+        },
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "logId": { "type": "string" }
+          }
+        },
+        "dataFiles": ["assets/data/activity_logs.json"],
+        "statusCode": 201
+      },
+      {
+        "path": "/api/ai/generate-content",
+        "description": "AI 콘텐츠 생성",
+        "queryParams": [],
+        "requestBody": {
+          "type": "object",
+          "required": ["storeName"],
+          "properties": {
+            "storeName": { "type": "string" },
+            "existingExamples": { "type": "array" }
+          }
+        },
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "content": { "type": "object" }
+          }
+        },
+        "dataFiles": [],
+        "statusCode": 200
+      },
+      {
+        "path": "/api/qr/generate",
+        "description": "QR 코드 생성",
+        "queryParams": [],
+        "requestBody": {
+          "type": "object",
+          "required": ["storeId"],
+          "properties": {
+            "storeId": { "type": "string" },
+            "logoPath": { "type": "string" },
+            "size": { "type": "number", "default": 1024 }
+          }
+        },
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "qrCodeUrl": { "type": "string" },
+            "filepath": { "type": "string" }
+          }
+        },
+        "dataFiles": ["assets/data/data.json", "assets/images/qrcodes/"],
+        "statusCode": 200
+      }
+    ],
+    "PUT": [
+      {
+        "path": "/api/stores/{storeId}",
+        "description": "가게 정보 수정",
+        "pathParams": {
+          "storeId": { "type": "string", "required": true }
+        },
+        "queryParams": [],
+        "requestBody": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "subtitle": { "type": "string" },
+            "phone": { "type": "string" },
+            "address": { "type": "string" },
+            "status": { "type": "string" },
+            "order": { "type": "number" }
+          }
+        },
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "message": { "type": "string" }
+          }
+        },
+        "dataFiles": ["assets/data/data.json", "assets/data/activity_logs.json"],
+        "statusCode": 200
+      }
+    ],
+    "DELETE": [
+      {
+        "path": "/api/stores/{storeId}",
+        "description": "가게 삭제",
+        "pathParams": {
+          "storeId": { "type": "string", "required": true }
+        },
+        "queryParams": [],
+        "requestBody": {},
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "message": { "type": "string" }
+          }
+        },
+        "dataFiles": ["assets/data/data.json", "assets/data/activity_logs.json"],
+        "statusCode": 200
+      },
+      {
+        "path": "/api/qr/{storeId}",
+        "description": "QR 코드 삭제",
+        "pathParams": {
+          "storeId": { "type": "string", "required": true }
+        },
+        "queryParams": [],
+        "requestBody": {},
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "message": { "type": "string" }
+          }
+        },
+        "dataFiles": ["assets/data/data.json", "assets/images/qrcodes/"],
+        "statusCode": 200
+      }
+    ],
+    "OPTIONS": [
+      {
+        "path": "/*",
+        "description": "CORS preflight 요청 처리",
+        "queryParams": [],
+        "responseHeaders": {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type"
+        },
+        "dataFiles": [],
+        "statusCode": 200
+      }
+    ]
+  },
+  "staticRoutes": [
+    {
+      "path": "/",
+      "file": "index.html",
+      "description": "메인 페이지"
+    },
+    {
+      "path": "/store.html",
+      "file": "store.html",
+      "description": "가게 페이지 (모바일 최적화)"
+    },
+    {
+      "path": "/admin",
+      "file": "admin/index.html",
+      "description": "어드민 대시보드"
+    },
+    {
+      "path": "/admin/login.html",
+      "file": "admin/login.html",
+      "description": "슈퍼어드민 로그인"
+    },
+    {
+      "path": "/admin/dashboard.html",
+      "file": "admin/dashboard.html",
+      "description": "어드민 대시보드 메인"
+    },
+    {
+      "path": "/admin/bulk-management.html",
+      "file": "admin/bulk-management.html",
+      "description": "대량 관리 페이지"
+    },
+    {
+      "path": "/admin/release-notes.html",
+      "file": "admin/release-notes.html",
+      "description": "릴리즈 노트 페이지"
+    },
+    {
+      "path": "/paused.html",
+      "file": "paused.html",
+      "description": "가게 중지 페이지"
+    }
+  ],
+  "subdomainRoutes": [
+    {
+      "pattern": "/{subdomain}",
+      "description": "서브도메인으로 가게 페이지 접근",
+      "handler": "서브도메인으로 가게 찾아서 store.html로 리다이렉트"
+    }
+  ],
+  "dataFileMapping": {
+    "assets/data/data.json": [
+      "/api/data",
+      "/api/stores",
+      "/api/stores/{storeId}",
+      "/api/settings",
+      "/api/current-store",
+      "/api/users/{userId}",
+      "/api/superadmin/info",
+      "/api/subdomain/check",
+      "/api/stores/bulk-export"
+    ],
+    "assets/data/activity_logs.json": [
+      "/api/activity-logs"
+    ],
+    "assets/data/analytics.json": [
+      "미사용 (향후 확장용)"
+    ],
+    "assets/data/release_notes.json": [
+      "/api/release-notes"
+    ],
+    "assets/images/qrcodes/": [
+      "/api/qr/generate",
+      "/api/qr/{storeId}"
+    ],
+    "assets/images/uploads/": [
+      "이미지 업로드 관련"
+    ]
+  },
+  "corsSettings": {
+    "allowedOrigins": ["*"],
+    "allowedMethods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    "allowedHeaders": ["Content-Type"],
+    "maxAge": 86400
+  },
+  "errorHandling": {
+    "404": {
+      "description": "리소스를 찾을 수 없음",
+      "response": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      }
+    },
+    "500": {
+      "description": "서버 내부 오류",
+      "response": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      }
+    }
+  },
+  "performanceNotes": {
+    "caching": {
+      "dataCache": "5초 TTL",
+      "activityLogsCache": "5초 TTL",
+      "staticFiles": "브라우저 캐시"
+    },
+    "fileLocking": "fcntl을 사용한 동시성 제어",
+    "responseTime": "평균 100-500ms (JSON 파일 I/O 제약)"
+  }
+}
