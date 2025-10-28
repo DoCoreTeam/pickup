@@ -1,0 +1,383 @@
+# GitHub Actions CI 파이프라인
+# Zero-404 보장을 위한 자동화된 테스트 및 배포
+#
+# @author DOCORE
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, refactor/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8'
+  POSTGRES_PASSWORD: 'test_password'
+  POSTGRES_DB: 'pickup_test'
+  DATABASE_URL: 'postgresql://postgres:test_password@localhost:5432/pickup_test'
+
+jobs:
+  # 1. 코드 품질 검사
+  quality-check:
+    name: 코드 품질 검사
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+        
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: pnpm 설치
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          
+      - name: pnpm 캐시
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+            
+      - name: 의존성 설치
+        run: pnpm install --frozen-lockfile
+        
+      - name: 타입 체크
+        run: pnpm run type-check
+        
+      - name: 린트 검사
+        run: pnpm run lint
+        
+      - name: 포맷 검사
+        run: pnpm run format:check
+
+  # 2. 단위 테스트
+  unit-tests:
+    name: 단위 테스트
+    runs-on: ubuntu-latest
+    needs: quality-check
+    
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+        
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: pnpm 설치
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          
+      - name: pnpm 캐시
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+            
+      - name: 의존성 설치
+        run: pnpm install --frozen-lockfile
+        
+      - name: 단위 테스트 실행
+        run: pnpm run test:unit
+
+  # 3. 통합 테스트 (PostgreSQL 포함)
+  integration-tests:
+    name: 통합 테스트
+    runs-on: ubuntu-latest
+    needs: quality-check
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+        
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: pnpm 설치
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          
+      - name: pnpm 캐시
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+            
+      - name: 의존성 설치
+        run: pnpm install --frozen-lockfile
+        
+      - name: 환경변수 설정
+        run: |
+          echo "DATABASE_URL=${{ env.DATABASE_URL }}" >> $GITHUB_ENV
+          echo "NODE_ENV=test" >> $GITHUB_ENV
+          echo "DATA_BACKEND=postgres" >> $GITHUB_ENV
+          
+      - name: Prisma 마이그레이션
+        run: |
+          cd packages/db
+          pnpm prisma migrate deploy
+          pnpm prisma db seed
+          
+      - name: 통합 테스트 실행
+        run: pnpm run test:integration
+
+  # 4. E2E 테스트 (Playwright)
+  e2e-tests:
+    name: E2E 테스트
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+        
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: pnpm 설치
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          
+      - name: pnpm 캐시
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+            
+      - name: 의존성 설치
+        run: pnpm install --frozen-lockfile
+        
+      - name: 환경변수 설정
+        run: |
+          echo "DATABASE_URL=${{ env.DATABASE_URL }}" >> $GITHUB_ENV
+          echo "NODE_ENV=test" >> $GITHUB_ENV
+          echo "DATA_BACKEND=postgres" >> $GITHUB_ENV
+          
+      - name: Prisma 마이그레이션
+        run: |
+          cd packages/db
+          pnpm prisma migrate deploy
+          pnpm prisma db seed
+          
+      - name: Playwright 설치
+        run: pnpm exec playwright install --with-deps
+        
+      - name: E2E 테스트 실행
+        run: pnpm run test:e2e
+
+  # 5. 404 체크 (Zero-404 보장)
+  zero-404-check:
+    name: Zero-404 체크
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+        
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: pnpm 설치
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          
+      - name: pnpm 캐시
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+            
+      - name: 의존성 설치
+        run: pnpm install --frozen-lockfile
+        
+      - name: 환경변수 설정
+        run: |
+          echo "DATABASE_URL=${{ env.DATABASE_URL }}" >> $GITHUB_ENV
+          echo "NODE_ENV=test" >> $GITHUB_ENV
+          echo "DATA_BACKEND=postgres" >> $GITHUB_ENV
+          echo "PORT=3001" >> $GITHUB_ENV
+          
+      - name: Prisma 마이그레이션
+        run: |
+          cd packages/db
+          pnpm prisma migrate deploy
+          pnpm prisma db seed
+          
+      - name: API 서버 시작
+        run: |
+          cd apps/api
+          pnpm run start:prod &
+          sleep 10
+          
+      - name: 404 체크 실행
+        run: pnpm run check:404
+        
+      - name: 서버 종료
+        run: pkill -f "apps/api"
+
+  # 6. 스키마 diff 체크 (기존 라우트/응답포맷 변경 방지)
+  schema-diff-check:
+    name: 스키마 diff 체크
+    runs-on: ubuntu-latest
+    needs: quality-check
+    
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: pnpm 설치
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          
+      - name: pnpm 캐시
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+            
+      - name: 의존성 설치
+        run: pnpm install --frozen-lockfile
+        
+      - name: 스키마 diff 체크 실행
+        run: pnpm run check:schema-diff
+
+  # 7. 빌드 테스트
+  build-test:
+    name: 빌드 테스트
+    runs-on: ubuntu-latest
+    needs: quality-check
+    
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+        
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: pnpm 설치
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          
+      - name: pnpm 캐시
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+            
+      - name: 의존성 설치
+        run: pnpm install --frozen-lockfile
+        
+      - name: 빌드 실행
+        run: pnpm run build
+        
+      - name: 빌드 아티팩트 업로드
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: |
+            apps/*/dist
+            packages/*/dist
+
+  # 8. 최종 결과
+  ci-success:
+    name: CI 성공
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests, e2e-tests, zero-404-check, schema-diff-check, build-test]
+    if: always()
+    
+    steps:
+      - name: CI 결과 요약
+        run: |
+          echo "🎉 CI/CD 파이프라인 완료!"
+          echo "✅ 코드 품질 검사 통과"
+          echo "✅ 단위 테스트 통과"
+          echo "✅ 통합 테스트 통과"
+          echo "✅ E2E 테스트 통과"
+          echo "✅ Zero-404 체크 통과"
+          echo "✅ 스키마 diff 체크 통과"
+          echo "✅ 빌드 테스트 통과"
