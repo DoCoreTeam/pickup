@@ -12,7 +12,7 @@ datasource db {
   // DATABASE_URL="postgresql://username:password@host:port/database?pgbouncer=true&connection_limit=1"
 }
 
-// 슈퍼어드민 테이블
+// 슈퍼어드민 테이블 - JSON 구조 반영
 model SuperAdmin {
   id           Int      @id @default(autoincrement())
   username     String   @unique
@@ -21,30 +21,36 @@ model SuperAdmin {
   lastModified DateTime @default(now()) @map("last_modified")
 
   @@map("superadmin")
+  @@index([username])
 }
 
-// 가게 테이블
+// 가게 테이블 - JSON 구조 반영, 최소 스키마
 model Store {
-  id               String    @id @default(cuid())
-  name             String
-  subtitle         String?
-  phone            String?
-  address          String?
-  status           String    @default("active")
-  subdomain        String?   @unique
-  subdomainStatus  String?   @map("subdomain_status")
-  order            Int       @default(0)
-  createdAt        DateTime  @default(now()) @map("created_at")
-  lastModified     DateTime  @default(now()) @map("last_modified")
-  pausedAt         DateTime? @map("paused_at")
+  id                    String    @id // JSON의 id 그대로 사용 (cuid 대신)
+  name                  String
+  subtitle              String?
+  phone                 String?
+  address               String?
+  status                String    @default("active")
+  subdomain             String?   @unique
+  subdomainStatus       String?   @map("subdomain_status")
+  subdomainCreatedAt    DateTime? @map("subdomain_created_at")
+  subdomainLastModified DateTime? @map("subdomain_last_modified")
+  order                 Int       @default(0)
+  createdAt             DateTime  @default(now()) @map("created_at")
+  lastModified          DateTime  @default(now()) @map("last_modified")
+  pausedAt              DateTime? @map("paused_at")
 
   // 관계
   settings StoreSettings?
 
   @@map("stores")
+  @@index([status])
+  @@index([subdomain])
+  @@index([createdAt])
 }
 
-// 가게 설정 테이블
+// 가게 설정 테이블 - JSON 구조 반영
 model StoreSettings {
   id            Int      @id @default(autoincrement())
   storeId       String   @unique @map("store_id")
@@ -63,9 +69,10 @@ model StoreSettings {
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@map("store_settings")
+  @@index([storeId])
 }
 
-// 활동 로그 테이블
+// 활동 로그 테이블 - JSON 구조 반영
 model ActivityLog {
   id          String   @id @default(cuid())
   type        String
@@ -80,9 +87,12 @@ model ActivityLog {
   timestamp   DateTime @default(now())
 
   @@map("activity_logs")
+  @@index([type])
+  @@index([timestamp])
+  @@index([userId])
 }
 
-// 분석 데이터 테이블
+// 분석 데이터 테이블 - JSON 구조 반영
 model Analytics {
   id           Int      @id @default(autoincrement())
   siteVisits   Json?    @map("site_visits")
@@ -93,7 +103,7 @@ model Analytics {
   @@map("analytics")
 }
 
-// 릴리즈 노트 테이블
+// 릴리즈 노트 테이블 - JSON 구조 반영
 model ReleaseNote {
   id                    Int      @id @default(autoincrement())
   version               String
@@ -107,4 +117,16 @@ model ReleaseNote {
   createdAt             DateTime @default(now()) @map("created_at")
 
   @@map("release_notes")
+  @@index([version])
+  @@index([releaseDate])
+}
+
+// 현재 가게 ID 저장 테이블 (환경변수 대신 DB 저장)
+model CurrentStore {
+  id        Int      @id @default(1) // 단일 레코드만 유지
+  storeId   String?  @map("store_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  @@map("current_store")
 }
