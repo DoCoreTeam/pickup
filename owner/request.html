@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>입점 요청 - 픽업</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+
+        .page-container {
+            width: 100%;
+            padding: clamp(40px, 12vh, 72px) clamp(24px, 8vw, 72px);
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .request-card {
+            background: white;
+            width: min(100%, 620px);
+            margin: 0 auto;
+            border-radius: 22px;
+            box-shadow: 0 25px 50px rgba(30, 64, 175, 0.25);
+            padding: clamp(28px, 5vw, 40px);
+            box-sizing: border-box;
+        }
+
+        .request-inner {
+            width: min(100%, 520px);
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: clamp(20px, 4vw, 32px);
+        }
+
+        .request-header {
+            padding: clamp(18px, 4vw, 28px);
+            background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+            border-radius: 18px;
+        }
+
+        .request-header h1 {
+            margin: 0;
+            font-size: 28px;
+            color: #111827;
+        }
+
+        .request-header p {
+            margin: 12px 0 0;
+            color: #4b5563;
+            line-height: 1.6;
+        }
+
+        form {
+            padding: 0;
+        }
+
+        .request-content {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 12px 14px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: border-color 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-sizing: border-box;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .submit-btn .btn-spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+
+        .submit-btn.loading {
+            cursor: progress;
+            opacity: 0.9;
+        }
+
+        .submit-btn.loading .btn-spinner {
+            display: inline-block;
+        }
+
+        .submit-btn.loading .btn-label {
+            opacity: 0.75;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(99, 102, 241, 0.25);
+        }
+
+        .footer-note {
+            padding: clamp(4px, 2vw, 12px) 0 clamp(18px, 4.5vw, 28px);
+            font-size: 13px;
+            color: #6b7280;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+            .page-container {
+                padding: clamp(32px, 12vw, 48px) clamp(16px, 6vw, 32px);
+            }
+
+            .request-card {
+                width: min(100%, 560px);
+                padding: clamp(24px, 8vw, 36px);
+            }
+
+            .request-inner {
+                width: min(100%, 500px);
+                gap: clamp(16px, 5vw, 26px);
+            }
+
+            .request-header {
+                padding: clamp(16px, 6vw, 24px);
+                border-radius: 16px;
+            }
+
+            .footer-note {
+                padding: clamp(4px, 3vw, 10px) 0 clamp(14px, 6vw, 24px);
+            }
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            left: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 9999;
+            pointer-events: none;
+        }
+
+        .toast {
+            min-width: 240px;
+            max-width: 320px;
+            width: min(320px, calc(100vw - 48px));
+            padding: 14px 18px;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 14px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+            animation: fadeIn 0.2s ease, fadeOut 0.4s ease 4.2s forwards;
+            pointer-events: auto;
+        }
+
+        .toast.success {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        }
+
+        .toast.error {
+            background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeOut {
+            to { opacity: 0; transform: translateY(-10px); }
+        }
+
+        .catchphrase-highlight {
+             background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+             -webkit-background-clip: text;
+             -webkit-text-fill-color: transparent;
+             background-clip: text;
+             font-size: 18px;
+             font-weight: 800;
+             text-shadow: none;
+         }
+
+        .back-button {
+            align-self: flex-start;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            border-radius: 999px;
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            background: #ffffff;
+            color: #4f46e5;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+            box-shadow: 0 12px 24px rgba(79, 70, 229, 0.12);
+        }
+
+        .back-button:hover {
+            transform: translateY(-1px);
+            border-color: rgba(79, 70, 229, 0.45);
+            box-shadow: 0 16px 28px rgba(79, 70, 229, 0.18);
+        }
+
+        .back-button span {
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="page-container">
+        <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+        <div class="request-card">
+            <div class="request-inner">
+                <button type="button" class="back-button" id="backButton">
+                    <span aria-hidden="true">←</span>
+                    <span>뒤로가기</span>
+                </button>
+                <div class="request-header">
+                    <h1>입점 요청하기</h1>
+                    <p>
+                        픽업 플랫폼에서 가게를 쉽고 빠르게 홍보하세요.<br>
+                        아래 정보를 작성해 주시면 확인 후 빠르게 연락드리겠습니다.
+                    </p>
+                </div>
+                <form id="requestForm">
+                    <div class="request-content">
+                        <div class="form-group">
+                            <label for="ownerName">사장님 성함</label>
+                            <input type="text" id="ownerName" name="ownerName" placeholder="홍길동" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="ownerEmail">이메일</label>
+                            <input type="email" id="ownerEmail" name="ownerEmail" placeholder="example@store.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="ownerPhone">연락처</label>
+                            <input type="tel" id="ownerPhone" name="ownerPhone" placeholder="010-1234-5678">
+                        </div>
+                        <div class="form-group">
+                            <label for="storeName">가게 이름</label>
+                            <input type="text" id="storeName" name="storeName" placeholder="예: 픽업삼겹살 강남점" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="storeAddress">가게 주소</label>
+                            <input type="text" id="storeAddress" name="storeAddress" placeholder="예: 서울 강남구 테헤란로 123" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="memo">특이사항 / 요청사항</label>
+                            <textarea id="memo" name="memo" placeholder="운영시간, 주요 메뉴, 현재 사용 중인 배달 서비스 등을 자유롭게 적어주세요."></textarea>
+                        </div>
+                        <button type="submit" class="submit-btn" id="submitBtn">
+                            <span class="btn-spinner" aria-hidden="true"></span>
+                            <span class="btn-label">입점 요청 보내기</span>
+                        </button>
+                    </div>
+                </form>
+                <div class="footer-note">
+                    문의 후 1영업일 이내에 담당 매니저가 연락을 드립니다.<br>
+                    긴급 문의는 support@pickup.com 으로 연락 주세요.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        const submitBtn = document.getElementById('submitBtn');
+        const toastContainer = document.querySelector('.toast-container');
+        const backButton = document.getElementById('backButton');
+
+        if (backButton) {
+            backButton.addEventListener('click', () => {
+                if (document.referrer && document.referrer !== window.location.href) {
+                    window.history.back();
+                } else {
+                    window.location.href = '/';
+                }
+            });
+        }
+
+        /**
+         * 토스트 알림을 생성해서 화면 좌측 하단에 표시한다.
+         * @param {'success' | 'error'} type 알림 유형
+         * @param {string} message 사용자에게 보여줄 메시지
+         */
+        function showToast(type, message) {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 4600);
+        }
+
+        document.getElementById('requestForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const payload = {
+                name: document.getElementById('ownerName').value.trim(),
+                email: document.getElementById('ownerEmail').value.trim(),
+                phone: document.getElementById('ownerPhone').value.trim(),
+                message: document.getElementById('memo').value.trim(),
+                requestData: {
+                    storeName: document.getElementById('storeName').value.trim(),
+                    storeAddress: document.getElementById('storeAddress').value.trim()
+                }
+            };
+
+            if (!payload.name || !payload.email || !payload.requestData.storeName || !payload.requestData.storeAddress) {
+                showToast('error', '필수 정보를 모두 입력해주세요.');
+                return;
+            }
+
+            try {
+                submitBtn.classList.add('loading');
+                submitBtn.disabled = true;
+
+                const response = await fetch(`${API_BASE}/owners/request`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(result?.error?.message || '요청을 처리하지 못했습니다.');
+                }
+
+                showToast('success', '입점 요청이 접수되었습니다. 담당자가 확인 후 연락드릴게요!');
+                event.target.reset();
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 1800);
+            } catch (error) {
+                console.error('입점 요청 오류:', error);
+                showToast('error', error.message || '요청 접수 중 오류가 발생했습니다.');
+            } finally {
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
+
+
+

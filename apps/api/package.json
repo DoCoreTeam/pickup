@@ -23,7 +23,6 @@
     "@nestjs/config": "^3.1.1",
     "@nestjs/helmet": "^10.0.0",
     "@nestjs/cors": "^1.0.0",
-    "@pickup/db": "workspace:*",
     "@pickup/shared": "workspace:*",
     "pino": "^8.16.2",
     "pino-http": "^8.5.0",

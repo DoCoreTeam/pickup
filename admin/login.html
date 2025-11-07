@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>슈퍼어드민 로그인</title>
+    <title>픽업 관리자 로그인</title>
     <style>
         * {
             margin: 0;
@@ -47,6 +47,10 @@
 
         .form-group {
             margin-bottom: 1.5rem;
+        }
+
+        .form-group.hidden {
+            display: none;
         }
 
         .form-group label {
@@ -103,10 +107,50 @@
             color: #666;
         }
 
+        .sub-actions {
+            margin-top: 1.5rem;
+            text-align: center;
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+
+        .sub-actions a {
+            color: #4f46e5;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .sub-actions a:hover {
+            text-decoration: underline;
+        }
+
+        .admin-switch {
+            position: absolute;
+            right: 20px;
+            bottom: 20px;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .admin-switch button {
+            background: transparent;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            text-decoration: underline;
+            font-size: inherit;
+            padding: 0;
+        }
+
         @media (max-width: 480px) {
             .login-container {
                 margin: 1rem;
                 padding: 1.5rem;
+            }
+
+            .admin-switch {
+                right: 12px;
+                bottom: 12px;
             }
         }
     </style>
@@ -114,35 +158,46 @@
 <body>
     <div class="login-container">
         <div class="login-header">
-            <h1>슈퍼어드민 로그인</h1>
-            <p>관리자 페이지에 접근하려면 로그인하세요</p>
+            <h1 id="loginTitle">슈퍼어드민 로그인</h1>
+            <p id="loginSubtitle">관리자 페이지에 접근하려면 로그인하세요</p>
         </div>
 
         <div class="error-message" id="errorMessage"></div>
         <div class="loading" id="loading">로그인 중...</div>
 
         <form id="loginForm">
-            <div class="form-group">
+            <div class="form-group" id="adminUsernameGroup">
                 <label for="username">계정</label>
-                <input type="text" id="username" name="username" required>
+                <input type="text" id="username" name="username" autocomplete="username">
             </div>
-            <div class="form-group">
+            <div class="form-group" id="ownerEmailGroup" style="display: none;">
+                <label for="ownerEmail">이메일</label>
+                <input type="email" id="ownerEmail" name="ownerEmail" autocomplete="username">
+            </div>
+            <div class="form-group" id="passwordGroup">
                 <label for="password">비밀번호</label>
-                <input type="password" id="password" name="password" required>
+                <input type="password" id="password" name="password" autocomplete="current-password">
             </div>
             <button type="submit" class="login-btn">로그인</button>
         </form>
+
+        <div class="sub-actions">
+            <span id="ownerRequestCta" style="display: none;">입점을 원하신다면 <a href="/owner/request.html">입점 요청</a>을 보내주세요.</span>
+        </div>
+    </div>
+
+    <div class="admin-switch">
+        <button type="button" id="adminSwitchLink">슈퍼어드민 로그인</button>
     </div>
 
     <script>
         const API_BASE = '/api';
+        let currentRole = 'owner';
 
         // 로그인 폼 처리
         document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
             const errorDiv = document.getElementById('errorMessage');
             const loadingDiv = document.getElementById('loading');
             
@@ -151,50 +206,131 @@
             errorDiv.style.display = 'none';
             
             try {
-                // 슈퍼어드민 계정 정보 확인
-                const response = await fetch(`${API_BASE}/superadmin/check`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        username: username,
-                        password: password
-                    }),
-                    mode: 'cors'
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    // 로그인 성공 - 세션 저장
-                    sessionStorage.setItem('superadmin_logged_in', 'true');
-                    sessionStorage.setItem('superadmin_username', username);
-                    
-                    // 관리자 페이지로 이동
-                    window.location.href = 'dashboard.html';
+                let response;
+
+                if (currentRole === 'superadmin') {
+                    const username = document.getElementById('username').value.trim();
+                    const password = document.getElementById('password').value.trim();
+
+                    if (!username || !password) {
+                        throw new Error('계정과 비밀번호를 입력해주세요.');
+                    }
+
+                    response = await fetch(`${API_BASE}/admin/login`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ username, password }),
+                        mode: 'cors'
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        sessionStorage.setItem('user_role', 'superadmin');
+                        sessionStorage.setItem('superadmin_logged_in', 'true');
+                        sessionStorage.setItem('superadmin_username', username);
+                        sessionStorage.removeItem('owner_logged_in');
+                        sessionStorage.removeItem('owner_store_id');
+                        sessionStorage.removeItem('owner_name');
+                        window.location.href = '/admin';
+                    } else {
+                        throw new Error(result.message || '로그인에 실패했습니다.');
+                    }
                 } else {
-                    // 로그인 실패
-                    errorDiv.textContent = result.message || '로그인에 실패했습니다.';
-                    errorDiv.style.display = 'block';
+                    const email = document.getElementById('ownerEmail').value.trim();
+                    const password = document.getElementById('password').value.trim();
+
+                    if (!email || !password) {
+                        throw new Error('이메일과 비밀번호를 입력해주세요.');
+                    }
+
+                    response = await fetch(`${API_BASE}/owners/login`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ email, password }),
+                        mode: 'cors'
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.json().catch(() => ({}));
+                        throw new Error(errorText.error || `HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+
+                    if (result.success && result.owner) {
+                        sessionStorage.setItem('user_role', 'owner');
+                        sessionStorage.setItem('owner_logged_in', 'true');
+                        sessionStorage.setItem('owner_name', result.owner.name || '사장님');
+                        sessionStorage.setItem('owner_store_id', result.owner.storeId || '');
+                        sessionStorage.setItem('owner_id', result.owner.id || '');
+                        sessionStorage.removeItem('superadmin_logged_in');
+                        window.location.href = '/admin';
+                    } else {
+                        throw new Error(result.message || '로그인에 실패했습니다.');
+                    }
                 }
             } catch (error) {
                 console.error('로그인 오류:', error);
-                errorDiv.textContent = '로그인 중 오류가 발생했습니다.';
+                errorDiv.textContent = error.message || '로그인 중 오류가 발생했습니다.';
                 errorDiv.style.display = 'block';
             } finally {
                 loadingDiv.style.display = 'none';
             }
         });
 
-        // 이미 로그인된 경우 관리자 페이지로 리다이렉트
-        if (sessionStorage.getItem('superadmin_logged_in') === 'true') {
-            window.location.href = 'dashboard.html';
+        function setRole(role) {
+            currentRole = role;
+
+            const title = document.getElementById('loginTitle');
+            const subtitle = document.getElementById('loginSubtitle');
+            const ownerEmailGroup = document.getElementById('ownerEmailGroup');
+            const adminUsernameGroup = document.getElementById('adminUsernameGroup');
+            const ownerRequestCta = document.getElementById('ownerRequestCta');
+            const adminSwitchLink = document.getElementById('adminSwitchLink');
+
+            if (role === 'owner') {
+                title.textContent = '가게 사장님 로그인';
+                subtitle.textContent = '내 가게를 쉽고 빠르게 관리해보세요';
+                adminUsernameGroup.style.display = 'none';
+                ownerEmailGroup.style.display = 'block';
+                ownerRequestCta.style.display = 'inline';
+                adminSwitchLink.textContent = '슈퍼어드민 로그인';
+            } else {
+                title.textContent = '슈퍼어드민 로그인';
+                subtitle.textContent = '관리자 페이지에 접근하려면 로그인하세요';
+                adminUsernameGroup.style.display = 'block';
+                ownerEmailGroup.style.display = 'none';
+                ownerRequestCta.style.display = 'none';
+                adminSwitchLink.textContent = '← 가게 사장님 로그인으로 돌아가기';
+            }
+
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('loginForm').reset();
         }
+
+        document.getElementById('adminSwitchLink').addEventListener('click', () => {
+            setRole(currentRole === 'owner' ? 'superadmin' : 'owner');
+        });
+
+        // 이미 로그인된 경우 관리자 페이지로 리다이렉트
+        const savedRole = sessionStorage.getItem('user_role');
+        if (savedRole === 'superadmin' && sessionStorage.getItem('superadmin_logged_in') === 'true') {
+            window.location.href = '/admin';
+        } else if (savedRole === 'owner' && sessionStorage.getItem('owner_logged_in') === 'true') {
+            window.location.href = '/admin';
+        }
+
+        // 초기 상태: 가게 사장님 로그인
+        setRole('owner');
     </script>
 </body>
 </html>

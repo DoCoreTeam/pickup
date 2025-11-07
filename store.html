@@ -15,7 +15,7 @@
 
     <style>
       :root {
-        --bg: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        --bg: #f8fafc;
         --card: #ffffff;
         --fg: #1a1a1a;
         --muted: #6b7280;
@@ -314,6 +314,86 @@
         font-weight: 500;
       }
 
+      .promo-video-section {
+        margin-bottom: 24px;
+        border-radius: var(--radius-lg);
+        background: var(--card);
+        box-shadow: var(--shadow-lg);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .promo-video-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .promo-video-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--fg);
+      }
+
+      .promo-video-button {
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 8px 16px rgba(79, 70, 229, 0.18);
+      }
+
+      .promo-video-button:hover {
+        background: #3730a3;
+        transform: translateY(-1px);
+      }
+
+      .promo-video-wrapper {
+        width: 100%;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #000;
+      }
+
+      .promo-video {
+        width: 100%;
+        height: 240px;
+        display: block;
+        object-fit: cover;
+        background: #000;
+      }
+
+      .promo-video-placeholder {
+        width: 100%;
+        padding: 28px;
+        border-radius: 12px;
+        border: 2px dashed rgba(148, 163, 184, 0.45);
+        text-align: center;
+        font-size: 14px;
+        color: #64748b;
+        background: rgba(148, 163, 184, 0.12);
+      }
+
+      @media (max-width: 480px) {
+        .promo-video {
+          height: 200px;
+        }
+
+        .promo-video-button {
+          padding: 6px 12px;
+          font-size: 13px;
+        }
+      }
+
       .delivery-section {
         background: var(--card);
         border-radius: 8px;
@@ -380,8 +460,6 @@
       .delivery-btn[onclick*="ttaeng"] {
         background: #EB5027;
         border-color: #EB5027;
-        color: white;
-      }
         color: white;
       }
 
@@ -728,6 +806,10 @@
         transition: all 0.2s ease;
         text-decoration: none;
         text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
       }
 
       .map-btn:hover {
@@ -874,10 +956,27 @@
           return storeIdFromParam;
         }
         
-        // 기존 경로 기반 파싱 (하위 호환성)
+        // 서브도메인 기반 접근 확인
         const path = window.location.pathname;
+        if (path && path !== '/' && !path.includes('.')) {
+          const subdomain = path.substring(1); // '/' 제거
+          return subdomain; // 서브도메인을 반환하여 나중에 getStoreBySubdomain에서 사용
+        }
+        
+        // 기존 경로 기반 파싱 (하위 호환성)
         const match = path.match(/\/store\/([^\/]+)/);
         return match ? match[1] : null;
+      }
+
+      // 서브도메인으로 가게 정보 조회
+      async function getStoreBySubdomain(subdomain) {
+        try {
+          const response = await apiRequest(`${API_BASE}/store/subdomain/${subdomain}`);
+          return response;
+        } catch (error) {
+          console.error('서브도메인 가게 조회 실패:', error);
+          throw error;
+        }
       }
 
       // ========================================
@@ -887,26 +986,41 @@
       async function loadStoreInfo(storeId) {
         try {
           log('INFO', '가게 정보 로딩 시작', { storeId });
-          const data = await apiRequest(`${API_BASE}/data`);
           
-          if (data && data.stores && Array.isArray(data.stores)) {
-            const store = data.stores.find(s => s.id === storeId);
-            if (store) {
-              // 가게가 중지된 경우 중지 페이지로 리다이렉트
-              if (store.status === 'paused') {
-                log('WARN', '가게가 중지됨, 중지 페이지로 리다이렉트', { storeId });
-                window.location.href = '/paused.html';
-                return;
-              }
-              
-              currentStore = store;
-              log('INFO', '가게 정보 로딩 완료', store);
-              return store;
-            } else {
-              throw new Error('가게를 찾을 수 없습니다');
-            }
+          let store;
+          
+          // 서브도메인 기반 접근인지 확인
+          const path = window.location.pathname;
+          if (path && path !== '/' && !path.includes('.') && !path.includes('storeId=') && !path.includes('id=')) {
+            // 서브도메인으로 가게 조회
+            const subdomain = path.substring(1);
+            log('INFO', '서브도메인으로 가게 조회', { subdomain });
+            const response = await getStoreBySubdomain(subdomain);
+            store = response.data;
           } else {
-            throw new Error('가게 데이터가 없습니다');
+            // 기존 방식: 전체 데이터에서 가게 찾기
+            const data = await apiRequest(`${API_BASE}/data`);
+            
+            if (data && data.stores && Array.isArray(data.stores)) {
+              store = data.stores.find(s => s.id === storeId);
+            } else {
+              throw new Error('가게 데이터가 없습니다');
+            }
+          }
+          
+          if (store) {
+            // 가게가 중지된 경우 중지 페이지로 리다이렉트
+            if (store.status === 'paused') {
+              log('WARN', '가게가 중지됨, 중지 페이지로 리다이렉트', { storeId: store.id });
+              window.location.href = '/paused.html';
+              return;
+            }
+            
+            currentStore = store;
+            log('INFO', '가게 정보 로딩 완료', store);
+            return store;
+          } else {
+            throw new Error('가게를 찾을 수 없습니다');
           }
         } catch (error) {
           log('ERROR', '가게 정보 로딩 실패', error);
@@ -944,9 +1058,25 @@
         }
       }
 
+      function getActiveDeliveryApps() {
+        const deliveryOrder = settings?.delivery?.deliveryOrder || ['ttaeng', 'baemin', 'coupang', 'yogiyo'];
+        const activeApps = deliveryOrder.filter(appId => {
+          const url = settings?.delivery?.[`${appId}Url`] || '';
+          return url && url.trim() !== '';
+        });
+        return activeApps;
+      }
+
       function renderDeliveryApps() {
         const deliveryGrid = document.getElementById('deliveryGrid');
-        if (!deliveryGrid) return;
+        if (!deliveryGrid) {
+          console.error('❌ deliveryGrid 요소를 찾을 수 없습니다');
+          return;
+        }
+
+        console.log('🔍 renderDeliveryApps 시작');
+        console.log('📊 settings 객체:', settings);
+        console.log('📊 settings.delivery:', settings?.delivery);
 
         const appConfigs = {
           baemin: { name: '배달의민족', icon: '/assets/images/icons/bm.svg' },
@@ -957,18 +1087,32 @@
 
         // 설정에서 배달앱 순서와 URL 가져오기
         const deliveryOrder = settings?.delivery?.deliveryOrder || ['ttaeng', 'baemin', 'coupang', 'yogiyo'];
-        
-        // URL이 있는 배달앱만 필터링
-        const activeApps = deliveryOrder.filter(appId => {
-          const url = settings?.delivery?.[`${appId}Url`] || '';
-          return url && url.trim() !== '';
+        console.log('📋 배달앱 순서:', deliveryOrder);
+
+        const activeApps = getActiveDeliveryApps();
+        activeApps.forEach(appId => {
+          console.log(`🔍 ${appId} URL 확인:`, settings?.delivery?.[`${appId}Url`]);
         });
+
+        console.log('✅ 활성 배달앱:', activeApps);
 
         deliveryGrid.innerHTML = '';
 
+        if (activeApps.length === 0) {
+          console.log('⚠️ 활성 배달앱이 없습니다');
+          const deliverySection = document.getElementById('deliverySection');
+          if (deliverySection) {
+            deliverySection.remove();
+          }
+          return;
+        }
+
         activeApps.forEach(appId => {
           const config = appConfigs[appId];
-          if (!config) return;
+          if (!config) {
+            console.warn(`⚠️ ${appId}에 대한 설정이 없습니다`);
+            return;
+          }
 
           const deliveryBtn = document.createElement('a');
           deliveryBtn.href = '#';
@@ -987,7 +1131,25 @@
           `;
 
           deliveryGrid.appendChild(deliveryBtn);
+          console.log(`✅ ${appId} 배달앱 버튼 추가됨`);
         });
+      }
+
+      function getPromoVideoSource() {
+        const promoVideo = settings?.images?.promoVideo;
+        if (!promoVideo) {
+          return null;
+        }
+
+        if (typeof promoVideo === 'string') {
+          return promoVideo;
+        }
+
+        if (promoVideo?.src) {
+          return promoVideo.src;
+        }
+
+        return null;
       }
 
       function renderStorePage() {
@@ -1019,6 +1181,7 @@
 
         // 설정에서 로고 이미지 가져오기
         const logoImage = settings?.images?.mainLogo || '/assets/images/logos/default-logo.svg';
+        const promoVideoSrc = getPromoVideoSource();
 
         contentDiv.innerHTML = `
           <div class="store-hero">
@@ -1058,17 +1221,39 @@
             ` : ''}
           </div>
 
+          <div class="promo-video-section">
+            <div class="promo-video-header">
+              <div class="promo-video-title">매장 소개 영상</div>
+              ${promoVideoSrc ? `
+              <button class="promo-video-button" type="button" onclick="showPromoVideo()">전체 화면</button>
+              ` : ''}
+            </div>
+            ${promoVideoSrc ? `
+            <div class="promo-video-wrapper">
+              <video class="promo-video" src="${promoVideoSrc}" controls playsinline preload="metadata"></video>
+            </div>
+            ` : `
+            <div class="promo-video-placeholder">
+              아직 등록된 영상이 없습니다. 관리자 페이지에서 매장 소개 영상을 추가해주세요.
+            </div>
+            `}
+          </div>
+
           <!-- 동적 섹션 렌더링 -->
           <div id="dynamicSections">
             <!-- 섹션 순서에 따라 동적으로 생성됩니다 -->
           </div>
         `;
 
-        // 배달앱 렌더링
-        renderDeliveryApps();
-        
         // 동적 섹션 렌더링
         renderDynamicSections();
+        
+        // DOM이 완전히 렌더링된 후 배달앱 렌더링
+        setTimeout(() => {
+          if (getActiveDeliveryApps().length > 0) {
+            renderDeliveryApps();
+          }
+        }, 500);
         
         // 영업시간 렌더링
         const businessHoursSection = document.getElementById('businessHoursSection');
@@ -1099,16 +1284,18 @@
 
       // 영업시간 렌더링
       function renderBusinessHours(settings) {
-        // 영업시간 설정이 없으면 기본값 사용
-        const businessHours = settings?.businessHours || {
-          mon: { enabled: true, open: '09:00', close: '22:00' },
-          tue: { enabled: true, open: '09:00', close: '22:00' },
-          wed: { enabled: true, open: '09:00', close: '22:00' },
-          thu: { enabled: true, open: '09:00', close: '22:00' },
-          fri: { enabled: true, open: '09:00', close: '22:00' },
-          sat: { enabled: true, open: '09:00', close: '22:00' },
-          sun: { enabled: true, open: '09:00', close: '22:00' }
-        };
+        // 영업시간 설정이 없거나 빈 객체이면 기본값 사용
+        const businessHours = (settings?.businessHours && Object.keys(settings.businessHours).length > 0) 
+          ? settings.businessHours 
+          : {
+              mon: { enabled: true, open: '09:00', close: '22:00' },
+              tue: { enabled: true, open: '09:00', close: '22:00' },
+              wed: { enabled: true, open: '09:00', close: '22:00' },
+              thu: { enabled: true, open: '09:00', close: '22:00' },
+              fri: { enabled: true, open: '09:00', close: '22:00' },
+              sat: { enabled: true, open: '09:00', close: '22:00' },
+              sun: { enabled: true, open: '09:00', close: '22:00' }
+            };
         
         const dayNames = {
           mon: '월요일',
@@ -1135,21 +1322,65 @@
           `;
         }
         
+        // 현재 시간과 영업시간 비교
+        const now = new Date();
+        const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+        const openTime = todayHours.open;
+        const closeTime = todayHours.close;
+        
+        // 시간 비교 함수
+        function timeToMinutes(time) {
+          const [hours, minutes] = time.split(':').map(Number);
+          return hours * 60 + minutes;
+        }
+        
+        const currentMinutes = timeToMinutes(currentTime);
+        const openMinutes = timeToMinutes(openTime);
+        const closeMinutes = timeToMinutes(closeTime);
+        
+        let statusText = '';
+        let statusColor = '';
+        let bgColor = '';
+        let borderColor = '';
+        
+        if (currentMinutes < openMinutes) {
+          // 영업시간 전
+          statusText = '영업준비중';
+          statusColor = '#f59e0b';
+          bgColor = 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)';
+          borderColor = '#f59e0b';
+        } else if (currentMinutes >= openMinutes && currentMinutes < closeMinutes) {
+          // 영업중
+          statusText = '영업중';
+          statusColor = '#10b981';
+          bgColor = 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)';
+          borderColor = '#10b981';
+        } else {
+          // 영업종료
+          statusText = '영업종료';
+          statusColor = '#ef4444';
+          bgColor = 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)';
+          borderColor = '#ef4444';
+        }
+        
         return `
-          <div style="margin-top: 12px; padding: 12px 16px; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
+          <div style="margin-top: 12px; padding: 12px 16px; background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
             <div style="display: flex; align-items: center; gap: 12px;">
               <span style="font-size: 14px;">⏰</span>
               <div>
-                <div style="font-size: 18px; font-weight: 700; color: #1e3a8a;">
-                  ${todayHours.open} - ${todayHours.close}
+                <div style="font-size: 16px; font-weight: 700; color: ${statusColor}; margin-bottom: 2px;">
+                  ${statusText}
+                </div>
+                <div style="font-size: 14px; font-weight: 600; color: #374151;">
+                  ${openTime} - ${closeTime}
                 </div>
               </div>
             </div>
-            <button onclick="showAllBusinessHours()" style="padding: 4px 12px; background: white; border: 1px solid #3b82f6; border-radius: 6px; color: #3b82f6; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">전체보기</button>
+            <button onclick="showAllBusinessHours()" style="padding: 4px 12px; background: white; border: 1px solid ${borderColor}; border-radius: 6px; color: ${statusColor}; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">전체보기</button>
           </div>
           <script>
             window.businessHoursData = ${JSON.stringify({ dayNames, businessHours, today })};
-          </script>
+          <\/script>
         `;
       }
       
@@ -1169,7 +1400,7 @@
             { id: 'address', title: '주소 정보', icon: '📍', description: '가게 주소 및 지도' }
           ];
 
-          const sectionOrder = settings?.sectionOrder || defaultOrder;
+          const sectionOrder = Array.isArray(settings?.sectionOrder) && settings.sectionOrder.length > 0 ? settings.sectionOrder : defaultOrder;
           console.log('✅ 섹션 순서 로드:', sectionOrder);
           console.log('📊 settings 객체:', settings);
           
@@ -1195,8 +1426,13 @@
                 break;
 
               case 'delivery':
+                if (getActiveDeliveryApps().length === 0) {
+                  console.log('⚠️ 배달 섹션을 숨깁니다 - 활성 배달앱 없음');
+                  break;
+                }
+
                 sectionHTML = `
-                  <div class="delivery-section">
+                  <div class="delivery-section" id="deliverySection">
                     <div class="section-title">🚚 배달 주문</div>
                     <div class="delivery-grid" id="deliveryGrid">
                       <!-- 동적으로 생성됩니다 -->
@@ -1214,10 +1450,12 @@
                     </div>
                     <div class="map-buttons">
                       <button class="map-btn" onclick="openNaverMap()">
-                        🗺️ 네이버지도로 길찾기
+                        <img src="/assets/images/icons/navermap.svg" alt="네이버 지도" style="width: 22px; height: 22px;" />
+                        네이버지도로 길찾기
                       </button>
-                      <button class="map-btn" onclick="openTmap()">
-                        🚗 T맵으로 길찾기
+                      <button class="map-btn" onclick="openKakaoMap()">
+                        <img src="/assets/images/icons/kakaomap.svg" alt="카카오맵" style="width: 22px; height: 22px;" />
+                        카카오맵으로 길찾기
                       </button>
                     </div>
                   </div>
@@ -1231,7 +1469,7 @@
           });
 
           // 배달앱 렌더링 (delivery 섹션이 렌더링된 후)
-          if (sectionOrder.some(s => s.id === 'delivery')) {
+          if (sectionOrder.some(s => s.id === 'delivery') && getActiveDeliveryApps().length > 0) {
             renderDeliveryApps();
           }
 
@@ -1609,6 +1847,151 @@
         document.addEventListener('keydown', handleKeydown);
       }
 
+      /**
+       * 매장 소개 영상을 전체 화면 모달로 재생합니다.
+       * 작은 영상 영역을 탭했을 때 고객이 보다 몰입감 있게 영상을 볼 수 있도록 구성했습니다.
+       */
+      function showPromoVideo() {
+        const promoVideoSrc = getPromoVideoSource();
+        if (!promoVideoSrc) {
+          alert('등록된 영상이 없습니다. 관리자 페이지에서 영상을 추가해주세요.');
+          return;
+        }
+
+        const existingModal = document.getElementById('promoVideoModal');
+        if (existingModal) {
+          existingModal.remove();
+        }
+
+        const modal = document.createElement('div');
+        modal.id = 'promoVideoModal';
+        modal.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(15, 23, 42, 0.92);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+          box-sizing: border-box;
+          z-index: 1200;
+        `;
+
+        const modalContent = document.createElement('div');
+        modalContent.style.cssText = `
+          width: 100%;
+          max-width: 440px;
+          background: #0f172a;
+          border-radius: 18px;
+          padding: 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          box-shadow: 0 32px 48px rgba(15, 23, 42, 0.4);
+          position: relative;
+        `;
+
+        const header = document.createElement('div');
+        header.style.cssText = `
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          color: white;
+        `;
+
+        const title = document.createElement('h3');
+        title.textContent = '매장 소개 영상';
+        title.style.cssText = `
+          margin: 0;
+          font-size: 18px;
+          font-weight: 700;
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '닫기';
+        closeBtn.style.cssText = `
+          background: rgba(148, 163, 184, 0.25);
+          color: white;
+          border: none;
+          border-radius: 999px;
+          padding: 6px 14px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        `;
+
+        closeBtn.onmouseover = () => {
+          closeBtn.style.background = 'rgba(148, 163, 184, 0.4)';
+        };
+        closeBtn.onmouseout = () => {
+          closeBtn.style.background = 'rgba(148, 163, 184, 0.25)';
+        };
+
+        const videoWrapper = document.createElement('div');
+        videoWrapper.style.cssText = `
+          width: 100%;
+          border-radius: 14px;
+          overflow: hidden;
+          background: black;
+        `;
+
+        const videoElement = document.createElement('video');
+        videoElement.src = promoVideoSrc;
+        videoElement.controls = true;
+        videoElement.playsInline = true;
+        videoElement.preload = 'metadata';
+        videoElement.style.cssText = `
+          width: 100%;
+          height: auto;
+          max-height: 60vh;
+          display: block;
+          background: black;
+        `;
+
+        const description = document.createElement('p');
+        description.textContent = '영상 길이는 10초 이내이며, 모바일에서도 매끄럽게 재생됩니다.';
+        description.style.cssText = `
+          margin: 0;
+          font-size: 13px;
+          color: rgba(226, 232, 240, 0.75);
+          line-height: 1.5;
+        `;
+
+        const closeModal = () => {
+          videoElement.pause();
+          modal.remove();
+          document.removeEventListener('keydown', handleEsc);
+        };
+
+        const handleEsc = (event) => {
+          if (event.key === 'Escape') {
+            closeModal();
+          }
+        };
+
+        closeBtn.onclick = closeModal;
+        modal.onclick = (event) => {
+          if (event.target === modal) {
+            closeModal();
+          }
+        };
+        document.addEventListener('keydown', handleEsc);
+
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+        videoWrapper.appendChild(videoElement);
+        modalContent.appendChild(header);
+        modalContent.appendChild(videoWrapper);
+        modalContent.appendChild(description);
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+      }
+
       function showLocation() {
         if (currentStore && currentStore.address) {
           openNaverMap();
@@ -1618,16 +2001,15 @@
       }
 
       function openDeliveryApp(app) {
-        const appUrls = {
-          baemin: 'https://baemin.me/',
-          yogiyo: 'https://www.yogiyo.co.kr/',
-          coupang: 'https://www.coupangeats.com/',
-          ddangyo: 'https://www.ddangyo.com/'
-        };
+        // 설정에서 실제 URL 가져오기
+        const url = settings?.delivery?.[`${app}Url`] || '';
         
-        if (appUrls[app]) {
-          log('INFO', '배달 앱 열기', { app });
-          window.open(appUrls[app], '_blank');
+        if (url && url.trim() !== '') {
+          log('INFO', '배달 앱 열기', { app, url });
+          window.open(url, '_blank');
+        } else {
+          log('WARN', '배달앱 URL이 설정되지 않음', { app });
+          alert(`${app} 앱의 URL이 설정되지 않았습니다.`);
         }
       }
 
@@ -1640,12 +2022,17 @@
         }
       }
 
-      function openTmap() {
+      /**
+       * 카카오맵 길찾기를 새 창으로 엽니다.
+       */
+      function openKakaoMap() {
         if (currentStore && currentStore.address) {
           const encodedAddress = encodeURIComponent(currentStore.address);
-          const tmapUrl = `https://tmapapi.sktelecom.com/main/search?query=${encodedAddress}`;
-          log('INFO', 'T맵 열기', { address: currentStore.address });
-          window.open(tmapUrl, '_blank');
+          const kakaoUrl = `https://map.kakao.com/?q=${encodedAddress}`;
+          log('INFO', '카카오맵 열기', { address: currentStore.address });
+          window.open(kakaoUrl, '_blank');
+        } else {
+          alert('주소가 등록되지 않았습니다.');
         }
       }
 
@@ -1757,23 +2144,10 @@
         document.body.appendChild(modal);
       }
 
-      // 설정 변경 감지 및 페이지 자동 새로고침
+      // 설정 변경 감지 및 페이지 자동 새로고침 (비활성화)
       function startSettingsPolling() {
-        setInterval(async () => {
-          if (currentStoreId && !isLoading) {
-            try {
-              const newSettings = await loadSettings(currentStoreId);
-              // 설정이 변경된 경우 페이지 다시 렌더링
-              if (JSON.stringify(newSettings) !== JSON.stringify(settings)) {
-                log('INFO', '설정 변경 감지, 페이지 다시 렌더링');
-                settings = newSettings;
-                renderStorePage();
-              }
-            } catch (error) {
-              log('ERROR', '설정 폴링 실패', error);
-            }
-          }
-        }, 2000); // 2초마다 확인
+        // 무한 루프 방지를 위해 폴링 비활성화
+        log('INFO', '설정 폴링 비활성화됨 (무한 루프 방지)');
       }
 
       // 페이지 로드 시 초기화
