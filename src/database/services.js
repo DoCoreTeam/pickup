@@ -9,28 +9,37 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../env.database') });
 
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const { getClient } = require('./connection');
 const db = getClient();
+
+function hashPassword(password) {
+  const trimmed = (password || '').trim();
+  if (!trimmed) {
+    return null;
+  }
+  return crypto.createHash('sha256').update(trimmed).digest('hex');
+}
 
 // 슈퍼어드민 조회
 async function getSuperAdmin() {
   const result = await db.query(`
-    SELECT id, username, created_at, last_modified
+    SELECT id, username, password_hash, created_at, last_modified
     FROM superadmin
-    ORDER BY id DESC
+    ORDER BY last_modified DESC NULLS LAST, id ASC
     LIMIT 1
   `);
-  
+
   if (result.rows.length === 0) {
     return null;
   }
-  
+
   const admin = result.rows[0];
   return {
     username: admin.username,
-    password: 'admin123', // 실제로는 해시된 비밀번호를 반환해야 함
-    createdAt: admin.created_at.toISOString(),
-    lastModified: admin.last_modified.toISOString()
+    hasPassword: Boolean(admin.password_hash),
+    createdAt: admin.created_at ? admin.created_at.toISOString() : null,
+    lastModified: admin.last_modified ? admin.last_modified.toISOString() : null
   };
 }
 
@@ -44,13 +53,31 @@ async function updateSuperAdminAccount({ username, password = null }) {
   const existing = await db.query(`SELECT id, password_hash FROM superadmin ORDER BY id ASC LIMIT 1`);
   const isNew = existing.rows.length === 0;
   const trimmedPassword = password && password.trim() ? password.trim() : null;
+  const hashedPassword = trimmedPassword ? hashPassword(trimmedPassword) : null;
 
   if (isNew && !trimmedPassword) {
     throw new Error('비밀번호를 입력해주세요.');
   }
 
   const targetId = isNew ? 1 : existing.rows[0].id;
-  const passwordForInsert = trimmedPassword || (isNew ? trimmedPassword : existing.rows[0].password_hash);
+  let existingHash = !isNew ? existing.rows[0].password_hash : null;
+  const hashPattern = /^[0-9a-f]{64}$/i;
+  if (existingHash && !hashPattern.test(existingHash)) {
+    const convertedHash = hashPassword(existingHash);
+    if (convertedHash) {
+      await db.query(
+        `UPDATE superadmin
+            SET password_hash = $1,
+                last_modified = CURRENT_TIMESTAMP
+          WHERE id = $2`,
+        [convertedHash, targetId]
+      );
+      existingHash = convertedHash;
+    }
+  }
+  const passwordForInsert = hashedPassword !== null
+    ? hashedPassword
+    : existingHash;
 
   const result = await db.query(
     `INSERT INTO superadmin (id, username, password_hash)
@@ -72,7 +99,19 @@ async function updateSuperAdminAccount({ username, password = null }) {
     throw new Error('슈퍼어드민 정보를 업데이트하지 못했습니다.');
   }
 
-  return result.rows[0];
+  const row = result.rows[0];
+
+  await db.query(
+    `DELETE FROM superadmin
+     WHERE id <> $1`,
+    [row.id]
+  );
+  return {
+    id: row.id,
+    username: row.username,
+    created_at: row.created_at ? row.created_at.toISOString() : null,
+    last_modified: row.last_modified ? row.last_modified.toISOString() : null
+  };
 }
 
 // 가게 목록 조회
@@ -308,10 +347,27 @@ async function createOwnerRequest({
   phone,
   storeId = null,
   message = '',
-  requestData = {}
+  requestData = {},
+  password
 }) {
   const ownerId = `owner_${uuidv4()}`;
-  let resolvedStoreId = storeId;
+  const trimmedPassword = (password || '').trim();
+
+  if (!trimmedPassword) {
+    return {
+      success: false,
+      error: '비밀번호를 입력해주세요.'
+    };
+  }
+
+  if (trimmedPassword.length < 8) {
+    return {
+      success: false,
+      error: '비밀번호는 8자 이상 입력해주세요.'
+    };
+  }
+
+  const passwordHash = hashPassword(trimmedPassword);
 
   const normalizedName = (name || '').trim().toLowerCase();
   const normalizedStoreName = (requestData.storeName || '').trim().toLowerCase();
@@ -337,101 +393,18 @@ async function createOwnerRequest({
     }
   }
 
-  const existing = await db.query(
-    `SELECT id, status, store_id, owner_name, phone, request_data
-       FROM store_owners
-      WHERE email = $1
-      LIMIT 1`,
-    [email]
-  );
-
-  if (existing.rows.length > 0) {
-    const existingOwner = existing.rows[0];
-    const existingRequestData = (() => {
-      if (!existingOwner.request_data) return {};
-      if (typeof existingOwner.request_data === 'string') {
-        try {
-          return JSON.parse(existingOwner.request_data);
-        } catch (error) {
-          return {};
-        }
-      }
-      return existingOwner.request_data;
-    })();
-
-    const normalizedExistingName = (existingOwner.owner_name || '').trim().toLowerCase();
-    const sanitizedExistingPhone = (existingOwner.phone || '').replace(/[^0-9]/g, '');
-    const normalizedExistingStoreName = (existingRequestData.storeName || '').trim().toLowerCase();
-
-    const isExactDuplicate = normalizedName === normalizedExistingName
-      && sanitizedPhone === sanitizedExistingPhone
-      && normalizedStoreName === normalizedExistingStoreName;
-
-    if (isExactDuplicate) {
-      return {
-        success: false,
-        error: '이미 동일한 정보로 접수된 입점 요청이 있습니다. 담당자 확인을 기다려주세요.'
-      };
-    }
-
-    const newStore = await createStore({
-      name: requestData.storeName || name || email,
-      address: requestData.storeAddress || '',
-      phone: phone || '',
-      status: 'pending'
-    });
-    resolvedStoreId = newStore.id;
-
-    await db.query(
-      `UPDATE store_owners
-         SET owner_name = $2,
-             phone = $3,
-             store_id = $4,
-             status = 'pending',
-             request_message = $5,
-             request_data = $6,
-             created_at = CURRENT_TIMESTAMP
-       WHERE id = $1`,
-      [
-        existingOwner.id,
-        name,
-        phone,
-        resolvedStoreId,
-        message,
-        JSON.stringify(requestData || {})
-      ]
-    );
-
-    return {
-      success: true,
-      ownerId: existingOwner.id,
-      status: 'pending',
-      storeId: resolvedStoreId
-    };
-  }
-
-  if (!resolvedStoreId) {
-    const newStore = await createStore({
-      name: requestData.storeName || name || email,
-      address: requestData.storeAddress || '',
-      phone: phone || '',
-      status: 'pending'
-    });
-    resolvedStoreId = newStore.id;
-  }
-
   await db.query(
     `INSERT INTO store_owners (
         id, store_id, owner_name, email, phone, status,
-        request_message, request_data, created_at
-     ) VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7, CURRENT_TIMESTAMP)
+        password_hash, request_message, request_data, created_at
+     ) VALUES ($1, NULL, $2, $3, $4, 'pending', $5, $6, $7, CURRENT_TIMESTAMP)
     `,
     [
       ownerId,
-      resolvedStoreId,
       name,
       email,
       phone,
+      passwordHash,
       message,
       JSON.stringify(requestData || {})
     ]
@@ -441,7 +414,7 @@ async function createOwnerRequest({
     success: true,
     ownerId,
     status: 'pending',
-    storeId: resolvedStoreId
+    storeId: null
   };
 }
 
@@ -495,7 +468,7 @@ async function getOwnerAccounts(status = null) {
 // 단일 점주 계정 조회
 async function getOwnerAccountDetail(ownerId) {
   const result = await db.query(
-    `SELECT id, store_id, owner_name, email, phone, status, request_message, request_data
+    `SELECT id, store_id, owner_name, email, phone, status, request_message, request_data, password_hash
        FROM store_owners
       WHERE id = $1
       LIMIT 1`,
@@ -524,7 +497,8 @@ async function getOwnerAccountDetail(ownerId) {
     phone: row.phone,
     status: row.status,
     requestMessage: row.request_message,
-    requestData
+    requestData,
+    passwordHash: row.password_hash
   };
 }
 
@@ -560,7 +534,7 @@ async function approveOwnerAccount(ownerId, { storeId, passwordHash }) {
 // 가게 사장님 계정 거절/보류 처리
 async function rejectOwnerAccount(ownerId, reason = '') {
   const existing = await db.query(
-    `SELECT request_data FROM store_owners WHERE id = $1`,
+    `SELECT store_id, request_data FROM store_owners WHERE id = $1`,
     [ownerId]
   );
 
@@ -568,6 +542,7 @@ async function rejectOwnerAccount(ownerId, reason = '') {
     throw new Error('점주 계정을 찾을 수 없습니다.');
   }
 
+  const storeId = existing.rows[0].store_id;
   let requestData = existing.rows[0].request_data || {};
   if (requestData && typeof requestData === 'string') {
     try {
@@ -593,15 +568,275 @@ async function rejectOwnerAccount(ownerId, reason = '') {
     throw new Error('점주 계정을 찾을 수 없습니다.');
   }
 
+  if (storeId) {
+    await db.query(
+      `UPDATE stores
+          SET status = 'rejected',
+              last_modified = CURRENT_TIMESTAMP
+        WHERE id = $1`,
+      [storeId]
+    );
+  }
+
   return result.rows[0];
+}
+
+async function pauseOwnerAccount(ownerId) {
+  const result = await db.query(
+    `UPDATE store_owners
+        SET status = 'paused'
+      WHERE id = $1
+      RETURNING id, owner_name, email, phone, store_id, status, approved_at`,
+    [ownerId]
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error('점주 계정을 찾을 수 없습니다.');
+  }
+
+  const storeId = result.rows[0].store_id;
+  if (storeId) {
+    await db.query(
+      `UPDATE stores
+          SET status = 'paused',
+              paused_at = CURRENT_TIMESTAMP,
+              last_modified = CURRENT_TIMESTAMP
+        WHERE id = $1`,
+      [storeId]
+    );
+  }
+
+  return result.rows[0];
+}
+
+async function resumeOwnerAccount(ownerId) {
+  const result = await db.query(
+    `UPDATE store_owners
+        SET status = 'approved'
+      WHERE id = $1
+      RETURNING id, owner_name, email, phone, store_id, status, approved_at`,
+    [ownerId]
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error('점주 계정을 찾을 수 없습니다.');
+  }
+
+  const storeId = result.rows[0].store_id;
+  if (storeId) {
+    await db.query(
+      `UPDATE stores
+          SET status = 'active',
+              paused_at = NULL,
+              last_modified = CURRENT_TIMESTAMP
+        WHERE id = $1`,
+      [storeId]
+    );
+  }
+
+  return result.rows[0];
+}
+
+async function deleteOwnerAccount(ownerId) {
+  const existing = await db.query(
+    `SELECT id, store_id FROM store_owners WHERE id = $1`,
+    [ownerId]
+  );
+
+  if (existing.rows.length === 0) {
+    throw new Error('점주 계정을 찾을 수 없습니다.');
+  }
+
+  const storeId = existing.rows[0].store_id;
+
+  await db.query(
+    `DELETE FROM store_owners WHERE id = $1`,
+    [ownerId]
+  );
+
+  if (storeId) {
+    await db.query(
+      `UPDATE stores
+          SET status = 'pending',
+              last_modified = CURRENT_TIMESTAMP
+        WHERE id = $1`,
+      [storeId]
+    );
+  }
+
+  return { success: true, ownerId, storeId };
+}
+
+async function createStoreEvent({ storeId, eventType, eventPayload = {}, userAgent = null }) {
+  if (!storeId || !eventType) {
+    throw new Error('storeId와 eventType은 필수입니다.');
+  }
+
+  const payloadJson = JSON.stringify(eventPayload || {});
+
+  const result = await db.query(
+    `INSERT INTO store_events (store_id, event_type, event_payload, user_agent)
+     VALUES ($1, $2, $3::jsonb, $4)
+     RETURNING id, store_id, event_type, event_payload, created_at`,
+    [storeId, eventType, payloadJson, userAgent]
+  );
+
+  return result.rows[0];
+}
+
+async function getEventSummary({ storeId = null, from = null, to = null }) {
+  const now = new Date();
+  const toDate = to ? new Date(to) : now;
+  const fromDate = from ? new Date(from) : new Date(toDate.getTime() - 6 * 24 * 60 * 60 * 1000);
+
+  const rangeStart = new Date(fromDate);
+  rangeStart.setHours(0, 0, 0, 0);
+  const rangeEnd = new Date(toDate);
+  rangeEnd.setHours(23, 59, 59, 999);
+
+  const totalsResult = await db.query(
+    `SELECT event_type, COUNT(*)::int AS count
+       FROM store_events
+      WHERE ($1::varchar IS NULL OR store_id = $1)
+        AND created_at BETWEEN $2 AND $3
+      GROUP BY event_type`,
+    [storeId, rangeStart, rangeEnd]
+  );
+
+  const dailyResult = await db.query(
+    `SELECT date_trunc('day', created_at) AS day,
+            event_type,
+            COUNT(*)::int AS count
+       FROM store_events
+      WHERE ($1::varchar IS NULL OR store_id = $1)
+        AND created_at BETWEEN $2 AND $3
+      GROUP BY day, event_type
+      ORDER BY day ASC`,
+    [storeId, rangeStart, rangeEnd]
+  );
+
+  const totals = {};
+  totalsResult.rows.forEach(row => {
+    totals[row.event_type] = row.count;
+  });
+
+  const daily = {};
+  dailyResult.rows.forEach(row => {
+    const dayKey = row.day.toISOString().split('T')[0];
+    if (!daily[dayKey]) {
+      daily[dayKey] = {};
+    }
+    daily[dayKey][row.event_type] = row.count;
+  });
+
+  return {
+    success: true,
+    storeId,
+    range: {
+      from: rangeStart.toISOString(),
+      to: rangeEnd.toISOString()
+    },
+    totals,
+    daily
+  };
+}
+
+async function getEventTotalsByStore({ from = null, to = null, search = '', limit = 100 }) {
+  const now = new Date();
+  const toDate = to ? new Date(to) : now;
+  const fromDate = from ? new Date(from) : new Date(toDate.getTime() - 6 * 24 * 60 * 60 * 1000);
+
+  const rangeStart = new Date(fromDate);
+  rangeStart.setHours(0, 0, 0, 0);
+  const rangeEnd = new Date(toDate);
+  rangeEnd.setHours(23, 59, 59, 999);
+
+  const params = [rangeStart, rangeEnd];
+  const whereClauses = [];
+  const searchTerm = (search || '').trim().toLowerCase();
+
+  if (searchTerm) {
+    params.push(`%${searchTerm}%`);
+    const idx = params.length;
+    whereClauses.push(`(LOWER(COALESCE(s.name, '')) LIKE $${idx} OR LOWER(COALESCE(s.subdomain, '')) LIKE $${idx})`);
+  }
+
+  params.push(Math.min(Math.max(parseInt(limit, 10) || 100, 10), 500));
+  const limitIdx = params.length;
+
+  const sql = `
+    SELECT
+      s.id,
+      s.name,
+      COALESCE(s.subdomain, '') AS subdomain,
+      s.status,
+      COALESCE(COUNT(e.id), 0)::int AS total_events,
+      COALESCE(COUNT(*) FILTER (WHERE e.event_type = 'page_view'), 0)::int AS page_views,
+      COALESCE(COUNT(*) FILTER (WHERE e.event_type = 'call_click'), 0)::int AS call_clicks,
+      COALESCE(COUNT(*) FILTER (WHERE e.event_type = 'menu_view'), 0)::int AS menu_views,
+      COALESCE(COUNT(*) FILTER (WHERE e.event_type = 'delivery_click'), 0)::int AS delivery_clicks,
+      MAX(e.created_at) AS last_event_at
+    FROM stores s
+    LEFT JOIN store_events e
+      ON e.store_id = s.id
+     AND e.created_at BETWEEN $1 AND $2
+    ${whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : ''}
+    GROUP BY s.id, s.name, s.subdomain, s.status
+    ORDER BY page_views DESC, s.name ASC
+    LIMIT $${limitIdx}
+  `;
+
+  const result = await db.query(sql, params);
+
+  return result.rows.map(row => ({
+    storeId: row.id,
+    storeName: row.name,
+    subdomain: row.subdomain,
+    status: row.status,
+    totalEvents: row.total_events,
+    pageViews: row.page_views,
+    callClicks: row.call_clicks,
+    menuViews: row.menu_views,
+    deliveryClicks: row.delivery_clicks,
+    lastEventAt: row.last_event_at ? new Date(row.last_event_at).toISOString() : null
+  }));
+}
+
+async function getReleaseNotes({ limit = 10 } = {}) {
+  const numericLimit = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 50);
+  const result = await db.query(
+    `SELECT
+        version,
+        codename,
+        release_date,
+        title,
+        highlights,
+        features,
+        bug_fixes,
+        technical_improvements
+     FROM release_notes
+     ORDER BY release_date DESC
+     LIMIT $1`,
+    [numericLimit]
+  );
+
+  return result.rows || [];
 }
 
 // 가게 사장님 로그인 처리
 async function authenticateStoreOwner(email, password) {
   const result = await db.query(
-    `SELECT id, owner_name, email, phone, status, password_hash, store_id
+    `SELECT id, owner_name, email, phone, status, password_hash, store_id, created_at
        FROM store_owners
       WHERE email = $1
+      ORDER BY 
+        CASE 
+          WHEN status = 'approved' THEN 0
+          WHEN status = 'pending' THEN 1
+          WHEN status = 'rejected' THEN 2
+          ELSE 3
+        END,
+        created_at DESC
       LIMIT 1`,
     [email]
   );
@@ -620,7 +855,16 @@ async function authenticateStoreOwner(email, password) {
     return { success: false, error: '계정이 아직 활성화되지 않았습니다.' };
   }
 
-  if (owner.password_hash !== password) {
+  const hashedInput = hashPassword(password);
+  const storedHash = owner.password_hash;
+  const hashPattern = /^[0-9a-f]{64}$/i;
+  const isStoredHashed = hashPattern.test(storedHash || '');
+
+  if (isStoredHashed) {
+    if (storedHash !== hashedInput) {
+      return { success: false, error: '비밀번호가 일치하지 않습니다.' };
+    }
+  } else if (storedHash !== password) {
     return { success: false, error: '비밀번호가 일치하지 않습니다.' };
   }
 
@@ -784,10 +1028,29 @@ async function authenticateSuperAdmin(username, password) {
   }
   
   const admin = result.rows[0];
-  
-  // 실제로는 비밀번호 해시 비교를 해야 함
-  if (admin.password_hash !== password) {
+
+  if (!password || !admin.password_hash) {
     return { success: false, error: '비밀번호가 일치하지 않습니다.' };
+  }
+
+  const hashPattern = /^[0-9a-f]{64}$/i;
+  if (hashPattern.test(admin.password_hash)) {
+    const hashedInput = hashPassword(password);
+    if (admin.password_hash !== hashedInput) {
+      return { success: false, error: '비밀번호가 일치하지 않습니다.' };
+    }
+  } else {
+    if (admin.password_hash !== password) {
+      return { success: false, error: '비밀번호가 일치하지 않습니다.' };
+    }
+    const hashed = hashPassword(password);
+    await db.query(
+      `UPDATE superadmin
+          SET password_hash = $1,
+              last_modified = CURRENT_TIMESTAMP
+        WHERE id = $2`,
+      [hashed, admin.id]
+    );
   }
   
   return { success: true, token: 'admin_token_' + Date.now() };
@@ -1060,11 +1323,18 @@ module.exports = {
   updateSuperAdminAccount,
   createOwnerRequest,
   getOwnerAccounts,
-  getOwnerAccountDetail,
   approveOwnerAccount,
   rejectOwnerAccount,
   authenticateStoreOwner,
   recordOwnerLogin,
   getOwnersByStore,
-  getOwnerAccountDetail
+  getOwnerAccountDetail,
+  hashPassword,
+  pauseOwnerAccount,
+  resumeOwnerAccount,
+  deleteOwnerAccount,
+  createStoreEvent,
+  getEventSummary,
+  getEventTotalsByStore,
+  getReleaseNotes
 };

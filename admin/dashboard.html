@@ -22,7 +22,8 @@
         }
 
         body.owner-mode .menu-item[data-role="superadmin-only"],
-        body.owner-mode .superadmin-only {
+        body.owner-mode .superadmin-only,
+        body.owner-mode .menu-item[data-menu="store-management"] {
             display: none !important;
         }
 
@@ -209,6 +210,12 @@
             margin-bottom: 20px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             display: none; /* 초기에는 모든 섹션 숨김 */
+        }
+
+        .section-divider {
+            height: 1px;
+            background: #e2e8f0;
+            margin: 32px 0;
         }
 
 
@@ -926,6 +933,11 @@
             color: #b91c1c;
         }
 
+        .owner-badge.paused {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
         .owner-meta {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -1215,6 +1227,7 @@
 
         .catchphrase-container {
             margin-bottom: 18px;
+            text-align: center;
         }
 
         .catchphrase {
@@ -1225,6 +1238,13 @@
             font-weight: 700;
             color: #ecf0f1;
             text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            justify-content: center;
+        }
+
+        .catchphrase-title {
+            margin-bottom: 10px;
+            color: #ecf0f1;
+            font-weight: 700;
         }
 
         .catchphrase-text {
@@ -1239,6 +1259,227 @@
             font-size: 18px;
             font-weight: 800;
             text-shadow: none;
+        }
+
+        .dashboard-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .dashboard-scope-toggle {
+            display: flex;
+            gap: 8px;
+        }
+
+        .dashboard-scope-btn {
+            border: 1px solid #cbd5f5;
+            background: #fff;
+            color: #1e40af;
+            padding: 10px 18px;
+            border-radius: 999px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(30, 64, 175, 0.08);
+        }
+
+        .dashboard-scope-btn.active {
+            background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+            color: #fff;
+            border-color: transparent;
+            box-shadow: 0 4px 10px rgba(79, 70, 229, 0.25);
+        }
+
+        .dashboard-search-wrapper {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            min-width: 260px;
+        }
+
+        .dashboard-search-wrapper input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid #d0d7e2;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+        }
+
+        .dashboard-search-wrapper input:focus {
+            border-color: #2563eb;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+        }
+
+        .dashboard-search-count {
+            font-size: 13px;
+            color: #64748b;
+            white-space: nowrap;
+        }
+
+        .dashboard-store-table {
+            display: none;
+            margin-top: 20px;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            background: #fff;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+        }
+
+        .dashboard-store-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .dashboard-store-table th,
+        .dashboard-store-table td {
+            padding: 14px 16px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 14px;
+        }
+
+        .dashboard-store-table th {
+            background: #f8fafc;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .dashboard-store-table tbody tr:hover {
+            background: #f1f5f9;
+        }
+
+        .dashboard-store-table .store-name-cell {
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .dashboard-store-table .store-sub-info {
+            display: block;
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+
+        .dashboard-store-table .store-status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .dashboard-store-table .status-active {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .dashboard-store-table .status-paused {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .dashboard-store-table .status-pending {
+            background: #fef9c3;
+            color: #92400e;
+        }
+
+        .dashboard-store-table .status-rejected {
+            background: #f3e8ff;
+            color: #6b21a8;
+        }
+
+        .dashboard-store-table .store-action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1px solid #dbeafe;
+            background: #eff6ff;
+            color: #1d4ed8;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .dashboard-store-table .store-action-btn:hover {
+            background: #dbeafe;
+        }
+
+        .dashboard-scope-hint {
+            margin-bottom: 18px;
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .dashboard-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 15px 35px -15px rgba(15, 23, 42, 0.25);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border: 1px solid rgba(148, 163, 184, 0.15);
+        }
+
+        .dashboard-card h3 {
+            margin: 0;
+            font-size: 15px;
+            color: #475569;
+            font-weight: 600;
+        }
+
+        .dashboard-card .metric-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: #1e293b;
+        }
+
+        .dashboard-card .metric-sub {
+            font-size: 13px;
+            color: #94a3b8;
+        }
+
+        .dashboard-daily {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid rgba(148, 163, 184, 0.1);
+        }
+
+        .dashboard-daily table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .dashboard-daily th,
+        .dashboard-daily td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        .dashboard-daily th {
+            background: #f8fafc;
+            color: #475569;
+            font-weight: 600;
         }
 
         /* AI 프롬프트 모달 스타일 */
@@ -2565,11 +2806,16 @@
             <!-- 메뉴 영역 (스크롤 가능) -->
             <div class="sidebar-content">
                 <div class="catchphrase-container">
-                    <h2 style="margin-bottom: 10px; color: #ecf0f1;">관리자 메뉴</h2>
+                    <h2 class="catchphrase-title">관리자 메뉴</h2>
                     <div class="catchphrase">
                         <span class="catchphrase-text">우리집 5분거리</span>
                         <span class="catchphrase-highlight">픽업</span>
                     </div>
+                </div>
+
+                <div class="menu-item" onclick="showSection('dashboard')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M9 3v18"/><path d="M15 9h6"/><path d="M15 15h6"/></svg>
+                    대시보드
                 </div>
                 
                 <!-- 선택된 가게 카드 -->
@@ -2584,7 +2830,7 @@
                     <div class="selected-store-subtitle" id="selectedStoreSubtitle">좌측 가게 목록에서 선택하세요</div>
                 </div>
                 
-                <div class="menu-item" onclick="showSection('stores')">
+                <div class="menu-item" data-menu="store-management" onclick="showSection('stores')">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                     가게 관리
                 </div>
@@ -2610,11 +2856,7 @@
                 </div>
                 <div class="menu-item" onclick="showSection('discount')">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-                    할인 설정
-                </div>
-                <div class="menu-item" onclick="showSection('pickup')">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                    픽업 안내
+                    할인 · 픽업 안내
                 </div>
                 <div class="menu-item" onclick="showSection('section-order')">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
@@ -2633,7 +2875,7 @@
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge">v1.4.2</div>
+                    <div class="version-badge">v1.5.0</div>
                 </div>
                 <a href="/admin/release-notes" class="release-notes-btn">
                     릴리즈 노트
@@ -2654,7 +2896,88 @@
                         대량 가게 관리
                     </a>
                     <a href="javascript:void(0)" onclick="openMainPage()" class="btn btn-primary">페이지 보기</a>
-                    <button onclick="logout()" class="btn btn-secondary">로그아웃</button>
+                    <button onclick="openLogoutModal()" class="btn btn-secondary">로그아웃</button>
+                </div>
+            </div>
+
+            <div class="admin-section" id="dashboard" style="display:none;">
+                <h2 class="section-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M9 3v18"/><path d="M15 9h6"/><path d="M15 15h6"/></svg>
+                    대시보드
+                </h2>
+                <p class="dashboard-scope-hint superadmin-only" id="dashboardScopeHint">선택된 가게 기준 주요 지표입니다.</p>
+                <div class="dashboard-controls superadmin-only" id="dashboardControls">
+                    <div class="dashboard-scope-toggle">
+                        <button type="button" class="dashboard-scope-btn active" data-scope="store">선택된 가게</button>
+                        <button type="button" class="dashboard-scope-btn" data-scope="all">전체 현황</button>
+                    </div>
+                    <div class="dashboard-search-wrapper" id="dashboardSearchWrapper">
+                        <input type="text" id="dashboardStoreSearchInput" placeholder="가게 이름, 서브도메인 검색">
+                        <span class="dashboard-search-count" id="dashboardStoreCount">총 0개 가게</span>
+                    </div>
+                </div>
+                <div class="dashboard-grid">
+                    <div class="dashboard-card">
+                        <h3>페이지 방문</h3>
+                        <div class="metric-value" id="metricPageViews">-</div>
+                        <div class="metric-sub">최근 7일</div>
+                    </div>
+                    <div class="dashboard-card">
+                        <h3>전화 버튼 클릭</h3>
+                        <div class="metric-value" id="metricCallClicks">-</div>
+                        <div class="metric-sub">최근 7일</div>
+                    </div>
+                    <div class="dashboard-card">
+                        <h3>메뉴 열람</h3>
+                        <div class="metric-value" id="metricMenuViews">-</div>
+                        <div class="metric-sub">최근 7일</div>
+                    </div>
+                    <div class="dashboard-card">
+                        <h3>배달앱 클릭</h3>
+                        <div class="metric-value" id="metricDeliveryClicks">-</div>
+                        <div class="metric-sub">최근 7일</div>
+                    </div>
+                </div>
+                <div class="dashboard-daily">
+                    <h3 style="margin-bottom:12px; font-size:16px; color:#1f2937;">일일 이벤트 현황</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>날짜</th>
+                                <th>방문</th>
+                                <th>전화</th>
+                                <th>메뉴</th>
+                                <th>배달앱</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dashboardDailyBody">
+                            <tr>
+                                <td colspan="5" style="text-align:center; color:#94a3b8;">데이터를 불러오는 중입니다.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="dashboard-store-table superadmin-only" id="dashboardStoreTable">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>가게명</th>
+                                <th>서브도메인</th>
+                                <th>상태</th>
+                                <th>방문</th>
+                                <th>전화</th>
+                                <th>메뉴</th>
+                                <th>배달</th>
+                                <th>최근 활동</th>
+                                <th>작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dashboardStoreTableBody">
+                            <tr>
+                                <td colspan="9" style="text-align:center; padding:18px; color:#94a3b8;">데이터를 불러오는 중입니다.</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -2893,7 +3216,7 @@
                      <div id="ownerModalResult" style="display:none; margin-top:16px; padding:12px; border-radius:12px; background:#ecfdf5; color:#047857; font-size:14px;"></div>
                     <div class="modal-actions">
                         <button type="button" class="btn-secondary" onclick="closeOwnerModal()">취소</button>
-                        <button type="button" class="btn-primary" id="ownerModalSubmitBtn" onclick="submitOwnerApproval()">승인하기</button>
+                        <button type="button" class="btn-primary" id="ownerModalSubmitBtn" data-mode="approve">승인하기</button>
                     </div>
                 </div>
             </div>
@@ -2912,6 +3235,28 @@
                     </div>
                 </div>
             </div>
+
+            <div class="modal-backdrop" id="ownerManageModal">
+                <div class="modal-card">
+                    <h3 id="ownerManageModalTitle">계정 관리</h3>
+                    <div class="modal-info" id="ownerManageModalMessage" style="margin-top:12px; color:#475569; line-height:1.6;"></div>
+                    <div class="modal-actions" style="margin-top:24px;">
+                        <button type="button" class="btn-secondary" onclick="closeOwnerManageModal()">취소</button>
+                        <button type="button" class="btn btn-primary" id="ownerManageModalConfirmBtn" onclick="submitOwnerManageAction()">확인</button>
+                    </div>
+                </div>
+            </div>
+
+    <div class="modal-backdrop" id="logoutModal">
+        <div class="modal-card">
+            <h3>로그아웃</h3>
+            <p style="margin-top:12px; color:#475569;">정말 로그아웃하시겠습니까?</p>
+            <div class="modal-actions" style="margin-top:24px;">
+                <button type="button" class="btn-secondary" onclick="closeLogoutModal()">취소</button>
+                <button type="button" class="btn-primary" onclick="confirmLogout()">로그아웃</button>
+            </div>
+        </div>
+    </div>
 
             <!-- 이미지/동영상 관리 -->
             <div class="admin-section" id="images">
@@ -2972,11 +3317,11 @@
                     </div>
                 </div>
             </div>
-            <!-- 할인 설정 -->
+            <!-- 할인 · 픽업 안내 -->
             <div class="admin-section" id="discount">
                 <h2 class="section-title">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-                    할인 설정
+                    할인 · 픽업 안내
                 </h2>
                 
                 <!-- 할인 활성화 토글 -->
@@ -3030,14 +3375,8 @@
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- 픽업 안내 -->
-            <div class="admin-section" id="pickup">
-                <h2 class="section-title">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                    픽업 안내
-                </h2>
+                
+                <div class="section-divider"></div>
                 
                 <!-- 픽업 활성화 토글 -->
                 <div class="toggle-card">
@@ -3386,6 +3725,7 @@
         // 전역 가게 목록 (필터링용)
         let allStores = [];
         let filteredStores = [];
+        let hasShownNoStoreGuide = false;
         
         // 프로그레스 바 제어
         const progressBar = document.getElementById('progressBar');
@@ -3440,6 +3780,26 @@
         let ownerStatusFilter = 'pending';
         let currentOwnerApprovalId = null;
         let currentOwnerRejectId = null;
+        let dashboardScope = 'store';
+        let dashboardStoreMetrics = [];
+        let dashboardStoreSearchTerm = '';
+        let dashboardStoreSearchTimer = null;
+        let ownerManageModalState = null;
+        function findOwnerAccount(ownerId) {
+            const owner = ownerAccounts.find(item => item.id === ownerId);
+            if (!owner) {
+                return null;
+            }
+            if (owner.requestData && typeof owner.requestData === 'string') {
+                try {
+                    owner.requestData = JSON.parse(owner.requestData);
+                } catch (error) {
+                    owner.requestData = {};
+                }
+            }
+            owner.requestData = owner.requestData || {};
+            return owner;
+        }
         // 가게 페이지 새로고침 알림
         function notifyStorePageRefresh() {
             // 현재 선택된 가게의 페이지 URL 생성
@@ -3695,9 +4055,17 @@
                 const storeLabel = displayStoreName
                     ? `${escapeHtml(displayStoreName)}`
                     : '<span style="color:#9ca3af;">가게 정보 없음</span>';
-                const statusBadge = `<span class="owner-badge ${owner.status}">${owner.status === 'pending' ? '승인 대기' : owner.status === 'approved' ? '운영 중' : '거절됨'}</span>`;
+                const statusLabel = owner.status === 'pending'
+                    ? '승인 대기'
+                    : owner.status === 'approved'
+                        ? '운영 중'
+                        : owner.status === 'paused'
+                            ? '중지됨'
+                            : '거절됨';
+                const statusBadge = `<span class="owner-badge ${owner.status}">${statusLabel}</span>`;
                 const safeEmail = escapeForAttribute(owner.email || '');
-                const safeStoreName = escapeForAttribute(owner.storeName || owner.requestData?.storeName || '');
+                const safeStoreName = escapeForAttribute(owner.requestData?.storeName || owner.storeName || '');
+                const passwordSourceAttr = escapeForAttribute(owner.passwordSource || 'request');
 
                 const requestSummary = owner.requestData ? Object.entries(owner.requestData)
                     .map(([key, value]) => {
@@ -3720,7 +4088,14 @@
                     `;
                 } else if (owner.status === 'approved') {
                     actionButtons = `
-                        <button class="btn-copy" onclick="copyOwnerGuide('${safeEmail}', '${safeStoreName}')">안내 복사</button>
+                        <button class="btn-copy" onclick="copyOwnerGuide('${safeEmail}', '${safeStoreName}', '${passwordSourceAttr}')">안내 복사</button>
+                        <button class="btn-secondary" onclick="openOwnerPauseModal('${owner.id}')">운영 중지</button>
+                        <button class="btn-danger" onclick="openOwnerDeleteModal('${owner.id}')">삭제</button>
+                    `;
+                } else if (owner.status === 'paused') {
+                    actionButtons = `
+                        <button class="btn-approve" onclick="openOwnerResumeModal('${owner.id}')">재개</button>
+                        <button class="btn-danger" onclick="openOwnerDeleteModal('${owner.id}')">삭제</button>
                     `;
                 }
 
@@ -3734,7 +4109,7 @@
                             <span><strong>이메일</strong> ${escapeHtml(owner.email || '-')}</span>
                             <span><strong>연락처</strong> ${escapeHtml(owner.phone || '-')}</span>
                             <span><strong>요청일</strong> ${escapeHtml(createdAt)}</span>
-                            <span><strong>${storeLabelTitle}</strong> ${storeLabel}</span>
+                <span><strong>${storeLabelTitle}</strong> ${storeLabel}${owner.requestData?.storeAddressDetail ? ` (${escapeHtml(owner.requestData.storeAddressDetail)})` : ''}</span>
                             ${approvedAt ? `<span><strong>승인일</strong> ${approvedAt}</span>` : ''}
                             ${lastLogin ? `<span><strong>최근 접속</strong> ${lastLogin}</span>` : ''}
                         </div>
@@ -3773,7 +4148,7 @@
                 <p style="margin-top:6px;">연락처: ${owner.phone || '-'}<br>요청일: ${owner.createdAt ? new Date(owner.createdAt).toLocaleString('ko-KR') : '-'}</p>
             `;
 
-            const requestedStoreName = owner.storeName || owner.requestData?.storeName || '';
+            const requestedStoreName = owner.requestData?.storeName || owner.storeName || '';
             const requestedStoreAddress = owner.requestData?.storeAddress || owner.storeAddress || '';
             const infoLines = [];
 
@@ -3798,6 +4173,7 @@
             resultEl.textContent = '';
             submitBtn.disabled = false;
             submitBtn.textContent = '승인하기';
+            submitBtn.setAttribute('data-mode', 'approve');
 
             modal.classList.add('active');
         }
@@ -3808,6 +4184,16 @@
                 modal.classList.remove('active');
             }
             currentOwnerApprovalId = null;
+        }
+        function handleOwnerModalSubmit() {
+            const submitBtn = document.getElementById('ownerModalSubmitBtn');
+            if (!submitBtn) return;
+            const mode = submitBtn.getAttribute('data-mode') || 'approve';
+            if (mode === 'approve') {
+                submitOwnerApproval();
+            } else if (mode === 'close') {
+                closeOwnerModal();
+            }
         }
         async function submitOwnerApproval() {
             if (!currentOwnerApprovalId) return;
@@ -3825,27 +4211,46 @@
                     owner.status = 'approved';
                     owner.storeId = response.store?.id || owner.storeId;
                     owner.approvedAt = response.owner?.approved_at || new Date().toISOString();
-                    owner.storeName = response.store?.name || owner.storeName || owner.requestData?.storeName || '';
+                    owner.storeName = response.store?.name || owner.requestData?.storeName || owner.storeName || '';
                 }
                 renderOwnerAccounts();
 
+                const passwordSource = response.passwordSource || 'generated';
                 const tempPassword = response.tempPassword;
                 resultEl.style.display = 'block';
                 const safeEmail = escapeHtml(response.owner?.email || '-');
                 const safeEmailAttr = escapeForAttribute(response.owner?.email || '');
                 const safePasswordAttr = escapeForAttribute(tempPassword || '');
-                const displayStoreName = escapeHtml(response.store?.name || owner?.storeName || owner?.requestData?.storeName || '연결된 가게');
+                const displayStoreName = escapeHtml(response.store?.name || owner?.requestData?.storeName || owner?.storeName || '연결된 가게');
                 const displayStoreAddress = response.store?.address ? `<br>가게 주소: ${escapeHtml(response.store.address)}` : '';
+                let passwordInfoHtml = '';
+
+                if (passwordSource === 'request') {
+                    passwordInfoHtml = `
+                        비밀번호: <strong>입점 요청 시 설정한 비밀번호</strong><br>
+                        <span style="font-size:13px; color:#64748b;">사장님께 이미 안내된 비밀번호가 그대로 적용되었습니다.</span>
+                    `;
+                } else {
+                    passwordInfoHtml = `
+                        임시 비밀번호: <strong style="font-size:16px;">${escapeHtml(tempPassword)}</strong><br>
+                        <button class="btn-copy" style="margin-top:10px; padding:6px 12px; border-radius:999px; border:none; background:#e2e8f0; cursor:pointer;" onclick="copyOwnerTempPassword('${safeEmailAttr}', '${safePasswordAttr}')">안내 복사</button>
+                    `;
+                }
+
                 resultEl.innerHTML = `
                     ✅ 계정이 승인되었습니다.<br>
                     계정: <strong>${safeEmail}</strong><br>
-                    임시 비밀번호: <strong style="font-size:16px;">${escapeHtml(tempPassword)}</strong><br>
+                    ${passwordInfoHtml}
                     연결 가게: <strong>${displayStoreName}</strong>${displayStoreAddress}
-                    <button class="btn-copy" style="margin-top:10px; padding:6px 12px; border-radius:999px; border:none; background:#e2e8f0; cursor:pointer;" onclick="copyOwnerTempPassword('${safeEmailAttr}', '${safePasswordAttr}')">안내 복사</button>
                 `;
 
-                submitBtn.textContent = '승인 완료';
-                submitBtn.disabled = true;
+                if (owner) {
+                    owner.passwordSource = passwordSource;
+                }
+
+                submitBtn.textContent = '닫기';
+                submitBtn.disabled = false;
+                submitBtn.setAttribute('data-mode', 'close');
 
                 showToast('계정이 승인되었습니다.', 'success');
             } catch (error) {
@@ -3853,6 +4258,7 @@
                 showToast(error.message || '계정 승인에 실패했습니다.', 'error');
                 submitBtn.disabled = false;
                 submitBtn.textContent = '승인하기';
+                submitBtn.setAttribute('data-mode', 'approve');
             }
         }
 
@@ -3927,6 +4333,153 @@
             }
         }
 
+        function showOwnerManageModal({ title, message, confirmText, confirmClass = 'btn-primary', action, ownerId }) {
+            const modal = document.getElementById('ownerManageModal');
+            const titleEl = document.getElementById('ownerManageModalTitle');
+            const messageEl = document.getElementById('ownerManageModalMessage');
+            const confirmBtn = document.getElementById('ownerManageModalConfirmBtn');
+            if (!modal || !titleEl || !messageEl || !confirmBtn) return;
+
+            ownerManageModalState = {
+                action,
+                ownerId,
+                confirmText
+            };
+
+            titleEl.textContent = title;
+            messageEl.innerHTML = message;
+            confirmBtn.textContent = confirmText;
+            confirmBtn.className = `btn ${confirmClass}`;
+            confirmBtn.disabled = false;
+
+            modal.classList.add('active');
+        }
+
+        function closeOwnerManageModal() {
+            const modal = document.getElementById('ownerManageModal');
+            const confirmBtn = document.getElementById('ownerManageModalConfirmBtn');
+            if (modal) {
+                modal.classList.remove('active');
+            }
+            if (confirmBtn && ownerManageModalState?.confirmText) {
+                confirmBtn.textContent = ownerManageModalState.confirmText;
+                confirmBtn.disabled = false;
+            }
+            ownerManageModalState = null;
+        }
+
+        async function submitOwnerManageAction() {
+            if (!ownerManageModalState || !ownerManageModalState.action || !ownerManageModalState.ownerId) {
+                return;
+            }
+
+            const { action, ownerId, confirmText } = ownerManageModalState;
+            const confirmBtn = document.getElementById('ownerManageModalConfirmBtn');
+            if (!confirmBtn) return;
+
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = '처리 중...';
+
+            try {
+                if (action === 'pause') {
+                    await pauseOwnerAccount(ownerId);
+                } else if (action === 'resume') {
+                    await resumeOwnerAccount(ownerId);
+                } else if (action === 'delete') {
+                    await deleteOwnerAccount(ownerId);
+                }
+                closeOwnerManageModal();
+            } catch (error) {
+                console.error('계정 관리 액션 실패:', error);
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = confirmText || '확인';
+            }
+        }
+
+        function openOwnerPauseModal(ownerId) {
+            const owner = findOwnerAccount(ownerId);
+            if (!owner) return;
+            const ownerName = escapeHtml(owner.ownerName || owner.email || '점주');
+            const storeName = escapeHtml(owner.requestData?.storeName || owner.storeName || '');
+            const storeLine = storeName ? `<br><span style="color:#1d4ed8;">연결 가게: <strong>${storeName}</strong></span>` : '';
+            showOwnerManageModal({
+                title: '계정 일시 중지',
+                message: `<strong>${ownerName}</strong>님의 계정을 일시 중지할까요?${storeLine}<br>중지된 계정은 재승인 후 다시 활성화할 수 있습니다.`,
+                confirmText: '중지',
+                confirmClass: 'btn-danger',
+                action: 'pause',
+                ownerId
+            });
+        }
+
+        function openOwnerResumeModal(ownerId) {
+            const owner = findOwnerAccount(ownerId);
+            if (!owner) return;
+            const ownerName = escapeHtml(owner.ownerName || owner.email || '점주');
+            const storeName = escapeHtml(owner.requestData?.storeName || owner.storeName || '');
+            const storeLine = storeName ? `<br><span style="color:#1d4ed8;">연결 가게: <strong>${storeName}</strong></span>` : '';
+            showOwnerManageModal({
+                title: '계정 재개',
+                message: `<strong>${ownerName}</strong>님의 계정을 다시 활성화할까요?${storeLine}`,
+                confirmText: '재개',
+                confirmClass: 'btn-primary',
+                action: 'resume',
+                ownerId
+            });
+        }
+
+        function openOwnerDeleteModal(ownerId) {
+            const owner = findOwnerAccount(ownerId);
+            if (!owner) return;
+            const ownerName = escapeHtml(owner.ownerName || owner.email || '점주');
+            const storeName = escapeHtml(owner.requestData?.storeName || owner.storeName || '');
+            const storeLine = storeName ? `<br><span style="color:#b91c1c;">연결 가게: <strong>${storeName}</strong></span>` : '';
+            showOwnerManageModal({
+                title: '계정 삭제',
+                message: `<strong>${ownerName}</strong>님의 계정을 삭제할까요?${storeLine}<br>삭제 후에는 복구할 수 없습니다.`,
+                confirmText: '삭제',
+                confirmClass: 'btn-danger',
+                action: 'delete',
+                ownerId
+            });
+        }
+
+        async function pauseOwnerAccount(ownerId) {
+            try {
+                await apiRequest(`${API_BASE}/owners/${ownerId}/pause`, 'POST', {});
+                await loadOwnerAccounts();
+                showToast('계정을 일시 중지했습니다.', 'warning');
+            } catch (error) {
+                console.error('계정 중지 실패:', error);
+                showToast(error.message || '계정을 중지하지 못했습니다.', 'error');
+                throw error;
+            }
+        }
+
+        async function resumeOwnerAccount(ownerId) {
+            try {
+                await apiRequest(`${API_BASE}/owners/${ownerId}/resume`, 'POST', {});
+                await loadOwnerAccounts();
+                showToast('계정을 다시 활성화했습니다.', 'success');
+            } catch (error) {
+                console.error('계정 재개 실패:', error);
+                showToast(error.message || '계정을 재개하지 못했습니다.', 'error');
+                throw error;
+            }
+        }
+
+        async function deleteOwnerAccount(ownerId) {
+            try {
+                await apiRequest(`${API_BASE}/owners/${ownerId}`, 'DELETE');
+                await loadOwnerAccounts();
+                showToast('계정을 삭제했습니다.', 'warning');
+            } catch (error) {
+                console.error('계정 삭제 실패:', error);
+                showToast(error.message || '계정을 삭제하지 못했습니다.', 'error');
+                throw error;
+            }
+        }
+
         function copyOwnerTempPassword(email, password) {
             const guide = `픽업 관리자 로그인 안내\n\n로그인 주소: ${window.location.origin}/login\n이메일: ${email}\n임시 비밀번호: ${password}\n\n첫 로그인 후 비밀번호를 꼭 변경해주세요.`;
             navigator.clipboard.writeText(guide).then(() => {
@@ -3936,13 +4489,22 @@
             });
         }
 
-        function copyOwnerGuide(email, storeName) {
-            const guide = `픽업 관리자 로그인 안내\n\n로그인 주소: ${window.location.origin}/login\n이메일: ${email}\n가게: ${storeName || '연결된 가게'}\n\n로그인 후 비밀번호를 변경하고 가게 정보를 확인해주세요.`;
+        function copyOwnerGuide(email, storeName, passwordSource = 'request') {
+            const normalizedSource = (passwordSource || 'request').toLowerCase();
+            const passwordGuide = normalizedSource === 'request'
+                ? '비밀번호: 입점 신청 시 설정하신 비밀번호를 그대로 사용해주세요.'
+                : '비밀번호: 승인 시 전달드린 비밀번호를 사용해주세요.';
+            const guide = `픽업 관리자 로그인 안내\n\n로그인 주소: ${window.location.origin}/login\n이메일: ${email}\n가게: ${storeName || '연결된 가게'}\n${passwordGuide}\n\n로그인 후 비밀번호를 변경하고 가게 정보를 확인해주세요.`;
             navigator.clipboard.writeText(guide).then(() => {
                 showToast('안내 문구가 복사되었습니다.', 'success');
             }).catch(() => {
                 showToast('복사에 실패했습니다.', 'error');
             });
+        }
+
+        const ownerModalSubmitBtn = document.getElementById('ownerModalSubmitBtn');
+        if (ownerModalSubmitBtn) {
+            ownerModalSubmitBtn.addEventListener('click', handleOwnerModalSubmit);
         }
         // 가게 목록 필터링
         function filterStoreList() {
@@ -4237,6 +4799,15 @@
                 allStores = stores;
                 filteredStores = stores;
 
+                if (IS_SUPERADMIN) {
+                    if (allStores.length === 0) {
+                        showNoStoreGuide();
+                        initializeSidebarStoreInfo();
+                    } else {
+                        resetNoStoreGuideFlag();
+                    }
+                }
+
                 updateStoreStats();
                 document.getElementById('filteredStoresCount').textContent = filteredStores.length;
                 await renderStoreTable();
@@ -4444,9 +5015,35 @@
                 if (selectedStore) {
                     const nameElement = document.getElementById('selectedStoreName');
                     const subtitleElement = document.getElementById('selectedStoreSubtitle');
-                    
+                    const logoElement = document.getElementById('selectedStoreLogo');
+                    let storeSubtitle = selectedStore.subtitle || '';
+                    let logoUrl = '/assets/images/icons/default-store.png';
+
+                    try {
+                        // 선택된 가게의 상세 설정을 불러와 보조 정보 확보
+                        const settingsResponse = await apiRequest(`${API_BASE}/settings?storeId=${storeId}`);
+                        const storeSettings = settingsResponse?.data || settingsResponse || {};
+
+                        if (storeSettings?.basic?.storeSubtitle) {
+                            storeSubtitle = storeSettings.basic.storeSubtitle;
+                        }
+                        if (storeSettings?.images?.mainLogo || storeSettings?.basic?.storeLogo) {
+                            logoUrl = storeSettings.images?.mainLogo || storeSettings.basic.storeLogo;
+                        }
+                    } catch (error) {
+                        console.warn('선택된 가게 설정 로드 중 오류:', error);
+                    }
+
                     if (nameElement) nameElement.textContent = selectedStore.name || '이름 없음';
-                    if (subtitleElement) subtitleElement.textContent = selectedStore.subtitle || '부제목 없음';
+                    if (subtitleElement) subtitleElement.textContent = storeSubtitle || '';
+
+                    if (logoElement) {
+                        const logoImg = logoElement.querySelector('.store-logo-img');
+                        if (logoImg) {
+                            logoImg.src = logoUrl || '/assets/images/icons/default-store.png';
+                            logoImg.alt = selectedStore.name ? `${selectedStore.name} 로고` : '기본 가게 로고';
+                        }
+                    }
                 } else {
                     // 가게를 찾을 수 없는 경우 초기화
                     initializeSidebarStoreInfo();
@@ -5812,7 +6409,7 @@
             try {
                 const currentStoreId = await getCurrentStoreId();
                 if (!currentStoreId) {
-                    showToast('가게를 선택해주세요.', 'error', '오류');
+                    notifyStoreSelectionRequired();
                     return;
                 }
 
@@ -5920,7 +6517,7 @@
                 
                 // 기본 섹션 순서 (설정이 없으면 기본값 사용)
                 const defaultOrder = [
-                    { id: 'discount', title: '할인 안내', description: '할인 이벤트 정보' },
+                    { id: 'discount', title: '할인 · 픽업 안내', description: '할인 및 픽업 정보' },
                     { id: 'delivery', title: '배달 주문', description: '배달앱 주문 링크' },
                     { id: 'address', title: '주소 정보', description: '가게 주소 및 지도' }
                 ];
@@ -6315,17 +6912,29 @@
         }
 
         // 로그아웃
-        function logout() {
-            if (confirm('로그아웃하시겠습니까?')) {
-                sessionStorage.removeItem('superadmin_logged_in');
-                sessionStorage.removeItem('superadmin_username');
-                sessionStorage.removeItem('owner_logged_in');
-                sessionStorage.removeItem('owner_store_id');
-                sessionStorage.removeItem('owner_name');
-                sessionStorage.removeItem('owner_id');
-                sessionStorage.removeItem('user_role');
-                window.location.href = '/login';
+        function openLogoutModal() {
+            const modal = document.getElementById('logoutModal');
+            if (modal) {
+                modal.classList.add('active');
             }
+        }
+
+        function closeLogoutModal() {
+            const modal = document.getElementById('logoutModal');
+            if (modal) {
+                modal.classList.remove('active');
+            }
+        }
+
+        function confirmLogout() {
+            sessionStorage.removeItem('superadmin_logged_in');
+            sessionStorage.removeItem('superadmin_username');
+            sessionStorage.removeItem('owner_logged_in');
+            sessionStorage.removeItem('owner_store_id');
+            sessionStorage.removeItem('owner_name');
+            sessionStorage.removeItem('owner_id');
+            sessionStorage.removeItem('user_role');
+            window.location.href = '/login';
         }
 
         // 메인 페이지 열기
@@ -6379,8 +6988,26 @@
         }
 
         // 가게 선택되지 않은 경우 알림 표시
+        function showNoStoreGuide() {
+            if (hasShownNoStoreGuide) return;
+            hasShownNoStoreGuide = true;
+            showToast('등록된 가게가 없습니다. 가게 관리에서 새 가게를 만들어주세요.', 'info', '가게 등록 필요', 6000);
+        }
+
+        function resetNoStoreGuideFlag() {
+            hasShownNoStoreGuide = false;
+        }
+
+        function notifyStoreSelectionRequired() {
+            if (IS_SUPERADMIN && allStores.length === 0) {
+                showNoStoreGuide();
+            } else {
+                notifyStoreSelectionRequired();
+            }
+        }
+
         function showStoreSelectionRequired() {
-            showToast('먼저 가게를 선택해주세요.', 'error', '가게 선택 필요');
+            notifyStoreSelectionRequired();
         }
 
         // 사이드바 토글 (모바일)
@@ -6448,8 +7075,10 @@
                 return;
             }
             
+            const skipStoreCheck = sectionId === 'dashboard' && IS_SUPERADMIN;
+
             // 다른 섹션들은 가게 선택 후에만 접근 가능
-            if (!(await checkStoreSelected())) {
+            if (!skipStoreCheck && !(await checkStoreSelected())) {
                 showStoreSelectionRequired();
                 return;
             }
@@ -6467,6 +7096,13 @@
             }
             
             
+            if (sectionId === 'dashboard') {
+                if (IS_SUPERADMIN) {
+                    updateDashboardScopeUI();
+                }
+                await loadDashboardSummary();
+            }
+
             // 기본 정보 섹션인 경우 영업시간 표시 업데이트
             if (sectionId === 'basic-info') {
                 displayBusinessHours();
@@ -6527,6 +7163,278 @@
         //     statusDiv.className = `status-message status-${type}`;
         //     statusDiv.style.display = 'block';
         // }
+
+        async function loadDashboardSummary(overrideScope = null) {
+            try {
+                const dashboardSection = document.getElementById('dashboard');
+                if (!dashboardSection) return;
+
+                const scope = overrideScope || (IS_SUPERADMIN ? dashboardScope : 'store');
+                const scopeHint = document.getElementById('dashboardScopeHint');
+                if (scopeHint) {
+                    scopeHint.textContent = scope === 'all'
+                        ? '전체 가게 기준 주요 지표입니다.'
+                        : '선택된 가게 기준 주요 지표입니다.';
+                }
+
+                if (scope === 'store') {
+                    const targetStoreId = await getCurrentStoreId();
+                    if (!targetStoreId) {
+                        showStoreSelectionRequired();
+                        return;
+                    }
+
+                    window.currentStoreId = targetStoreId;
+                    await updateSelectedStoreCard(targetStoreId);
+                    updateSelectedStoreVisual(targetStoreId);
+
+                    const query = new URLSearchParams({
+                        storeId: targetStoreId
+                    });
+
+                    const summary = await apiRequest(`${API_BASE}/dashboard/summary?${query.toString()}`, 'GET');
+                    renderDashboardSummary(summary);
+                } else {
+                    const query = new URLSearchParams({
+                        scope: 'all'
+                    });
+
+                    const summary = await apiRequest(`${API_BASE}/dashboard/summary?${query.toString()}`, 'GET');
+                    renderDashboardSummary(summary);
+                    if (IS_SUPERADMIN) {
+                        await loadDashboardStoreMetrics(dashboardStoreSearchTerm);
+                    }
+                }
+            } catch (error) {
+                console.error('대시보드 데이터 로드 실패:', error);
+                showToast('대시보드 데이터를 불러오지 못했습니다.', 'error');
+            }
+        }
+
+        function renderDashboardSummary(summary) {
+            const totals = summary?.totals || {};
+            const daily = summary?.daily || {};
+
+            const pageViews = totals.page_view || 0;
+            const callClicks = totals.call_click || 0;
+            const menuViews = totals.menu_view || 0;
+            const deliveryClicks = totals.delivery_click || 0;
+
+            const pageViewsEl = document.getElementById('metricPageViews');
+            const callClicksEl = document.getElementById('metricCallClicks');
+            const menuViewsEl = document.getElementById('metricMenuViews');
+            const deliveryClicksEl = document.getElementById('metricDeliveryClicks');
+
+            if (pageViewsEl) pageViewsEl.textContent = pageViews.toLocaleString('ko-KR');
+            if (callClicksEl) callClicksEl.textContent = callClicks.toLocaleString('ko-KR');
+            if (menuViewsEl) menuViewsEl.textContent = menuViews.toLocaleString('ko-KR');
+            if (deliveryClicksEl) deliveryClicksEl.textContent = deliveryClicks.toLocaleString('ko-KR');
+
+            const dailyBody = document.getElementById('dashboardDailyBody');
+            if (!dailyBody) return;
+
+            const days = Object.keys(daily).sort();
+            if (days.length === 0) {
+                dailyBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align:center; color:#94a3b8;">데이터가 없습니다.</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            dailyBody.innerHTML = days.map(day => {
+                const row = daily[day] || {};
+                return `
+                    <tr>
+                        <td>${day}</td>
+                        <td>${(row.page_view || 0).toLocaleString('ko-KR')}</td>
+                        <td>${(row.call_click || 0).toLocaleString('ko-KR')}</td>
+                        <td>${(row.menu_view || 0).toLocaleString('ko-KR')}</td>
+                        <td>${(row.delivery_click || 0).toLocaleString('ko-KR')}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateDashboardScopeUI() {
+            if (!IS_SUPERADMIN) return;
+            const buttons = document.querySelectorAll('.dashboard-scope-btn');
+            buttons.forEach(btn => {
+                const scope = btn.getAttribute('data-scope');
+                btn.classList.toggle('active', scope === dashboardScope);
+            });
+
+            const searchWrapper = document.getElementById('dashboardSearchWrapper');
+            const storeTable = document.getElementById('dashboardStoreTable');
+            if (searchWrapper) {
+                searchWrapper.style.display = dashboardScope === 'all' ? 'flex' : 'none';
+            }
+            if (storeTable) {
+                storeTable.style.display = dashboardScope === 'all' ? 'block' : 'none';
+            }
+        }
+
+        async function setDashboardScope(scope) {
+            if (!IS_SUPERADMIN) return;
+            if (scope !== 'all' && scope !== 'store') return;
+
+            if (dashboardScope !== scope) {
+                dashboardScope = scope;
+                updateDashboardScopeUI();
+            }
+
+            if (scope === 'all') {
+                await loadDashboardStoreMetrics(dashboardStoreSearchTerm);
+            }
+
+            await loadDashboardSummary(scope);
+        }
+
+        function handleDashboardStoreSearchInput(event) {
+            dashboardStoreSearchTerm = event.target.value.trim();
+            if (dashboardStoreSearchTimer) {
+                clearTimeout(dashboardStoreSearchTimer);
+            }
+            dashboardStoreSearchTimer = setTimeout(() => {
+                loadDashboardStoreMetrics(dashboardStoreSearchTerm);
+            }, 250);
+        }
+
+        function formatMetricNumber(value) {
+            if (typeof value !== 'number') {
+                value = Number(value || 0);
+            }
+            return Number.isFinite(value) ? value.toLocaleString('ko-KR') : '0';
+        }
+
+        function renderStoreStatusBadge(status) {
+            const normalized = (status || '').toLowerCase();
+            let label = '대기';
+            let className = 'status-pending';
+
+            switch (normalized) {
+                case 'active':
+                    label = '운영 중';
+                    className = 'status-active';
+                    break;
+                case 'paused':
+                    label = '중지됨';
+                    className = 'status-paused';
+                    break;
+                case 'rejected':
+                    label = '거절됨';
+                    className = 'status-rejected';
+                    break;
+                case 'pending':
+                    label = '대기';
+                    className = 'status-pending';
+                    break;
+                default:
+                    label = status || '미정';
+                    className = 'status-pending';
+            }
+
+            return `<span class="store-status-badge ${className}">${label}</span>`;
+        }
+
+        async function loadDashboardStoreMetrics(searchTerm = '') {
+            if (!IS_SUPERADMIN) return;
+            try {
+                const query = new URLSearchParams({
+                    scope: 'all',
+                    limit: '200'
+                });
+                if (searchTerm) {
+                    query.set('search', searchTerm);
+                }
+                const response = await apiRequest(`${API_BASE}/dashboard/stores?${query.toString()}`, 'GET');
+                const data = response?.data || response || [];
+                dashboardStoreMetrics = data;
+                renderDashboardStoreMetrics();
+            } catch (error) {
+                console.error('가게별 대시보드 데이터 로드 실패:', error);
+                showToast('가게별 대시보드를 불러오지 못했습니다.', 'error');
+            }
+        }
+
+        function renderDashboardStoreMetrics() {
+            if (!IS_SUPERADMIN) return;
+            const tableBody = document.getElementById('dashboardStoreTableBody');
+            const countEl = document.getElementById('dashboardStoreCount');
+
+            if (countEl) {
+                countEl.textContent = `총 ${dashboardStoreMetrics.length}개 가게`;
+            }
+
+            if (!tableBody) return;
+
+            if (!dashboardStoreMetrics.length) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="9" style="text-align:center; padding:18px; color:#94a3b8;">조건에 맞는 가게가 없습니다.</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tableBody.innerHTML = dashboardStoreMetrics.map(metric => {
+                const safeStoreId = escapeForAttribute(metric.storeId || '');
+                const storeName = escapeHtml(metric.storeName || '이름 없음');
+                const subdomain = escapeHtml(metric.subdomain || '');
+                const lastEvent = metric.lastEventAt ? new Date(metric.lastEventAt).toLocaleString('ko-KR') : '-';
+
+                return `
+                    <tr onclick="selectStoreFromDashboard(event, '${safeStoreId}')">
+                        <td class="store-name-cell">
+                            ${storeName}
+                            <span class="store-sub-info">${subdomain ? `/${subdomain}` : '서브도메인 없음'}</span>
+                        </td>
+                        <td>${subdomain || '-'}</td>
+                        <td>${renderStoreStatusBadge(metric.status)}</td>
+                        <td>${formatMetricNumber(metric.pageViews)}</td>
+                        <td>${formatMetricNumber(metric.callClicks)}</td>
+                        <td>${formatMetricNumber(metric.menuViews)}</td>
+                        <td>${formatMetricNumber(metric.deliveryClicks)}</td>
+                        <td>${lastEvent}</td>
+                        <td>
+                            <button type="button" class="store-action-btn" onclick="selectStoreFromDashboard(event, '${safeStoreId}')">
+                                가게 보기
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function selectStoreFromDashboard(event, storeId) {
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+            if (!storeId) return;
+            await selectStore(storeId);
+            if (IS_SUPERADMIN) {
+                await setDashboardScope('store');
+            }
+        }
+
+        function initializeDashboardControls() {
+            if (!IS_SUPERADMIN) return;
+            updateDashboardScopeUI();
+            const scopeButtons = document.querySelectorAll('.dashboard-scope-btn');
+            scopeButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const scope = btn.getAttribute('data-scope');
+                    setDashboardScope(scope);
+                });
+            });
+
+            const searchInput = document.getElementById('dashboardStoreSearchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', handleDashboardStoreSearchInput);
+            }
+        }
         // 활동 로그 로드
         async function loadActivityLogs() {
             try {
@@ -6601,7 +7509,7 @@
             try {
                 const currentStoreId = await getCurrentStoreId();
                 if (!currentStoreId) {
-                    showToast('가게를 선택해주세요.', 'error', '오류');
+                    notifyStoreSelectionRequired();
                     return;
                 }
                 
@@ -6646,6 +7554,15 @@
                 currentSubdomainElement.textContent = subdomain ? `/${subdomain}` : '설정되지 않음';
             }
         }
+        function resolveQrUrl(qrUrl) {
+            if (!qrUrl) return '';
+            if (/^https?:\/\//i.test(qrUrl)) {
+                return qrUrl;
+            }
+            const normalized = qrUrl.startsWith('/') ? qrUrl : `/${qrUrl}`;
+            return `${window.location.origin}${normalized}`;
+        }
+
         // QR 코드 표시
         function displayQRCode(qrCode) {
             if (!qrCode || !qrCode.url) {
@@ -6664,18 +7581,19 @@
                                  document.querySelector('.admin-section');
                 if (qrSection) {
                     console.log('🔍 [DEBUG] QR 미리보기 영역 생성');
+                    const resolvedUrl = resolveQrUrl(qrCode.url);
                     const qrPreviewHtml = `
                         <div class="qr-preview" style="margin-top: 20px; text-align: center; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9;">
                             <h4>도메인 QR 코드 미리보기</h4>
                             <div id="qr-image-container">
-                                <img id="domainQRImage" src="${qrCode.url}" alt="도메인 QR 코드" style="max-width: 200px; border: 1px solid #ddd; border-radius: 8px;" onerror="handleQRImageError(this)">
+                                <img id="domainQRImage" src="${resolvedUrl}" alt="도메인 QR 코드" style="max-width: 200px; border: 1px solid #ddd; border-radius: 8px;" onerror="handleQRImageError(this)">
                                 <div id="qr-error" style="display: none; color: #666; padding: 20px;">
                                     QR 코드 이미지를 불러올 수 없습니다.<br>
                                     <button onclick="generateNewQR()" class="btn btn-primary" style="margin-top: 10px;">새 QR 코드 생성</button>
                                 </div>
                             </div>
                         <div style="margin-top: 10px;">
-                            <button onclick="downloadQRCode('${qrCode.url}', '${qrCode.domainUrl}')" class="btn btn-primary">QR 다운로드 (PNG)</button>
+                            <button onclick="downloadQRCode('${resolvedUrl}', '${qrCode.domainUrl || ''}')" class="btn btn-primary">QR 다운로드 (PNG)</button>
                             <button onclick="updateQRCode()" class="btn btn-warning" style="margin-left: 10px;">QR 업데이트</button>
                             <button onclick="deleteQRCode()" class="btn btn-danger" style="margin-left: 10px;">QR 삭제</button>
                         </div>
@@ -6690,7 +7608,7 @@
         } else {
             // 기존 QR 미리보기 영역을 완전히 새로 생성
             console.log('🔍 [DEBUG] 기존 QR 미리보기 영역 새로 생성');
-            const qrImageUrl = qrCode.url.startsWith('http') ? qrCode.url : `http://localhost:8081${qrCode.url}`;
+            const qrImageUrl = resolveQrUrl(qrCode.url);
             
             qrPreview.innerHTML = `
                 <h4>도메인 QR 코드 미리보기</h4>
@@ -6702,7 +7620,7 @@
                     </div>
                 </div>
                 <div style="margin-top: 10px;">
-                    <button onclick="downloadQRCode('${qrCode.url}', '${qrCode.domainUrl}')" class="btn btn-primary">QR 다운로드 (PNG)</button>
+                    <button onclick="downloadQRCode('${qrImageUrl}', '${qrCode.domainUrl || ''}')" class="btn btn-primary">QR 다운로드 (PNG)</button>
                     <button onclick="updateQRCode()" class="btn btn-warning" style="margin-left: 10px;">QR 업데이트</button>
                     <button onclick="deleteQRCode()" class="btn btn-danger" style="margin-left: 10px;">QR 삭제</button>
                 </div>
@@ -6741,10 +7659,11 @@
         // QR 코드 다운로드 (PNG)
         async function downloadQRCode(qrUrl, domainUrl) {
             try {
-                console.log('🔍 [DEBUG] QR 코드 다운로드 시작:', qrUrl);
+                const resolvedUrl = resolveQrUrl(qrUrl);
+                console.log('🔍 [DEBUG] QR 코드 다운로드 시작:', resolvedUrl);
                 
                 // 이미지 다운로드
-                const response = await fetch(qrUrl);
+                const response = await fetch(resolvedUrl);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -6937,7 +7856,7 @@
             try {
                 const currentStoreId = await getCurrentStoreId();
                 if (!currentStoreId) {
-                    showToast('가게를 선택해주세요.', 'error', '오류');
+                    notifyStoreSelectionRequired();
                     return;
                 }
 
@@ -7017,7 +7936,7 @@
             try {
                 const currentStoreId = await getCurrentStoreId();
                 if (!currentStoreId) {
-                    showToast('가게를 선택해주세요.', 'error', '오류');
+                    notifyStoreSelectionRequired();
                     return;
                 }
 
@@ -7155,7 +8074,7 @@
             try {
                 const currentStoreId = await getCurrentStoreId();
                 if (!currentStoreId) {
-                    showToast('가게를 선택해주세요.', 'error', '오류');
+                    notifyStoreSelectionRequired();
                     return;
                 }
 
@@ -7266,7 +8185,10 @@
             try {
                 const currentStoreId = await getCurrentStoreId();
                 if (!currentStoreId) {
-                    document.getElementById('businessHoursDisplay').innerHTML = '<p style="color: #6b7280; text-align: center;">가게를 선택해주세요.</p>';
+                    const businessHoursMessage = (IS_SUPERADMIN && allStores.length === 0)
+                        ? '등록된 가게가 없습니다. 가게 관리에서 새 가게를 추가해주세요.'
+                        : '가게를 선택해주세요.';
+                    document.getElementById('businessHoursDisplay').innerHTML = `<p style="color: #6b7280; text-align: center;">${businessHoursMessage}</p>`;
                     return;
                 }
 
@@ -7308,7 +8230,7 @@
             try {
                 const currentStoreId = await getCurrentStoreId();
                 if (!currentStoreId) {
-                    showToast('가게를 선택해주세요.', 'error', '오류');
+                    notifyStoreSelectionRequired();
                     return;
                 }
 
@@ -7818,7 +8740,7 @@
             
             // 기본 섹션 순서 (설정에서 가져오거나 기본값 사용)
             const defaultOrder = [
-                { id: 'discount', title: '할인 안내', icon: 'discount' },
+                { id: 'discount', title: '할인 · 픽업 안내', icon: 'discount' },
                 { id: 'delivery', title: '배달 주문', icon: 'delivery' },
                 { id: 'address', title: '주소 정보', icon: 'address' }
             ];
@@ -7827,10 +8749,25 @@
             const currentSettings = window.currentSettings || {};
             let sectionOrder = currentSettings.sectionOrder || defaultOrder;
             
-            // 기본 정보와 픽업 안내 제거
-            sectionOrder = sectionOrder.filter(section => 
-                section.id !== 'basic-info' && section.id !== 'pickup'
-            );
+            // 기존 데이터의 픽업 섹션을 통합
+            sectionOrder = sectionOrder.map(section => {
+                if (section.id === 'pickup') {
+                    return { id: 'discount', title: '할인 · 픽업 안내', icon: 'discount' };
+                }
+                if (section.id === 'discount') {
+                    return { ...section, title: '할인 · 픽업 안내' };
+                }
+                return section;
+            });
+
+            // 중복 및 불필요한 섹션 제거
+            const seen = new Set();
+            sectionOrder = sectionOrder.filter(section => {
+                if (section.id === 'basic-info') return false;
+                if (seen.has(section.id)) return false;
+                seen.add(section.id);
+                return true;
+            });
             
             // 필수 섹션이 없으면 기본값 사용
             if (sectionOrder.length === 0) {
@@ -7920,7 +8857,7 @@
                         } else {
                             // 대안: 직접 텍스트 내용 찾기
                             const textContent = item.textContent || '';
-                            const titleMatch = textContent.match(/(할인 안내|배달 주문|주소 정보)/);
+                            const titleMatch = textContent.match(/(할인 · 픽업 안내|배달 주문|주소 정보)/);
                             if (titleMatch) {
                                 title = titleMatch[1];
                             }
@@ -7972,7 +8909,7 @@
             // 기본 섹션 순서가 없으면 생성
             if (sectionOrder.length === 0) {
                 sectionOrder = [
-                    { id: 'discount', title: '할인 안내', icon: 'discount' },
+                    { id: 'discount', title: '할인 · 픽업 안내', icon: 'discount' },
                     { id: 'delivery', title: '배달 주문', icon: 'delivery' },
                     { id: 'address', title: '주소 정보', icon: 'address' }
                 ];
@@ -8005,7 +8942,7 @@
             // 기본 섹션 순서가 없으면 생성
             if (sectionOrder.length === 0) {
                 sectionOrder = [
-                    { id: 'discount', title: '할인 안내', icon: 'discount' },
+                    { id: 'discount', title: '할인 · 픽업 안내', icon: 'discount' },
                     { id: 'delivery', title: '배달 주문', icon: 'delivery' },
                     { id: 'address', title: '주소 정보', icon: 'address' }
                 ];
@@ -8068,8 +9005,8 @@
             }
             
             if (!currentStoreId) {
-                console.error('currentStoreId를 찾을 수 없습니다. 가게를 선택해주세요.');
-                showStatus('가게를 선택해주세요.', 'error');
+                console.error('currentStoreId를 찾을 수 없습니다. 선택된 가게가 없습니다.');
+                notifyStoreSelectionRequired();
                 return;
             }
             
@@ -8222,12 +9159,18 @@
             // 가이드 메시지 초기화
             initializeGuideMessages();
             setupOwnerTabs();
+            initializeDashboardControls();
             
             try {
                 await loadStoreList();
                 // 설정 로드 (DOM이 완전히 로드된 후 실행)
                 setTimeout(async () => {
                     try {
+                        if (IS_SUPERADMIN && allStores.length === 0) {
+                            initializeSidebarStoreInfo();
+                            showNoStoreGuide();
+                            return;
+                        }
                         await loadSettings();
                     } catch (error) {
                         console.error('초기 설정 로드 실패:', error);
@@ -8269,7 +9212,7 @@
                 
                 // URL 해시에서 섹션 복원 (새로고침 시 현재 섹션 유지)
                 const hash = window.location.hash.substring(1); // '#' 제거
-                const sectionToShow = hash || (IS_STORE_OWNER ? 'basic' : 'stores');
+                const sectionToShow = hash || (IS_STORE_OWNER ? 'dashboard' : 'stores');
                 showSection(sectionToShow);
             } catch (error) {
                 console.error('초기화 오류:', error);

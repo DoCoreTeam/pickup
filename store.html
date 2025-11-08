@@ -926,6 +926,23 @@
         }
       }
 
+      /**
+       * 사용자 입력을 안전하게 출력하기 위해 HTML 특수문자를 이스케이프합니다.
+       * @param {string} value 원본 문자열
+       * @returns {string} 이스케이프된 문자열
+       */
+      function escapeHtml(value) {
+        if (typeof value !== 'string') {
+          return '';
+        }
+        return value
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
       async function apiRequest(url, options = {}) {
         try {
           const response = await fetch(url, {
@@ -944,6 +961,29 @@
         } catch (error) {
           log('ERROR', 'API 요청 실패', { url, error: error.message });
           throw error;
+        }
+      }
+
+      async function logEvent(eventType, payload = {}) {
+        try {
+          const targetStoreId = currentStore?.id || (currentStoreId && currentStoreId.startsWith('store_') ? currentStoreId : null);
+          if (!targetStoreId) {
+            return;
+          }
+
+          await fetch(`${API_BASE}/events`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              storeId: targetStoreId,
+              eventType,
+              payload
+            })
+          });
+        } catch (error) {
+          console.warn('이벤트 로깅 실패:', eventType, error);
         }
       }
 
@@ -979,6 +1019,29 @@
         }
       }
 
+      async function resolveStoreIdentifier(identifier) {
+        if (!identifier) {
+          return { storeId: null, subdomain: null, store: null };
+        }
+
+        if (identifier.startsWith('store_')) {
+          return { storeId: identifier, subdomain: null, store: null };
+        }
+
+        try {
+          const response = await getStoreBySubdomain(identifier);
+          const storeData = response?.data || response;
+          if (storeData?.id) {
+            return { storeId: storeData.id, subdomain: identifier, store: storeData };
+          }
+        } catch (error) {
+          console.error('서브도메인 → 가게 ID 변환 실패:', error);
+          throw new Error('가게를 찾을 수 없습니다.');
+        }
+
+        throw new Error('가게를 찾을 수 없습니다.');
+      }
+
       // ========================================
       // 🏪 가게 관련 함수들
       // ========================================
@@ -987,7 +1050,8 @@
         try {
           log('INFO', '가게 정보 로딩 시작', { storeId });
           
-          let store;
+          let store = null;
+          let resolvedStoreId = storeId;
           
           // 서브도메인 기반 접근인지 확인
           const path = window.location.pathname;
@@ -995,14 +1059,24 @@
             // 서브도메인으로 가게 조회
             const subdomain = path.substring(1);
             log('INFO', '서브도메인으로 가게 조회', { subdomain });
-            const response = await getStoreBySubdomain(subdomain);
-            store = response.data;
+            const resolved = await resolveStoreIdentifier(subdomain);
+            resolvedStoreId = resolved.storeId;
+            store = resolved.store || null;
+            if (!store) {
+              const data = await apiRequest(`${API_BASE}/data`);
+              if (data && data.stores && Array.isArray(data.stores)) {
+                store = data.stores.find(s => s.id === resolvedStoreId);
+              }
+            }
           } else {
-            // 기존 방식: 전체 데이터에서 가게 찾기
+            // storeId 파라미터 또는 직접 ID 기반 조회
+            const resolved = await resolveStoreIdentifier(storeId);
+            resolvedStoreId = resolved.storeId;
+            store = resolved.store || null;
             const data = await apiRequest(`${API_BASE}/data`);
             
             if (data && data.stores && Array.isArray(data.stores)) {
-              store = data.stores.find(s => s.id === storeId);
+              store = data.stores.find(s => s.id === resolvedStoreId);
             } else {
               throw new Error('가게 데이터가 없습니다');
             }
@@ -1017,6 +1091,7 @@
             }
             
             currentStore = store;
+            currentStoreId = resolvedStoreId;
             log('INFO', '가게 정보 로딩 완료', store);
             return store;
           } else {
@@ -1030,8 +1105,13 @@
 
       async function loadSettings(storeId) {
         try {
-          log('INFO', '설정 로딩 시작', { storeId });
-          const settingsData = await apiRequest(`${API_BASE}/settings?storeId=${storeId}`);
+          const resolved = await resolveStoreIdentifier(storeId);
+          if (!resolved.storeId) {
+            throw new Error('가게를 찾을 수 없습니다.');
+          }
+          const targetStoreId = resolved.storeId;
+          log('INFO', '설정 로딩 시작', { storeId: targetStoreId });
+          const settingsData = await apiRequest(`${API_BASE}/settings?storeId=${targetStoreId}`);
           
           // API 응답이 직접 설정 데이터인 경우
           if (settingsData && (settingsData.images || settingsData.pickupTitle)) {
@@ -1180,8 +1260,44 @@
         document.title = `${currentStore.name} - 픽업`;
 
         // 설정에서 로고 이미지 가져오기
-        const logoImage = settings?.images?.mainLogo || '/assets/images/logos/default-logo.svg';
+        const logoImage = settings?.images?.mainLogo || settings?.basic?.storeLogo || '/assets/images/logos/default-logo.svg';
         const promoVideoSrc = getPromoVideoSource();
+        const storeSubtitleRaw = settings?.basic?.storeSubtitle?.trim() || currentStore.subtitle?.trim() || '';
+        const safeStoreSubtitle = escapeHtml(storeSubtitleRaw);
+        const subtitleHtml = safeStoreSubtitle
+          ? `<div class="store-subtitle">${safeStoreSubtitle}</div>`
+          : '';
+        const hasMenuImage = Boolean(settings?.images?.menuImage);
+        const hasStoreAddress = Boolean(currentStore.address && currentStore.address.trim());
+        const menuActionHtml = hasMenuImage ? `
+            <button class="action-btn" onclick="showMenu()">
+              <span class="action-icon">📋</span>
+              <span class="action-text">메뉴 보기</span>
+            </button>` : '';
+        const locationActionHtml = hasStoreAddress ? `
+            <button class="action-btn" onclick="showLocation()">
+              <span class="action-icon">📍</span>
+              <span class="action-text">위치 보기</span>
+            </button>` : '';
+        const pickupActionHtml = settings?.pickup?.enabled ? `
+            <button class="action-btn pickup-action" onclick="showPickupInfo()">
+              <span class="action-icon">📦</span>
+              <span class="action-text">픽업 안내</span>
+            </button>` : '';
+        const quickActionsHtml = [menuActionHtml, locationActionHtml, pickupActionHtml]
+          .filter(Boolean)
+          .join('');
+        const promoVideoHtml = promoVideoSrc ? `
+          <div class="promo-video-section">
+            <div class="promo-video-header">
+              <div class="promo-video-title">매장 소개 영상</div>
+              <button class="promo-video-button" type="button" onclick="showPromoVideo()">전체 화면</button>
+            </div>
+            <div class="promo-video-wrapper">
+              <video class="promo-video" src="${promoVideoSrc}" controls playsinline preload="metadata"></video>
+            </div>
+          </div>
+        ` : '';
 
         contentDiv.innerHTML = `
           <div class="store-hero">
@@ -1190,7 +1306,7 @@
                 <img src="${logoImage}" alt="${currentStore.name} 로고" />
               </div>
               <div class="store-name">${currentStore.name || '가게명 없음'}</div>
-              <div class="store-subtitle">${currentStore.subtitle || '전화·앱 한 번으로 바로 주문하세요'}</div>
+              ${subtitleHtml}
             </div>
             
             <div class="phone-section">
@@ -1204,40 +1320,12 @@
             <div id="businessHoursSection"></div>
           </div>
 
+          ${quickActionsHtml ? `
           <div class="quick-actions">
-            <button class="action-btn" onclick="showMenu()">
-              <span class="action-icon">📋</span>
-              <span class="action-text">메뉴 보기</span>
-            </button>
-            <button class="action-btn" onclick="showLocation()">
-              <span class="action-icon">📍</span>
-              <span class="action-text">위치 보기</span>
-            </button>
-            ${settings?.pickup?.enabled ? `
-            <button class="action-btn pickup-action" onclick="showPickupInfo()">
-              <span class="action-icon">📦</span>
-              <span class="action-text">픽업 안내</span>
-            </button>
-            ` : ''}
-          </div>
+            ${quickActionsHtml}
+          </div>` : ''}
 
-          <div class="promo-video-section">
-            <div class="promo-video-header">
-              <div class="promo-video-title">매장 소개 영상</div>
-              ${promoVideoSrc ? `
-              <button class="promo-video-button" type="button" onclick="showPromoVideo()">전체 화면</button>
-              ` : ''}
-            </div>
-            ${promoVideoSrc ? `
-            <div class="promo-video-wrapper">
-              <video class="promo-video" src="${promoVideoSrc}" controls playsinline preload="metadata"></video>
-            </div>
-            ` : `
-            <div class="promo-video-placeholder">
-              아직 등록된 영상이 없습니다. 관리자 페이지에서 매장 소개 영상을 추가해주세요.
-            </div>
-            `}
-          </div>
+          ${promoVideoHtml}
 
           <!-- 동적 섹션 렌더링 -->
           <div id="dynamicSections">
@@ -1716,6 +1804,9 @@
       }
 
       function showMenuModal(imageSrc) {
+        if (imageSrc) {
+          logEvent('menu_view', { image: imageSrc });
+        }
         // 기존 모달이 있으면 제거
         const existingModal = document.getElementById('menuModal');
         if (existingModal) {
@@ -2007,6 +2098,7 @@
         if (url && url.trim() !== '') {
           log('INFO', '배달 앱 열기', { app, url });
           window.open(url, '_blank');
+          logEvent('delivery_click', { app, url });
         } else {
           log('WARN', '배달앱 URL이 설정되지 않음', { app });
           alert(`${app} 앱의 URL이 설정되지 않았습니다.`);
@@ -2019,6 +2111,7 @@
           const naverMapUrl = `https://map.naver.com/v5/search/${encodedAddress}`;
           log('INFO', '네이버지도 열기', { address: currentStore.address });
           window.open(naverMapUrl, '_blank');
+          logEvent('map_click', { map: 'naver', address: currentStore.address });
         }
       }
 
@@ -2031,6 +2124,7 @@
           const kakaoUrl = `https://map.kakao.com/?q=${encodedAddress}`;
           log('INFO', '카카오맵 열기', { address: currentStore.address });
           window.open(kakaoUrl, '_blank');
+          logEvent('map_click', { map: 'kakao', address: currentStore.address });
         } else {
           alert('주소가 등록되지 않았습니다.');
         }
@@ -2056,11 +2150,21 @@
             loadStoreInfo(storeId),
             loadSettings(storeId)
           ]);
+
+          if (currentStore?.id) {
+            currentStoreId = currentStore.id;
+          }
           
           isLoading = false;
           
           // 렌더링
           renderStorePage();
+
+          // 페이지 방문 이벤트 기록
+          logEvent('page_view', {
+            path: window.location.pathname,
+            referrer: document.referrer || ''
+          });
           
           // 로딩 오버레이 숨기기
           hideLoadingOverlay();
@@ -2191,6 +2295,7 @@
       // 전화하기 함수
       function callStore() {
         if (currentStore && currentStore.phone) {
+          logEvent('call_click', { phone: currentStore.phone });
           window.location.href = `tel:${currentStore.phone}`;
         } else {
           alert('전화번호가 등록되지 않았습니다.');

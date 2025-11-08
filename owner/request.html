@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>입점 요청 - 픽업</title>
+    <script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
     <style>
         body {
             margin: 0;
@@ -73,6 +74,49 @@
 
         .form-group {
             margin-bottom: 18px;
+        }
+
+        .address-search-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .address-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .address-row input {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .address-row button {
+            flex-shrink: 0;
+        }
+
+        .address-search-button {
+            padding: 10px 16px;
+            background: #4f46e5;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .address-search-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px rgba(79, 70, 229, 0.2);
+        }
+
+        .form-helper {
+            font-size: 12px;
+            color: #6b7280;
+            line-height: 1.6;
         }
 
         label {
@@ -292,6 +336,15 @@
                             <input type="email" id="ownerEmail" name="ownerEmail" placeholder="example@store.com" required>
                         </div>
                         <div class="form-group">
+                            <label for="ownerPassword">로그인 비밀번호</label>
+                            <input type="password" id="ownerPassword" name="ownerPassword" placeholder="영문, 숫자 포함 8자 이상" autocomplete="new-password" required>
+                            <small class="form-helper">입점 승인 후 동일한 비밀번호로 관리자 페이지에 로그인할 수 있습니다.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="ownerPasswordConfirm">비밀번호 확인</label>
+                            <input type="password" id="ownerPasswordConfirm" name="ownerPasswordConfirm" placeholder="비밀번호를 다시 입력해주세요" autocomplete="new-password" required>
+                        </div>
+                        <div class="form-group">
                             <label for="ownerPhone">연락처</label>
                             <input type="tel" id="ownerPhone" name="ownerPhone" placeholder="010-1234-5678">
                         </div>
@@ -300,8 +353,18 @@
                             <input type="text" id="storeName" name="storeName" placeholder="예: 픽업삼겹살 강남점" required>
                         </div>
                         <div class="form-group">
-                            <label for="storeAddress">가게 주소</label>
-                            <input type="text" id="storeAddress" name="storeAddress" placeholder="예: 서울 강남구 테헤란로 123" required>
+                            <label for="ownerPostalCode">가게 주소</label>
+                            <div class="address-search-group">
+                                <div class="address-row">
+                                    <input type="text" id="ownerPostalCode" class="form-input" placeholder="우편번호" readonly>
+                                    <button type="button" class="address-search-button" onclick="openOwnerAddressSearch()">주소 검색</button>
+                                </div>
+                                <input type="text" id="ownerRoadAddress" class="form-input" placeholder="도로명 주소" readonly>
+                                <input type="text" id="ownerExtraAddress" class="form-input" placeholder="참고 항목" readonly>
+                                <input type="text" id="ownerAddressDetail" class="form-input" placeholder="상세 주소를 입력해주세요" oninput="syncOwnerFullAddress()" onblur="handleOwnerAddressDetailBlur()">
+                                <input type="hidden" id="ownerFullAddress">
+                            </div>
+                            <small class="form-helper">주소 검색 후 상세 주소까지 입력하면 자동으로 저장됩니다.</small>
                         </div>
                         <div class="form-group">
                             <label for="memo">특이사항 / 요청사항</label>
@@ -315,7 +378,8 @@
                 </form>
                 <div class="footer-note">
                     문의 후 1영업일 이내에 담당 매니저가 연락을 드립니다.<br>
-                    긴급 문의는 support@pickup.com 으로 연락 주세요.
+                    긴급 문의는 support@pickup.com 으로 연락 주세요.<br>
+                    설정한 비밀번호는 승인 시 자동으로 활성화되며, 관리자 페이지 로그인에 사용됩니다.
                 </div>
             </div>
         </div>
@@ -361,16 +425,61 @@
                 email: document.getElementById('ownerEmail').value.trim(),
                 phone: document.getElementById('ownerPhone').value.trim(),
                 message: document.getElementById('memo').value.trim(),
+                postalCode: document.getElementById('ownerPostalCode').value.trim(),
+                roadAddress: document.getElementById('ownerRoadAddress').value.trim(),
+                extraAddress: document.getElementById('ownerExtraAddress').value.trim(),
+                addressDetail: document.getElementById('ownerAddressDetail').value.trim(),
                 requestData: {
                     storeName: document.getElementById('storeName').value.trim(),
-                    storeAddress: document.getElementById('storeAddress').value.trim()
-                }
+                    storeAddress: document.getElementById('ownerFullAddress').value.trim(),
+                    storePostalCode: document.getElementById('ownerPostalCode').value.trim(),
+                    storeRoadAddress: document.getElementById('ownerRoadAddress').value.trim(),
+                    storeExtraAddress: document.getElementById('ownerExtraAddress').value.trim(),
+                    storeAddressDetail: document.getElementById('ownerAddressDetail').value.trim()
+                },
+                password: document.getElementById('ownerPassword').value.trim(),
+                passwordConfirm: document.getElementById('ownerPasswordConfirm').value.trim()
             };
 
-            if (!payload.name || !payload.email || !payload.requestData.storeName || !payload.requestData.storeAddress) {
+            syncOwnerFullAddress();
+
+            if (!payload.name || !payload.email || !payload.requestData.storeName || !payload.requestData.storeRoadAddress) {
                 showToast('error', '필수 정보를 모두 입력해주세요.');
                 return;
             }
+
+            if (!payload.password) {
+                showToast('error', '비밀번호를 입력해주세요.');
+                return;
+            }
+
+            if (payload.password.length < 8) {
+                showToast('error', '비밀번호는 8자 이상 입력해주세요.');
+                return;
+            }
+
+            if (payload.password !== payload.passwordConfirm) {
+                showToast('error', '비밀번호와 비밀번호 확인이 일치하지 않습니다.');
+                return;
+            }
+
+            if (!payload.roadAddress) {
+                showToast('error', '주소 검색을 완료해주세요.');
+                return;
+            }
+
+            const fullAddress = document.getElementById('ownerFullAddress').value.trim();
+
+            const requestPayload = {
+                name: payload.name,
+                email: payload.email,
+                phone: payload.phone,
+                message: payload.message,
+                password: payload.password,
+                requestData: payload.requestData
+            };
+
+            requestPayload.requestData.storeAddress = fullAddress;
 
             try {
                 submitBtn.classList.add('loading');
@@ -381,17 +490,22 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(requestPayload)
                 });
 
                 const result = await response.json();
 
                 if (!response.ok || !result.success) {
-                    throw new Error(result?.error?.message || '요청을 처리하지 못했습니다.');
+                    throw new Error(result?.error || result?.message || '요청을 처리하지 못했습니다.');
                 }
 
                 showToast('success', '입점 요청이 접수되었습니다. 담당자가 확인 후 연락드릴게요!');
                 event.target.reset();
+                document.getElementById('ownerPostalCode').value = '';
+                document.getElementById('ownerRoadAddress').value = '';
+                document.getElementById('ownerExtraAddress').value = '';
+                document.getElementById('ownerAddressDetail').value = '';
+                document.getElementById('ownerFullAddress').value = '';
                 setTimeout(() => {
                     window.location.href = '/login';
                 }, 1800);
@@ -403,6 +517,49 @@
                 submitBtn.disabled = false;
             }
         });
+
+        function syncOwnerFullAddress() {
+            const road = document.getElementById('ownerRoadAddress').value.trim();
+            const extra = document.getElementById('ownerExtraAddress').value.trim();
+            const detail = document.getElementById('ownerAddressDetail').value.trim();
+            const segments = [road];
+            if (extra) segments.push(extra);
+            if (detail) segments.push(detail);
+            document.getElementById('ownerFullAddress').value = segments.filter(Boolean).join(' ').trim();
+        }
+
+        function handleOwnerAddressDetailBlur() {
+            syncOwnerFullAddress();
+        }
+
+        function openOwnerAddressSearch() {
+            if (typeof daum === 'undefined' || !daum?.Postcode) {
+                showToast('error', '주소 검색 서비스를 불러오지 못했습니다.');
+                return;
+            }
+
+            new daum.Postcode({
+                oncomplete: function(data) {
+                    document.getElementById('ownerPostalCode').value = data.zonecode || '';
+                    const roadAddress = data.roadAddress || data.jibunAddress || '';
+                    document.getElementById('ownerRoadAddress').value = roadAddress;
+
+                    let extra = '';
+                    if (data.bname && /[동|로|가]$/g.test(data.bname)) {
+                        extra += data.bname;
+                    }
+                    if (data.buildingName && data.apartment === 'Y') {
+                        extra += extra ? `, ${data.buildingName}` : data.buildingName;
+                    }
+                    document.getElementById('ownerExtraAddress').value = extra ? `(${extra})` : '';
+                    const detailEl = document.getElementById('ownerAddressDetail');
+                    if (detailEl) {
+                        detailEl.focus();
+                    }
+                    syncOwnerFullAddress();
+                }
+            }).open();
+        }
     </script>
 </body>
 </html>

@@ -217,28 +217,28 @@
                     }
 
                     response = await fetch(`${API_BASE}/admin/login`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
                         body: JSON.stringify({ username, password }),
-                        mode: 'cors'
-                    });
-
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-
-                    const result = await response.json();
-
-                    if (result.success) {
+                    mode: 'cors'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
                         sessionStorage.setItem('user_role', 'superadmin');
-                        sessionStorage.setItem('superadmin_logged_in', 'true');
-                        sessionStorage.setItem('superadmin_username', username);
+                    sessionStorage.setItem('superadmin_logged_in', 'true');
+                    sessionStorage.setItem('superadmin_username', username);
                         sessionStorage.removeItem('owner_logged_in');
                         sessionStorage.removeItem('owner_store_id');
                         sessionStorage.removeItem('owner_name');
-                        window.location.href = '/admin';
+                    window.location.href = '/admin';
                     } else {
                         throw new Error(result.message || '로그인에 실패했습니다.');
                     }

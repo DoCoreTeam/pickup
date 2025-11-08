@@ -8,6 +8,7 @@
 const { Client } = require('pg');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 // PostgreSQL 연결 설정
 const client = new Client({
@@ -33,20 +34,42 @@ async function connect() {
   }
 }
 
+function hashPassword(password) {
+  if (!password) return null;
+  return crypto.createHash('sha256').update(password).digest('hex');
+}
+
 async function migrateSuperAdmin(data) {
-  if (!data.superadmin) return;
-  
+  const envUsername = process.env.SUPERADMIN_USERNAME ? process.env.SUPERADMIN_USERNAME.trim() : '';
+  const envPassword = process.env.SUPERADMIN_PASSWORD ? process.env.SUPERADMIN_PASSWORD.trim() : '';
+
+  const jsonSuperadmin = data.superadmin || {};
+  const sourceUsername = envUsername || jsonSuperadmin.username || '';
+  const sourcePassword = envPassword || jsonSuperadmin.password || '';
+  const createdAt = jsonSuperadmin.createdAt ? new Date(jsonSuperadmin.createdAt) : new Date();
+  const lastModified = jsonSuperadmin.lastModified ? new Date(jsonSuperadmin.lastModified) : new Date();
+
+  if (!sourceUsername || !sourcePassword) {
+    console.log('📭 슈퍼어드민 시드 데이터가 없어 건너뜁니다.');
+    return;
+  }
+
+  const existing = await client.query(`SELECT id FROM superadmin LIMIT 1`);
+  if (existing.rows.length > 0) {
+    console.log('ℹ️ 슈퍼어드민 레코드가 이미 존재하여 시드 데이터를 건너뜁니다.');
+    return;
+  }
+
   console.log('👤 슈퍼어드민 데이터 마이그레이션...');
-  
-  const { username, password, createdAt, lastModified } = data.superadmin;
-  
+
+  const passwordHash = /^[0-9a-f]{64}$/i.test(sourcePassword)
+    ? sourcePassword
+    : hashPassword(sourcePassword);
+
   await client.query(`
     INSERT INTO superadmin (username, password_hash, created_at, last_modified)
     VALUES ($1, $2, $3, $4)
-    ON CONFLICT (username) DO UPDATE SET
-      password_hash = EXCLUDED.password_hash,
-      last_modified = EXCLUDED.last_modified
-  `, [username, password, new Date(createdAt), new Date(lastModified)]);
+  `, [sourceUsername, passwordHash, createdAt, lastModified]);
   
   console.log('✅ 슈퍼어드민 데이터 마이그레이션 완료');
 }

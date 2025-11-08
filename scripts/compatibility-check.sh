@@ -14,6 +14,9 @@ NC='\033[0m'
 PASSED=0
 FAILED=0
 
+SUPERADMIN_COMPAT_USERNAME=${SUPERADMIN_COMPAT_USERNAME:-pickupsuperadmin}
+SUPERADMIN_COMPAT_PASSWORD=${SUPERADMIN_COMPAT_PASSWORD:-test}
+
 # 테스트 함수
 test_check() {
     local test_name="$1"
@@ -65,7 +68,7 @@ test_check "가게 페이지 접근" "curl -s http://localhost:8081/store/test |
 echo -e "\n${BLUE}🔐 인증 테스트${NC}"
 LOGIN_RESPONSE=$(curl -s -X POST http://localhost:8081/api/superadmin/check \
   -H "Content-Type: application/json" \
-  -d '{"username":"pickupsuperadmin","password":"test"}')
+  -d "{\"username\":\"${SUPERADMIN_COMPAT_USERNAME}\",\"password\":\"${SUPERADMIN_COMPAT_PASSWORD}\"}")
 test_check "슈퍼어드민 로그인" "echo '$LOGIN_RESPONSE' | jq '.success' | grep -q 'true'"
 
 # 결과 요약

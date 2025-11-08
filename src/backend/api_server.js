@@ -183,6 +183,18 @@ class APIRouter {
     // GET /api/release-notes - 릴리즈 노트 조회
     this.routes.set('GET /api/release-notes', this.getReleaseNotes.bind(this));
     
+    // POST /api/events - 이벤트 로깅
+    this.routes.set('POST /api/events', this.logStoreEvent.bind(this));
+
+    // GET /api/dashboard/summary - 대시보드 요약
+    this.routes.set('GET /api/dashboard/summary', this.getDashboardSummary.bind(this));
+    // GET /api/dashboard/stores - 가게별 대시보드 메트릭
+    this.routes.set('GET /api/dashboard/stores', this.getDashboardStores.bind(this));
+    // GET /api/release-notes - 릴리즈 노트 조회
+    this.routes.set('GET /api/release-notes', this.getReleaseNotes.bind(this));
+    // POST /api/superadmin/check - 로그인 사전 확인
+    this.routes.set('POST /api/superadmin/check', this.checkSuperAdminCredentials.bind(this));
+
     // GET /api/settings - 설정 조회
     this.routes.set('GET /api/settings', this.getSettings.bind(this));
     
@@ -309,14 +321,20 @@ class APIRouter {
           handler = this.getUsersByStore.bind(this, storeId);
         }
       } else if (pathname.startsWith('/api/owners/')) {
-        const parts = pathname.split('/');
-        if (parts.length >= 4 && parts[3]) {
-          const ownerId = parts[3];
-          const action = parts[4] || '';
+        const match = pathname.match(/^\/api\/owners\/([^\/]+)(?:\/([^\/]+))?$/);
+        if (match) {
+          const ownerId = decodeURIComponent(match[1]);
+          const action = match[2] || '';
           if (action === 'approve' && method === 'POST') {
             handler = (req, res, parsedUrl) => this.approveOwnerAccount(ownerId, req, res, parsedUrl);
           } else if (action === 'reject' && method === 'POST') {
             handler = (req, res, parsedUrl) => this.rejectOwnerAccount(ownerId, req, res, parsedUrl);
+          } else if (action === 'pause' && method === 'POST') {
+            handler = (req, res, parsedUrl) => this.pauseOwnerAccountHandler(ownerId, req, res, parsedUrl);
+          } else if (action === 'resume' && method === 'POST') {
+            handler = (req, res, parsedUrl) => this.resumeOwnerAccountHandler(ownerId, req, res, parsedUrl);
+          } else if (!action && method === 'DELETE') {
+            handler = (req, res, parsedUrl) => this.deleteOwnerAccountHandler(ownerId, req, res, parsedUrl);
           }
         }
       } else if (pathname.startsWith('/api/qr-codes/')) {
@@ -381,7 +399,21 @@ class APIRouter {
         return;
       }
 
-      const allowedHtmlPaths = new Set(['/store.html', '/owner/request.html']);
+      const allowedHtmlPaths = new Set(['/store.html', '/owner/request.html', '/admin/login.html']);
+
+      // store 페이지 라우팅 (동적 path)
+      if (pathname === '/store' || pathname.startsWith('/store/')) {
+        const publicPath = path.join(__dirname, '../../');
+        const storeFilePath = path.join(publicPath, 'store.html');
+        if (fs.existsSync(storeFilePath)) {
+          if (serveStaticFile(req, res, storeFilePath)) {
+            logRequest(method, pathname, 200, Date.now() - startTime);
+            return;
+          }
+        }
+        sendErrorResponse(res, 404, '가게 페이지를 찾을 수 없습니다.');
+        return;
+      }
 
       // HTML 파일 직접 접근 차단 (보안) - 먼저 체크
       if (pathname.endsWith('.html') && !allowedHtmlPaths.has(pathname)) {
@@ -652,10 +684,21 @@ class APIRouter {
   async requestOwnerAccount(req, res, parsedUrl) {
     try {
       const body = await parseRequestBody(req);
-      const { name, email, phone, storeId, message, requestData } = body;
+      const { name, email, phone, storeId, message, requestData, password } = body;
 
       if (!name || !email) {
         sendErrorResponse(res, 400, '이름과 이메일은 필수입니다.');
+        return;
+      }
+
+      const trimmedPassword = typeof password === 'string' ? password.trim() : '';
+      if (!trimmedPassword) {
+        sendErrorResponse(res, 400, '비밀번호를 입력해주세요.');
+        return;
+      }
+
+      if (trimmedPassword.length < 8) {
+        sendErrorResponse(res, 400, '비밀번호는 8자 이상 입력해주세요.');
         return;
       }
 
@@ -665,17 +708,21 @@ class APIRouter {
         phone,
         storeId,
         message,
-        requestData
+        requestData,
+        password: trimmedPassword
       });
+
+      if (!result.success) {
+        sendErrorResponse(res, 400, result.error || '입점 요청을 처리하지 못했습니다.');
+        return;
+      }
 
       sendJsonResponse(res, 200, {
         success: result.success,
         ownerId: result.ownerId,
         status: result.status,
         storeId: result.storeId || null,
-        message: result.success
-          ? '입점 요청이 접수되었습니다.'
-          : result.error
+        message: '입점 요청이 접수되었습니다.'
       });
     } catch (error) {
       log('ERROR', '점주 입점 요청 처리 실패', error);
@@ -699,8 +746,8 @@ class APIRouter {
 
   async approveOwnerAccount(ownerId, req, res, parsedUrl) {
      try {
-       const body = await parseRequestBody(req);
-       const { storeId: manualStoreId = null, password } = body || {};
+      const body = await parseRequestBody(req);
+      const { storeId: manualStoreId = null, password } = body || {};
 
        const ownerDetail = await dbServices.getOwnerAccountDetail(ownerId);
        if (!ownerDetail) {
@@ -708,26 +755,61 @@ class APIRouter {
          return;
        }
 
+      const manualPassword = typeof password === 'string' ? password.trim() : '';
+      if (manualPassword && manualPassword.length < 8) {
+        sendErrorResponse(res, 400, '비밀번호는 8자 이상 입력해주세요.');
+        return;
+      }
+
        let resolvedStoreId = manualStoreId || ownerDetail.storeId || null;
        let storeRecord = null;
 
-       if (!resolvedStoreId) {
+      if (!resolvedStoreId) {
          const requestData = ownerDetail.requestData || {};
          const newStore = await dbServices.createStore({
            name: requestData.storeName || ownerDetail.ownerName || ownerDetail.email,
            address: requestData.storeAddress || '',
            phone: ownerDetail.phone || '',
-           status: 'pending'
+                status: 'active'
          });
          resolvedStoreId = newStore.id;
          storeRecord = newStore;
        }
 
-       const tempPassword = password || this.generateTemporaryPassword();
+      const storedHash = ownerDetail.passwordHash || '';
+      const hashPattern = /^[0-9a-f]{64}$/i;
+      let passwordSource = 'request';
+      let plainPasswordForNotice = null;
+      let finalPasswordHash = null;
+
+      if (manualPassword) {
+        passwordSource = 'manual';
+        plainPasswordForNotice = manualPassword;
+        finalPasswordHash = dbServices.hashPassword(manualPassword);
+      } else if (storedHash) {
+        if (hashPattern.test(storedHash)) {
+          finalPasswordHash = storedHash;
+          passwordSource = 'request';
+        } else {
+          // 기존에 저장된 비밀번호가 해시가 아닐 경우 보안을 위해 해시 후 저장
+          plainPasswordForNotice = storedHash;
+          finalPasswordHash = dbServices.hashPassword(storedHash);
+          passwordSource = 'request';
+        }
+      } else {
+        passwordSource = 'generated';
+        plainPasswordForNotice = this.generateTemporaryPassword();
+        finalPasswordHash = dbServices.hashPassword(plainPasswordForNotice);
+      }
+
+      if (!finalPasswordHash) {
+        sendErrorResponse(res, 500, '비밀번호를 설정하지 못했습니다.');
+        return;
+      }
 
        const updatedOwner = await dbServices.approveOwnerAccount(ownerId, {
          storeId: resolvedStoreId,
-         passwordHash: tempPassword
+        passwordHash: finalPasswordHash
        });
 
        if (!storeRecord) {
@@ -751,7 +833,8 @@ class APIRouter {
        sendJsonResponse(res, 200, {
          success: true,
          owner: updatedOwner,
-         tempPassword,
+        tempPassword: passwordSource === 'request' ? null : plainPasswordForNotice,
+        passwordSource,
          store: responseStore,
          message: '계정이 승인되었습니다.'
        });
@@ -1783,7 +1866,7 @@ class APIRouter {
         || `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host || `localhost:${PORT}`}`;
       const domainUrl = `${origin.replace(/\/+$/, '')}/${normalizedSubdomain}`;
 
-      const qrDir = path.join(__dirname, '../../public/qr');
+      const qrDir = path.join(__dirname, '../../qr');
       if (!fs.existsSync(qrDir)) {
         fs.mkdirSync(qrDir, { recursive: true });
       }
@@ -1799,6 +1882,11 @@ class APIRouter {
       const qrCodeUrl = `/qr/${fileName}`;
 
       const currentSettings = await dbServices.getStoreSettings(storeId);
+      const updatedDomainSettings = {
+        ...(currentSettings.domainSettings || {}),
+        subdomain: normalizedSubdomain,
+        lastGeneratedAt: new Date().toISOString()
+      };
       const mergedSettings = {
         delivery: currentSettings.delivery || {},
         discount: currentSettings.discount || {},
@@ -1806,7 +1894,7 @@ class APIRouter {
         images: currentSettings.images || {},
         businessHours: currentSettings.businessHours || {},
         sectionOrder: currentSettings.sectionOrder || [],
-        domainSettings: (currentSettings.domainSettings || {}),
+        domainSettings: updatedDomainSettings,
         qrCode: {
           url: qrCodeUrl,
           domainUrl,
@@ -1817,6 +1905,16 @@ class APIRouter {
       };
 
       await dbServices.updateStoreSettings(storeId, mergedSettings);
+
+      if (store.subdomain !== normalizedSubdomain) {
+        await dbServices.updateStore(storeId, {
+          name: store.name,
+          subtitle: store.subtitle,
+          phone: store.phone,
+          address: store.address,
+          subdomain: normalizedSubdomain
+        });
+      }
 
       sendJsonResponse(res, 200, {
         success: true,
@@ -1850,7 +1948,14 @@ class APIRouter {
       const qrCodeInfo = currentSettings.qrCode || {};
 
       if (qrCodeInfo.url) {
-        const qrPath = path.join(__dirname, '../../public', qrCodeInfo.url.replace(/^\/+/, ''));
+        const relativeQrPath = qrCodeInfo.url.replace(/^\/+/, '');
+        let qrPath = path.join(__dirname, '../../', relativeQrPath);
+        if (!fs.existsSync(qrPath)) {
+          const legacyPath = path.join(__dirname, '../../public', relativeQrPath);
+          if (fs.existsSync(legacyPath)) {
+            qrPath = legacyPath;
+          }
+        }
         if (fs.existsSync(qrPath)) {
           try {
             fs.unlinkSync(qrPath);
@@ -2003,24 +2108,277 @@ class APIRouter {
       sendErrorResponse(res, 500, error.message || '가게 조회에 실패했습니다.');
     }
   }
+
+  async logStoreEvent(req, res, parsedUrl) {
+    try {
+      const body = await parseRequestBody(req);
+      const { storeId, eventType, payload } = body || {};
+
+      if (!storeId || !eventType) {
+        sendErrorResponse(res, 400, 'storeId와 eventType은 필수입니다.');
+        return;
+      }
+
+      const userAgent = req.headers['user-agent'] || '';
+      const event = await dbServices.createStoreEvent({
+        storeId,
+        eventType,
+        eventPayload: payload || {},
+        userAgent
+      });
+
+      sendJsonResponse(res, 200, {
+        success: true,
+        event
+      });
+    } catch (error) {
+      log('ERROR', '이벤트 로깅 실패', error);
+      sendErrorResponse(res, 500, error.message || '이벤트 로그 저장에 실패했습니다.');
+    }
+  }
+
+  async getDashboardSummary(req, res, parsedUrl) {
+    try {
+      const { storeId: rawStoreId = null, scope: rawScope = null, from = null, to = null } = parsedUrl.query || {};
+      const normalizedScope = rawScope === 'all' ? 'all' : 'store';
+      const normalizedStoreId = normalizedScope === 'all'
+        ? null
+        : (rawStoreId && rawStoreId !== 'all' ? rawStoreId : null);
+
+      if (normalizedScope !== 'all' && !normalizedStoreId) {
+        sendErrorResponse(res, 400, 'storeId가 필요합니다.');
+        return;
+      }
+
+      const summary = await dbServices.getEventSummary({
+        storeId: normalizedStoreId,
+        from,
+        to
+      });
+
+      sendJsonResponse(res, 200, {
+        scope: normalizedScope,
+        storeId: normalizedStoreId,
+        ...summary
+      });
+    } catch (error) {
+      log('ERROR', '대시보드 요약 조회 실패', error);
+      sendErrorResponse(res, 500, error.message || '대시보드 데이터를 불러오지 못했습니다.');
+    }
+  }
+
+  async getDashboardStores(req, res, parsedUrl) {
+    try {
+      const { from = null, to = null, search = '', limit = '100' } = parsedUrl.query || {};
+      const numericLimit = Math.min(Math.max(parseInt(limit, 10) || 100, 10), 500);
+
+      const metrics = await dbServices.getEventTotalsByStore({
+        from,
+        to,
+        search,
+        limit: numericLimit
+      });
+
+      sendJsonResponse(res, 200, {
+        success: true,
+        data: metrics
+      });
+    } catch (error) {
+      log('ERROR', '대시보드 가게 메트릭 조회 실패', error);
+      sendErrorResponse(res, 500, error.message || '가게별 대시보드 데이터를 불러오지 못했습니다.');
+    }
+  }
+
+  async getReleaseNotes(req, res, parsedUrl) {
+    try {
+      const { limit = '10' } = parsedUrl.query || {};
+      const releaseRows = await dbServices.getReleaseNotes({ limit });
+
+      const normalizeFeatures = raw => {
+        if (!raw) {
+          return [];
+        }
+
+        if (Array.isArray(raw)) {
+          return raw
+            .map(entry => {
+              if (!entry) return null;
+              const category = entry.category || '업데이트';
+              const items = Array.isArray(entry.items)
+                ? entry.items.filter(Boolean)
+                : entry.items
+                  ? [entry.items].filter(Boolean)
+                  : [];
+              if (items.length === 0) return null;
+              return { category, items };
+            })
+            .filter(Boolean);
+        }
+
+        if (typeof raw === 'object') {
+          return Object.entries(raw)
+            .map(([category, items]) => {
+              const list = Array.isArray(items)
+                ? items.filter(Boolean)
+                : items
+                  ? [items].filter(Boolean)
+                  : [];
+              if (list.length === 0) return null;
+              return { category, items: list };
+            })
+            .filter(Boolean);
+        }
+
+        return [];
+      };
+
+      const normalizeList = raw => {
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw.filter(Boolean);
+        if (typeof raw === 'object') {
+          return Object.values(raw)
+            .flat()
+            .filter(Boolean);
+        }
+        return [raw].filter(Boolean);
+      };
+
+      const releaseNotes = releaseRows.map(row => ({
+        version: row.version,
+        codename: row.codename || null,
+        releaseDate: row.release_date ? new Date(row.release_date).toISOString() : null,
+        title: row.title || '',
+        highlights: Array.isArray(row.highlights) ? row.highlights : normalizeList(row.highlights),
+        features: normalizeFeatures(row.features),
+        improvements: normalizeList(row.technical_improvements),
+        bugFixes: normalizeList(row.bug_fixes)
+      }));
+
+      sendJsonResponse(res, 200, {
+        success: true,
+        releaseNotes
+      });
+    } catch (error) {
+      log('ERROR', '릴리즈 노트 조회 실패', error);
+      sendErrorResponse(res, 500, error.message || '릴리즈 노트를 불러오지 못했습니다.');
+    }
+  }
+
+  async checkSuperAdminCredentials(req, res, parsedUrl) {
+    try {
+      const body = await parseRequestBody(req);
+      const username = body?.username?.trim();
+      const password = body?.password?.trim();
+
+      if (!username || !password) {
+        sendErrorResponse(res, 400, '아이디와 비밀번호를 모두 입력해주세요.');
+        return;
+      }
+
+      const result = await dbServices.authenticateSuperAdmin(username, password);
+      if (!result?.success) {
+        sendErrorResponse(res, 401, result?.error || '인증에 실패했습니다.');
+        return;
+      }
+
+      sendJsonResponse(res, 200, {
+        success: true,
+        token: result.token || null,
+        message: '슈퍼어드민 인증에 성공했습니다.'
+      });
+    } catch (error) {
+      log('ERROR', '슈퍼어드민 인증 확인 실패', error);
+      sendErrorResponse(res, 500, error.message || '슈퍼어드민 인증을 확인하지 못했습니다.');
+    }
+  }
+
+  async pauseOwnerAccountHandler(ownerId, req, res, parsedUrl) {
+    try {
+      const result = await dbServices.pauseOwnerAccount(ownerId);
+      sendJsonResponse(res, 200, {
+        success: true,
+        owner: result,
+        message: '계정이 일시 중지되었습니다.'
+      });
+    } catch (error) {
+      log('ERROR', '점주 계정 중지 실패', error);
+      sendErrorResponse(res, 500, error.message || '계정 중지에 실패했습니다.');
+    }
+  }
+
+  async resumeOwnerAccountHandler(ownerId, req, res, parsedUrl) {
+    try {
+      const result = await dbServices.resumeOwnerAccount(ownerId);
+      sendJsonResponse(res, 200, {
+        success: true,
+        owner: result,
+        message: '계정이 다시 활성화되었습니다.'
+      });
+    } catch (error) {
+      log('ERROR', '점주 계정 재개 실패', error);
+      sendErrorResponse(res, 500, error.message || '계정 재개에 실패했습니다.');
+    }
+  }
+
+  async deleteOwnerAccountHandler(ownerId, req, res, parsedUrl) {
+    try {
+      const result = await dbServices.deleteOwnerAccount(ownerId);
+      sendJsonResponse(res, 200, {
+        success: true,
+        result,
+        message: '계정이 삭제되었습니다.'
+      });
+    } catch (error) {
+      log('ERROR', '점주 계정 삭제 실패', error);
+      sendErrorResponse(res, 500, error.message || '계정 삭제에 실패했습니다.');
+    }
+  }
  }
  
- if (require.main === module) {
-   const router = new APIRouter();
-   const server = http.createServer((req, res) => {
-     router.handleRequest(req, res).catch(error => {
-       log('ERROR', '요청 처리 중 예외 발생', { error: error.message, stack: error.stack });
-       try {
-         sendErrorResponse(res, 500, '서버 처리 중 오류가 발생했습니다.');
-       } catch (responseError) {
-         log('ERROR', '응답 전송 실패', { error: responseError.message });
-       }
-     });
-   });
+(async () => {
+  if (require.main !== module) {
+    return;
+  }
 
-   server.listen(PORT, () => {
-     log('INFO', `API 서버가 포트 ${PORT}에서 실행 중입니다.`);
-   });
- }
+  try {
+    await db.connect();
+    log('INFO', 'PostgreSQL 데이터베이스 연결이 완료되었습니다.');
+  } catch (error) {
+    log('ERROR', 'PostgreSQL 데이터베이스 연결에 실패했습니다.', { error: error.message });
+    process.exit(1);
+  }
+
+  const router = new APIRouter();
+  const server = http.createServer((req, res) => {
+    router.handleRequest(req, res).catch(error => {
+      log('ERROR', '요청 처리 중 예외 발생', { error: error.message, stack: error.stack });
+      try {
+        sendErrorResponse(res, 500, '서버 처리 중 오류가 발생했습니다.');
+      } catch (responseError) {
+        log('ERROR', '응답 전송 실패', { error: responseError.message });
+      }
+    });
+  });
+
+  const gracefulShutdown = async signal => {
+    log('INFO', `${signal} 신호 수신, 서버 종료를 준비합니다.`);
+    server.close(async () => {
+      try {
+        await db.disconnect();
+      } catch (error) {
+        log('ERROR', '데이터베이스 연결 해제 중 오류가 발생했습니다.', { error: error.message });
+      } finally {
+        process.exit(0);
+      }
+    });
+  };
+
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+  server.listen(PORT, () => {
+    log('INFO', `API 서버가 포트 ${PORT}에서 실행 중입니다.`);
+  });
+})();
 
  module.exports = APIRouter;

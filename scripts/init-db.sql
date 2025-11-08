@@ -6,6 +6,8 @@
 -- 데이터베이스 생성 (이미 생성되어 있음)
 -- CREATE DATABASE pickup_db;
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- 슈퍼어드민 테이블
 CREATE TABLE IF NOT EXISTS superadmin (
     id SERIAL PRIMARY KEY,
@@ -38,7 +40,7 @@ CREATE TABLE IF NOT EXISTS store_owners (
     id VARCHAR(255) PRIMARY KEY,
     store_id VARCHAR(255),
     owner_name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
+    email VARCHAR(255) NOT NULL,
     phone VARCHAR(50),
     status VARCHAR(50) DEFAULT 'pending',
     password_hash VARCHAR(255),
@@ -91,6 +93,16 @@ CREATE TABLE IF NOT EXISTS analytics (
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 이벤트 로깅 테이블
+CREATE TABLE IF NOT EXISTS store_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    store_id VARCHAR(255) NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+    event_type VARCHAR(64) NOT NULL,
+    event_payload JSONB DEFAULT '{}'::jsonb,
+    user_agent TEXT,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 릴리즈 노트 테이블
 CREATE TABLE IF NOT EXISTS release_notes (
     id SERIAL PRIMARY KEY,
@@ -126,8 +138,10 @@ CREATE INDEX IF NOT EXISTS idx_activity_logs_timestamp ON activity_logs(timestam
 CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_release_notes_version ON release_notes(version);
 CREATE INDEX IF NOT EXISTS idx_release_notes_release_date ON release_notes(release_date);
+CREATE INDEX IF NOT EXISTS idx_store_events_store_id ON store_events(store_id);
+CREATE INDEX IF NOT EXISTS idx_store_events_type ON store_events(event_type);
 
 -- 초기 데이터 삽입 (기본 슈퍼어드민)
 INSERT INTO superadmin (username, password_hash, created_at, last_modified)
-VALUES ('admin', 'admin123', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+VALUES ('admin', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT (username) DO NOTHING;
