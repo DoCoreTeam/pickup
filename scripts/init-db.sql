@@ -52,6 +52,16 @@ CREATE TABLE IF NOT EXISTS store_owners (
     FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE SET NULL
 );
 
+-- 가게-점주 매핑 테이블 (다중 매핑 지원)
+CREATE TABLE IF NOT EXISTS store_owner_links (
+    id SERIAL PRIMARY KEY,
+    owner_id VARCHAR(255) NOT NULL REFERENCES store_owners(id) ON DELETE CASCADE,
+    store_id VARCHAR(255) NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+    role VARCHAR(50) DEFAULT 'manager',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (owner_id, store_id)
+);
+
 -- 가게 설정 테이블
 CREATE TABLE IF NOT EXISTS store_settings (
     id SERIAL PRIMARY KEY,
@@ -64,10 +74,36 @@ CREATE TABLE IF NOT EXISTS store_settings (
     business_hours JSONB,
     section_order JSONB,
     qr_code JSONB,
+    seo_settings JSONB,
+    ab_test_settings JSONB,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS seo_settings_history (
+    id SERIAL PRIMARY KEY,
+    store_id VARCHAR(255) NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+    version INTEGER NOT NULL,
+    settings JSONB NOT NULL,
+    summary JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (store_id, version)
+);
+
+CREATE INDEX IF NOT EXISTS idx_seo_settings_history_store ON seo_settings_history(store_id, version DESC);
+
+CREATE TABLE IF NOT EXISTS ab_test_settings_history (
+    id SERIAL PRIMARY KEY,
+    store_id VARCHAR(255) NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+    version INTEGER NOT NULL,
+    settings JSONB NOT NULL,
+    summary JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (store_id, version)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ab_settings_history_store ON ab_test_settings_history(store_id, version DESC);
 
 -- 활동 로그 테이블
 CREATE TABLE IF NOT EXISTS activity_logs (
@@ -132,6 +168,8 @@ CREATE INDEX IF NOT EXISTS idx_stores_subdomain ON stores(subdomain);
 CREATE INDEX IF NOT EXISTS idx_stores_created_at ON stores(created_at);
 CREATE INDEX IF NOT EXISTS idx_store_owners_status ON store_owners(status);
 CREATE INDEX IF NOT EXISTS idx_store_owners_store_id ON store_owners(store_id);
+CREATE INDEX IF NOT EXISTS idx_store_owner_links_owner_id ON store_owner_links(owner_id);
+CREATE INDEX IF NOT EXISTS idx_store_owner_links_store_id ON store_owner_links(store_id);
 CREATE INDEX IF NOT EXISTS idx_store_settings_store_id ON store_settings(store_id);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_type ON activity_logs(type);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_timestamp ON activity_logs(timestamp);
@@ -143,5 +181,5 @@ CREATE INDEX IF NOT EXISTS idx_store_events_type ON store_events(event_type);
 
 -- 초기 데이터 삽입 (기본 슈퍼어드민)
 INSERT INTO superadmin (username, password_hash, created_at, last_modified)
-VALUES ('admin', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+VALUES ('pickupsuperadmin', '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT (username) DO NOTHING;

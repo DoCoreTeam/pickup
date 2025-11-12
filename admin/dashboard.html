@@ -21,16 +21,27 @@
             color: #333;
         }
 
-        body.owner-mode .menu-item[data-role="superadmin-only"],
-        body.owner-mode .superadmin-only,
-        body.owner-mode .menu-item[data-menu="store-management"] {
-            display: none !important;
-        }
+body.owner-mode .menu-item[data-role="superadmin-only"],
+body.owner-mode .superadmin-only {
+    display: none !important;
+}
 
-        body.owner-mode #bulkManagementBtn,
-        body.owner-mode #stores .button-group {
-            display: none !important;
-        }
+body.owner-mode #bulkManagementBtn,
+body.owner-mode #stores .button-group {
+    display: none !important;
+}
+
+.owner-only {
+    display: none;
+}
+
+body.owner-mode .owner-only {
+    display: block !important;
+}
+
+body.owner-mode .owner-store-actions {
+    display: flex !important;
+}
 
         .admin-container {
             display: flex;
@@ -48,6 +59,576 @@
             gap: 8px;
             flex-wrap: wrap;
         }
+
+.owner-store-actions {
+    display: none;
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px dashed #cbd5f5;
+    background: #f8fafc;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.owner-store-actions p {
+    margin: 0;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.owner-action-btn {
+    align-self: flex-start;
+}
+
+.store-view-toolbar {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.store-owner-select {
+    min-width: 200px;
+}
+
+.store-pagination button {
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid #cbd5f5;
+    background: #f8fafc;
+    color: #475569;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s, color 0.2s;
+}
+
+.store-pagination button:hover:not(:disabled) {
+    background: #e0e7ff;
+}
+
+.store-pagination button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.owner-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    margin: 2px;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #1e293b;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.owner-tag.empty {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.owner-group-container {
+    display: none;
+    margin-top: 20px;
+}
+
+.owner-group-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 15px 30px rgba(15, 23, 42, 0.08);
+}
+
+.owner-group-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.owner-group-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.owner-group-meta {
+    font-size: 13px;
+    color: #64748b;
+}
+
+.owner-group-store {
+    border-top: 1px solid #e2e8f0;
+    padding: 12px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+}
+
+.owner-group-store:first-of-type {
+    border-top: none;
+}
+
+.owner-group-store button {
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: none;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    background: #3b82f6;
+    color: #ffffff;
+}
+
+.owner-group-empty {
+    padding: 24px;
+    border: 1px dashed #cbd5f5;
+    border-radius: 12px;
+    background: #f8fafc;
+    color: #94a3b8;
+    text-align: center;
+    font-size: 14px;
+}
+
+.owner-manage-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.owner-manage-subtitle {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: #64748b;
+}
+
+.owner-manage-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.owner-manage-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+}
+
+.owner-manage-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: #1f2937;
+}
+
+.owner-manage-info span {
+    font-size: 13px;
+    color: #64748b;
+}
+
+.owner-manage-empty {
+    padding: 24px;
+    background: #f8fafc;
+    border: 1px dashed #cbd5f5;
+    border-radius: 12px;
+    text-align: center;
+    color: #475569;
+    font-size: 14px;
+}
+
+.owner-manage-add {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.owner-manage-add select {
+    flex: 1;
+}
+
+.owner-profile-card {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+}
+
+.profile-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    margin-bottom: 6px;
+}
+
+.profile-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+    word-break: break-word;
+}
+
+.basic-summary-intro {
+    margin-bottom: 16px;
+}
+
+.summary-highlight {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+    border-left: 4px solid #667eea;
+    padding: 12px 16px;
+    border-radius: 8px;
+    color: #4c51bf;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.basic-summary-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+    margin-bottom: 24px;
+}
+
+.basic-summary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.basic-summary-header h3 {
+    font-size: 18px;
+    color: #1e293b;
+    font-weight: 700;
+}
+
+.basic-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+.summary-item {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 90px;
+}
+
+.summary-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+
+.summary-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+    line-height: 1.4;
+    word-break: break-word;
+    white-space: pre-line;
+}
+
+.summary-item.summary-domain {
+    position: relative;
+    padding-bottom: 56px;
+}
+
+.summary-qr-btn {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    width: calc(100% - 32px);
+}
+
+.summary-domain-notice {
+    margin: 16px 0 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #64748b;
+}
+.menu-section-title {
+    margin: 20px 0 8px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+}
+body.owner-mode .menu-section-title[data-role="superadmin-only"] {
+    display: none !important;
+}
+body:not(.owner-mode) .menu-section-title.owner-only {
+    display: none !important;
+}
+.store-toolbar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.store-filters {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    flex: 1;
+}
+.store-filters input,
+.store-filters select {
+    padding: 12px 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #fff;
+    color: #1f2937;
+}
+.store-filters input {
+    min-width: 220px;
+    flex: 1 1 260px;
+}
+.store-filters select {
+    cursor: pointer;
+}
+.store-view-toggle {
+    display: inline-flex;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    background: #f8fafc;
+    padding: 3px;
+}
+.store-view-btn {
+    border: none;
+    background: transparent;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+.store-view-btn.active {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: white;
+    box-shadow: 0 4px 10px rgba(79, 70, 229, 0.25);
+}
+.store-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    margin: 16px 0;
+}
+.store-pagination-info {
+    font-size: 13px;
+    color: #475569;
+}
+
+.summary-action {
+    font-weight: 600;
+    padding: 10px 18px;
+}
+
+.hidden-basic-inputs {
+    display: none;
+}
+
+.basic-info-wizard-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.35);
+    backdrop-filter: blur(2px);
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 24px;
+}
+
+.basic-wizard-card {
+    width: min(640px, 100%);
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+    border: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+}
+
+.basic-wizard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.basic-wizard-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.wizard-close-btn {
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    color: #64748b;
+}
+
+.wizard-stepper {
+    display: flex;
+    gap: 8px;
+    padding: 16px 24px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.wizard-step-indicator {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    background: #ffffff;
+}
+
+.wizard-step-indicator.active {
+    border-color: #6366f1;
+    background: #eef2ff;
+    color: #4338ca;
+}
+
+.wizard-step-indicator span {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #475569;
+}
+
+.wizard-step-indicator.active span {
+    background: #6366f1;
+    color: #fff;
+}
+
+.basic-wizard-body {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.wizard-step {
+    display: none;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.wizard-step.active {
+    display: flex;
+}
+
+.wizard-footer {
+    padding: 20px 24px;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    background: #f8fafc;
+    border-radius: 0 0 16px 16px;
+}
+
+.wizard-review-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    background: #f8fafc;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.wizard-review-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.wizard-review-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    letter-spacing: 0.04em;
+}
+
+.wizard-review-value {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1f2937;
+    word-break: break-word;
+}
+
+.wizard-address-group .address-row {
+    flex-wrap: nowrap;
+}
+
+.wizard-secondary-info {
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 12px 16px;
+    border: 1px solid #e2e8f0;
+    font-size: 13px;
+    color: #475569;
+}
 
         .address-row input {
             flex: 1;
@@ -2813,12 +3394,12 @@
                     </div>
                 </div>
 
+                <div class="menu-section-title">공통</div>
                 <div class="menu-item" onclick="showSection('dashboard')">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M9 3v18"/><path d="M15 9h6"/><path d="M15 15h6"/></svg>
                     대시보드
                 </div>
-                
-                <!-- 선택된 가게 카드 -->
+
                 <div id="selectedStoreCard" class="selected-store-card">
                     <div class="selected-store-header">
                         <div class="selected-store-logo" id="selectedStoreLogo">
@@ -2829,7 +3410,7 @@
                     <div class="selected-store-name" id="selectedStoreName">가게를 선택해주세요</div>
                     <div class="selected-store-subtitle" id="selectedStoreSubtitle">좌측 가게 목록에서 선택하세요</div>
                 </div>
-                
+
                 <div class="menu-item" data-menu="store-management" onclick="showSection('stores')">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                     가게 관리
@@ -2838,17 +3419,9 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                     기본 정보
                 </div>
-                <div class="menu-sub-item" onclick="showSection('domain-settings')">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                    도메인 설정
-                </div>
                 <div class="menu-item" onclick="showSection('delivery')">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
                     배달앱 설정
-                </div>
-                <div class="menu-item" data-role="superadmin-only" onclick="showSection('accounts')">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-3-3.87"/><path d="M4 19.62V21"/><circle cx="12" cy="7" r="4"/><path d="M4 21a4 4 0 0 1 4-4h5"/></svg>
-                    계정 관리
                 </div>
                 <div class="menu-item" onclick="showSection('images')">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
@@ -2861,6 +3434,18 @@
                 <div class="menu-item" onclick="showSection('section-order')">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                     UI 순서 변경
+                </div>
+
+                <div class="menu-section-title owner-only">사장님 전용</div>
+                <div class="menu-item owner-only" data-menu="owner-account" onclick="showSection('owner-account')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1l9 4v6c0 5-3.8 9.4-9 11-5.2-1.6-9-6-9-11V5l9-4z"/><circle cx="12" cy="11" r="3"/></svg>
+                    내 계정
+                </div>
+
+                <div class="menu-section-title" data-role="superadmin-only">슈퍼어드민 전용</div>
+                <div class="menu-item" data-role="superadmin-only" onclick="showSection('accounts')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-3-3.87"/><path d="M4 19.62V21"/><circle cx="12" cy="7" r="4"/><path d="M4 21a4 4 0 0 1 4-4h5"/></svg>
+                    점주 계정 관리
                 </div>
                 <div class="menu-item" data-role="superadmin-only" onclick="showSection('activity-logs')">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -2875,7 +3460,7 @@
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge">v1.5.0</div>
+                    <div class="version-badge">v1.4.5</div>
                 </div>
                 <a href="/admin/release-notes" class="release-notes-btn">
                     릴리즈 노트
@@ -3014,42 +3599,61 @@
                 </div>
                 
                 <!-- 검색 및 필터 -->
-                <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
-                    <input type="text" id="storeSearchInput" placeholder="가게명, 전화번호, 주소 검색..." 
-                           style="flex: 1; min-width: 250px; padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 14px;"
-                           onkeyup="filterStoreList()" />
-                    <select id="storeStatusFilter" style="padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 14px; cursor: pointer;"
-                            onchange="filterStoreList()">
-                        <option value="">전체 상태</option>
-                        <option value="active">활성</option>
-                        <option value="paused">일시정지</option>
-                    </select>
-                    <select id="storeSortBy" style="padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 14px; cursor: pointer;"
-                            onchange="filterStoreList()">
-                        <option value="name">이름순</option>
-                        <option value="createdAt">생성일순</option>
-                        <option value="lastModified">최근 수정순</option>
-                    </select>
+                <div class="store-toolbar">
+                    <div class="store-filters">
+                        <input type="text" id="storeSearchInput" placeholder="가게명, 전화번호, 주소 검색..." 
+                               onkeyup="handleStoreSearchInput()" />
+                        <select id="storeStatusFilter" onchange="handleStoreStatusFilterChange()">
+                            <option value="">전체 상태</option>
+                            <option value="active">활성</option>
+                            <option value="paused">일시정지</option>
+                        </select>
+                        <select id="storeOwnerFilter" onchange="handleStoreOwnerFilterChange()">
+                            <option value="">전체 점주</option>
+                            <option value="__unassigned">미연결</option>
+                        </select>
+                        <select id="storeCreatedFilter" onchange="handleStoreCreatedFilterChange()">
+                            <option value="">전체 기간</option>
+                            <option value="today">오늘 등록</option>
+                        </select>
+                        <select id="storeSortBy" onchange="handleStoreSortChange()">
+                            <option value="createdAt">생성일순</option>
+                            <option value="name">이름순</option>
+                            <option value="lastModified">최근 수정순</option>
+                        </select>
+                    </div>
+                    <div class="store-view-toggle">
+                        <button type="button" class="store-view-btn active" data-view="store" onclick="setStoreViewMode('store')">가게별</button>
+                        <button type="button" class="store-view-btn" data-view="owner" onclick="setStoreViewMode('owner')">점주별</button>
+                    </div>
                 </div>
                 
                 <div class="form-group">
                     <label>가게 목록 (<span id="filteredStoresCount">0</span>개)</label>
-                    <div id="storeTableContainer" style="overflow-x: auto;">
+                    <div id="storeTableWrapper" style="overflow-x: auto;">
                         <table id="storeTable" style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden;">
                             <thead style="background: #f8fafc;">
                                 <tr>
                                     <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 2px solid #e2e8f0;">ID</th>
                                     <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 2px solid #e2e8f0;">가게명</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 2px solid #e2e8f0;">연결된 점주</th>
                                     <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 2px solid #e2e8f0;">전화번호</th>
                                     <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 2px solid #e2e8f0;">상태</th>
                                     <th style="padding: 12px; text-align: center; font-weight: 600; color: #475569; border-bottom: 2px solid #e2e8f0;">작업</th>
                                 </tr>
                             </thead>
                             <tbody id="storeTableBody">
-                                <tr><td colspan="5" style="padding: 20px; text-align: center; color: #94a3b8;">로딩 중...</td></tr>
+                                <tr><td colspan="6" style="padding: 20px; text-align: center; color: #94a3b8;">로딩 중...</td></tr>
                             </tbody>
                         </table>
                     </div>
+                    <div class="owner-group-container" id="ownerGroupContainer"></div>
+                </div>
+
+                <div class="store-pagination" id="storePagination">
+                    <button type="button" class="btn btn-secondary" id="storePrevPageBtn" onclick="changeStorePage(-1)">이전</button>
+                    <span class="store-pagination-info" id="storePaginationInfo">1 / 1</span>
+                    <button type="button" class="btn btn-secondary" id="storeNextPageBtn" onclick="changeStorePage(1)">다음</button>
                 </div>
 
                 <div class="button-group" style="display: flex; gap: 12px; flex-wrap: wrap;">
@@ -3066,6 +3670,13 @@
                         CSV 내보내기
                     </button>
                 </div>
+
+                <div class="owner-store-actions owner-only" id="ownerStoreActions">
+                    <button onclick="openOwnerStoreRequestModal()" class="btn btn-primary owner-action-btn">
+                        추가 입점 신청
+                    </button>
+                    <p>추가 입점 신청이 승인되면 목록에 새로운 가게가 표시됩니다.</p>
+                </div>
             </div>
             <!-- 기본 정보 -->
             <div class="admin-section" id="basic">
@@ -3074,49 +3685,85 @@
                     기본 정보
                 </h2>
                 
-                <div style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-left: 4px solid #667eea; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px;">
-                    <div style="display: flex; align-items: center; gap: 8px; color: #667eea; font-weight: 600; font-size: 14px;">
+                <div class="basic-summary-intro">
+                    <div class="summary-highlight">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                        입력 후 자동 저장됩니다
+                        기본 정보는 아래 요약으로 확인할 수 있습니다. <strong>설정 변경</strong> 버튼을 눌러 단계별로 수정하세요.
                     </div>
                 </div>
-                
-                <div class="form-group">
-                    <label for="storeName">가게명</label>
-                    <input type="text" id="storeName" class="form-input" placeholder="가게명을 입력하세요" onblur="saveBasicInfo()">
-                </div>
-                
-                <div class="form-group">
-                    <label for="storeSubtitle">하단 텍스트</label>
-                    <div style="display: flex; gap: 8px; align-items: center;">
-                        <input type="text" id="storeSubtitle" class="form-input" placeholder="하단 텍스트를 입력하세요" onblur="saveBasicInfo()" style="flex: 1;">
-                        <button type="button" onclick="generateSubtitleWithAI()" class="ai-generate-btn" title="AI로 하단 텍스트 자동 생성">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-                            </svg>
-                            AI 작성
-                        </button>
+
+                <div class="basic-summary-card" id="basicSummaryCard">
+                    <div class="basic-summary-header">
+                        <h3>기본 정보 요약</h3>
+                        <button type="button" class="btn btn-primary summary-action" onclick="openBasicInfoWizard()">설정 변경</button>
                     </div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="storePhone">전화번호</label>
-                    <input type="text" id="storePhone" class="form-input" placeholder="전화번호를 입력하세요" onblur="saveBasicInfo()">
-                </div>
-                
-                <div class="form-group">
-                    <label for="storePostalCode">주소</label>
-                    <div class="address-search-group">
-                        <div class="address-row">
-                            <input type="text" id="storePostalCode" class="form-input" placeholder="우편번호" readonly>
-                            <button type="button" class="btn btn-secondary" style="padding: 10px 16px; font-size: 14px;" onclick="openAddressSearch()">주소 검색</button>
+                    <div class="basic-summary-grid">
+                        <div class="summary-item">
+                            <span class="summary-label">가게명</span>
+                            <span class="summary-value" id="summaryStoreName">-</span>
                         </div>
-                        <input type="text" id="storeRoadAddress" class="form-input" placeholder="도로명 주소" readonly>
-                        <input type="text" id="storeExtraAddress" class="form-input" placeholder="참고 항목" readonly>
-                        <input type="text" id="storeAddressDetail" class="form-input" placeholder="상세 주소를 입력하세요" oninput="syncFullAddress()" onblur="handleAddressDetailBlur()">
-                        <input type="hidden" id="storeAddress">
+                        <div class="summary-item">
+                            <span class="summary-label">하단 텍스트</span>
+                            <span class="summary-value" id="summaryStoreSubtitle">-</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">전화번호</span>
+                            <span class="summary-value" id="summaryStorePhone">-</span>
+                        </div>
+                        <div class="summary-item summary-address">
+                            <span class="summary-label">주소</span>
+                            <span class="summary-value" id="summaryStoreAddress">-</span>
+                        </div>
+                        <div class="summary-item summary-domain">
+                            <span class="summary-label">도메인</span>
+                            <span class="summary-value" id="summaryStoreDomain">-</span>
+                            <button type="button" class="btn btn-secondary summary-qr-btn" id="summaryQrDownloadBtn" style="display:none;" onclick="downloadDomainQR()">
+                                QR 다운로드
+                            </button>
+                        </div>
                     </div>
-                    <small style="margin-top: 6px; display: block; color: #64748b;">주소 검색을 통해 도로명 주소를 선택하고, 상세 주소를 입력하면 자동 저장됩니다.</small>
+                    <p class="summary-domain-notice" id="summaryDomainNotice"></p>
+                </div>
+                <input type="hidden" id="subdomain" value="">
+
+                <div id="basicHiddenInputs" class="hidden-basic-inputs">
+                    <div class="form-group">
+                        <label for="storeName">가게명</label>
+                        <input type="text" id="storeName" class="form-input" placeholder="가게명을 입력하세요" onblur="saveBasicInfo()">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="storeSubtitle">하단 텍스트</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="text" id="storeSubtitle" class="form-input" placeholder="하단 텍스트를 입력하세요" onblur="saveBasicInfo()" style="flex: 1;">
+                            <button type="button" onclick="generateSubtitleWithAI()" class="ai-generate-btn" title="AI로 하단 텍스트 자동 생성">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                                </svg>
+                                AI 작성
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="storePhone">전화번호</label>
+                        <input type="text" id="storePhone" class="form-input" placeholder="전화번호를 입력하세요" onblur="saveBasicInfo()">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="storePostalCode">주소</label>
+                        <div class="address-search-group">
+                            <div class="address-row">
+                                <input type="text" id="storePostalCode" class="form-input" placeholder="우편번호" readonly>
+                                <button type="button" class="btn btn-secondary" style="padding: 10px 16px; font-size: 14px;" onclick="openAddressSearch()">주소 검색</button>
+                            </div>
+                            <input type="text" id="storeRoadAddress" class="form-input" placeholder="도로명 주소" readonly>
+                            <input type="text" id="storeExtraAddress" class="form-input" placeholder="참고 항목" readonly>
+                            <input type="text" id="storeAddressDetail" class="form-input" placeholder="상세 주소를 입력하세요" oninput="syncFullAddress()" onblur="handleAddressDetailBlur()">
+                            <input type="hidden" id="storeAddress">
+                        </div>
+                        <small style="margin-top: 6px; display: block; color: #64748b;">주소 검색을 통해 도로명 주소를 선택하고, 상세 주소를 입력하면 자동 저장됩니다.</small>
+                    </div>
                 </div>
                 
                 <!-- 영업시간 조회 -->
@@ -3456,6 +4103,52 @@
                 </div>
             </div>
 
+            <div class="admin-section owner-only" id="owner-account">
+                <h2 class="section-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7v7c0 5 3.5 9.4 10 11 6.5-1.6 10-6 10-11V7l-10-5z"/><circle cx="12" cy="11" r="3"/></svg>
+                    내 계정
+                </h2>
+
+                <div class="owner-profile-card">
+                    <div>
+                        <div class="profile-label">로그인 이메일</div>
+                        <div class="profile-value" id="ownerAccountEmail">-</div>
+                    </div>
+                    <div>
+                        <div class="profile-label">대표 이름</div>
+                        <div class="profile-value" id="ownerAccountName">-</div>
+                    </div>
+                </div>
+
+                <div class="settings-form">
+                    <div class="form-card">
+                        <div class="form-header">
+                            <h3>비밀번호 변경</h3>
+                            <p>현재 비밀번호를 입력하고 새 비밀번호를 설정해주세요. 8자 이상을 권장합니다.</p>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ownerCurrentPassword">현재 비밀번호</label>
+                            <input type="password" id="ownerCurrentPassword" class="form-input" placeholder="현재 비밀번호를 입력하세요">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ownerNewPassword">새 비밀번호</label>
+                            <input type="password" id="ownerNewPassword" class="form-input" placeholder="새 비밀번호 (8자 이상)">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ownerNewPasswordConfirm">새 비밀번호 확인</label>
+                            <input type="password" id="ownerNewPasswordConfirm" class="form-input" placeholder="새 비밀번호를 다시 입력하세요">
+                        </div>
+
+                        <div class="button-group">
+                            <button type="button" class="btn btn-primary" onclick="changeOwnerPassword()">비밀번호 변경</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 활동 로그 -->
             <div class="admin-section" id="activity-logs">
                 <h2 class="section-title">
@@ -3484,118 +4177,6 @@
                 </div>
             </div>
 
-            <!-- 도메인 설정 -->
-            <div class="admin-section" id="domain-settings">
-                <h2 class="section-title">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                    도메인 설정
-                </h2>
-                
-                <div style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-left: 4px solid #667eea; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px;">
-                    <div style="display: flex; align-items: center; gap: 8px; color: #667eea; font-weight: 600; font-size: 14px;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                        서브도메인 설정 후 QR 코드를 생성할 수 있습니다
-                    </div>
-                </div>
-                
-                <div class="form-card">
-                    <div class="form-header">
-                        <div class="form-header-title">
-                            <div class="form-icon">🌐</div>
-                            <h3>서브도메인 설정</h3>
-                        </div>
-                        <p>가게 전용 URL을 설정하고 QR 코드를 생성하세요</p>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="subdomain">경로명</label>
-                        <div style="display: flex; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-                            <div style="background: #e2e8f0; color: #64748b; padding: 12px 16px; font-size: 14px; font-weight: 500; border-right: 1px solid #cbd5e1;" id="domainPrefix">localhost:8081/</div>
-                            <input type="text" id="subdomain" class="form-input" placeholder="경로명을 입력하세요 (예: mystore)" onblur="saveDomainSettings()" style="border: none; background: transparent; flex: 1;">
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13px; color: #64748b;">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="12" cy="12" r="10"/>
-                                <path d="M12 6v6l4 2"/>
-                            </svg>
-                            <span>설정 후 고객들이 /경로명 으로 접속할 수 있습니다</span>
-                        </div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 12px; margin-bottom: 24px;">
-                        <button onclick="saveDomainSettings()" class="btn btn-primary">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                                <polyline points="17 21 17 13 7 13 7 21"/>
-                                <polyline points="7 3 7 8 15 8"/>
-                            </svg>
-                            설정 저장
-                        </button>
-                        <button onclick="testDomainConnection()" class="btn btn-secondary">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                                <polyline points="22 4 12 14.01 9 11.01"/>
-                            </svg>
-                            연결 테스트
-                        </button>
-                    </div>
-                    
-                    <div style="border-top: 1px solid #e2e8f0; padding-top: 24px;">
-                        <div class="form-header">
-                            <div class="form-header-title">
-                                <div class="form-icon">📱</div>
-                                <h3>QR 코드</h3>
-                            </div>
-                            <p>설정된 도메인으로 QR 코드를 생성하세요</p>
-                        </div>
-                        
-                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                <span style="font-size: 14px; font-weight: 500; color: #64748b;">현재 도메인:</span>
-                                <span id="currentDomain" style="font-size: 14px; font-weight: 600; color: #1e293b;">localhost:8081</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-size: 14px; font-weight: 500; color: #64748b;">설정된 경로:</span>
-                                <span id="currentSubdomain" style="font-size: 14px; font-weight: 600; color: #1e293b;">설정되지 않음</span>
-                            </div>
-                        </div>
-                        
-                        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                            <button onclick="generateDomainQR()" class="btn btn-primary" id="generateDomainQRBtn" disabled>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <rect x="3" y="3" width="5" height="5"/>
-                                    <rect x="3" y="16" width="5" height="5"/>
-                                    <rect x="16" y="3" width="5" height="5"/>
-                                    <rect x="16" y="16" width="5" height="5"/>
-                                </svg>
-                                QR 생성
-                            </button>
-                            <button onclick="downloadDomainQR()" class="btn btn-secondary" id="downloadDomainQRBtn" style="display: none;">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                    <polyline points="7 10 12 15 17 10"/>
-                                    <line x1="12" y1="15" x2="12" y2="3"/>
-                                </svg>
-                                다운로드
-                            </button>
-                            <button onclick="deleteDomainQR()" class="btn btn-danger" id="deleteDomainQRBtn" style="display: none;">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polyline points="3 6 5 6 21 6"/>
-                                    <path d="M19 6v14a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2v2"/>
-                                </svg>
-                                삭제
-                            </button>
-                        </div>
-                        
-                        <div id="domainQRPreview" style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; text-align: center; display: none;">
-                            <h5 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: #1e293b;">QR 코드 미리보기</h5>
-                            <div style="display: flex; justify-content: center;">
-                                <img id="domainQRImage" src="" alt="도메인 QR 코드" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <!-- 슈퍼어드민 계정 관리 -->
             <div class="admin-section" id="superadmin">
@@ -3625,6 +4206,189 @@
             </div>
         </div>
     </div>
+
+    <!-- 기본 정보 스텝 모달 -->
+    <div class="basic-info-wizard-modal" id="basicInfoWizardModal">
+        <div class="basic-wizard-card">
+            <div class="basic-wizard-header">
+                <h3>기본 정보 설정</h3>
+                <button class="wizard-close-btn" onclick="closeBasicInfoWizard()">&times;</button>
+            </div>
+            <div class="wizard-stepper" id="basicWizardStepper">
+                <div class="wizard-step-indicator" data-step-key="basic">
+                    <span>1</span>
+                    기본 정보
+                </div>
+                <div class="wizard-step-indicator" data-step-key="contact">
+                    <span>2</span>
+                    연락처 · 주소
+                </div>
+                <div class="wizard-step-indicator" data-step-key="domain">
+                    <span>3</span>
+                    도메인
+                </div>
+                <div class="wizard-step-indicator" data-step-key="review">
+                    <span>4</span>
+                    확인
+                </div>
+            </div>
+            <div class="basic-wizard-body">
+                <div class="wizard-step" data-step-key="basic">
+                    <div class="form-group">
+                        <label for="wizardStoreName">가게명</label>
+                        <input type="text" id="wizardStoreName" class="form-input" placeholder="예: 픽업 맛집 강남점">
+                    </div>
+                    <div class="form-group">
+                        <label for="wizardStoreSubtitle">하단 텍스트</label>
+                        <input type="text" id="wizardStoreSubtitle" class="form-input" placeholder="예: 평일 11시~20시 / 주말 12시~18시">
+                    </div>
+                    <div class="wizard-secondary-info">
+                        입력한 내용은 저장 후 즉시 가게 페이지에 반영됩니다.
+                    </div>
+                </div>
+                <div class="wizard-step" data-step-key="contact">
+                    <div class="form-group">
+                        <label for="wizardStorePhone">전화번호</label>
+                        <input type="text" id="wizardStorePhone" class="form-input" placeholder="예: 010-1234-5678">
+                    </div>
+                    <div class="form-group wizard-address-group">
+                        <label>주소</label>
+                        <div class="address-search-group">
+                            <div class="address-row">
+                                <input type="text" id="wizardPostalCode" class="form-input" placeholder="우편번호" readonly>
+                                <button type="button" class="btn btn-secondary" style="padding: 10px 16px; font-size: 14px;" onclick="openWizardAddressSearch()">주소 검색</button>
+                            </div>
+                            <input type="text" id="wizardRoadAddress" class="form-input" placeholder="도로명 주소" readonly>
+                            <input type="text" id="wizardExtraAddress" class="form-input" placeholder="참고 항목" readonly>
+                            <input type="text" id="wizardAddressDetail" class="form-input" placeholder="상세 주소를 입력하세요">
+                            <input type="hidden" id="wizardFullAddress">
+                        </div>
+                    </div>
+                </div>
+                <div class="wizard-step" data-step-key="domain">
+                    <div class="form-group">
+                        <label for="wizardSubdomain">서브도메인</label>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <input type="text" id="wizardSubdomain" class="form-input" placeholder="예: mystore" style="flex:1;">
+                            <button type="button" class="btn btn-secondary" id="wizardGenerateQrBtn" onclick="handleWizardGenerateDomainQR()" style="display:none;">
+                                QR 생성
+                            </button>
+                        </div>
+                        <small class="form-helper" id="wizardDomainHelper">
+                            도메인은 최초 1회만 설정할 수 있으며 QR 생성 후에는 수정할 수 없습니다.
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label>도메인 미리보기</label>
+                        <div class="wizard-domain-preview" id="wizardDomainPreview">-</div>
+                    </div>
+                </div>
+                <div class="wizard-step" data-step-key="review">
+                    <div class="wizard-review-card">
+                        <div class="wizard-review-item">
+                            <span class="wizard-review-label">가게명</span>
+                            <span class="wizard-review-value" id="wizardReviewStoreName">-</span>
+                        </div>
+                        <div class="wizard-review-item">
+                            <span class="wizard-review-label">하단 텍스트</span>
+                            <span class="wizard-review-value" id="wizardReviewStoreSubtitle">-</span>
+                        </div>
+                        <div class="wizard-review-item">
+                            <span class="wizard-review-label">전화번호</span>
+                            <span class="wizard-review-value" id="wizardReviewStorePhone">-</span>
+                        </div>
+                        <div class="wizard-review-item">
+                            <span class="wizard-review-label">주소</span>
+                            <span class="wizard-review-value" id="wizardReviewStoreAddress">-</span>
+                        </div>
+                        <div class="wizard-review-item">
+                            <span class="wizard-review-label">도메인</span>
+                            <span class="wizard-review-value" id="wizardReviewDomain">-</span>
+                        </div>
+                    </div>
+                    <div class="wizard-secondary-info">
+                        입력 내용을 다시 확인한 뒤 저장을 누르면 즉시 적용됩니다.
+                    </div>
+                </div>
+            </div>
+            <div class="wizard-footer">
+                <button type="button" class="btn btn-secondary" id="basicWizardPrevBtn" onclick="handleBasicWizardPrev()">이전</button>
+                <button type="button" class="btn btn-primary" id="basicWizardNextBtn" onclick="handleBasicWizardNext()">다음</button>
+                <button type="button" class="btn btn-primary" id="basicWizardSaveBtn" style="display: none;" onclick="submitBasicInfoWizard()">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 추가 입점 신청 모달 -->
+    <div class="basic-info-wizard-modal" id="ownerStoreRequestModal">
+        <div class="basic-wizard-card">
+            <div class="basic-wizard-header">
+                <h3>추가 입점 신청</h3>
+                <button class="wizard-close-btn" onclick="closeOwnerStoreRequestModal()">&times;</button>
+            </div>
+            <div class="basic-wizard-body" style="padding-bottom: 0;">
+                <div class="form-group">
+                    <label for="ownerRequestStoreName">가게명</label>
+                    <input type="text" id="ownerRequestStoreName" class="form-input" placeholder="추가로 운영할 가게명을 입력하세요">
+                </div>
+                <div class="form-group">
+                    <label for="ownerRequestSubtitle">한 줄 소개 (선택)</label>
+                    <input type="text" id="ownerRequestSubtitle" class="form-input" placeholder="예: 직영 2호점, 주말 브런치 전문 등">
+                </div>
+                <div class="form-group">
+                    <label for="ownerRequestPhone">연락처</label>
+                    <input type="text" id="ownerRequestPhone" class="form-input" placeholder="예: 010-1234-5678">
+                </div>
+                <div class="form-group wizard-address-group">
+                    <label>가게 주소</label>
+                    <div class="address-search-group">
+                        <div class="address-row">
+                            <input type="text" id="ownerRequestPostalCode" class="form-input" placeholder="우편번호" readonly>
+                            <button type="button" class="btn btn-secondary" style="padding: 10px 16px; font-size: 14px;" onclick="openOwnerRequestAddressSearch()">주소 검색</button>
+                        </div>
+                        <input type="text" id="ownerRequestRoadAddress" class="form-input" placeholder="도로명 주소" readonly>
+                        <input type="text" id="ownerRequestExtraAddress" class="form-input" placeholder="참고 항목" readonly>
+                        <input type="text" id="ownerRequestAddressDetail" class="form-input" placeholder="상세 주소를 입력하세요">
+                        <input type="hidden" id="ownerRequestFullAddress">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="ownerRequestMemo">추가 메모 (선택)</label>
+                    <textarea id="ownerRequestMemo" class="form-input" rows="3" placeholder="추가 안내 사항이나 운영 계획을 적어주세요."></textarea>
+                </div>
+            </div>
+            <div class="wizard-footer" style="border-top: none;">
+                <button type="button" class="btn btn-secondary" onclick="closeOwnerStoreRequestModal()">취소</button>
+                <button type="button" class="btn btn-primary" onclick="submitOwnerStoreRequest()">입점 신청</button>
+            </div>
+        </div>
+    </div>
+
+<!-- 점주 연결 관리 모달 -->
+<div class="modal" id="storeOwnerManageModal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header owner-manage-header">
+            <div>
+                <h3 id="storeOwnerManageTitle">점주 연결 관리</h3>
+                <p class="owner-manage-subtitle" id="storeOwnerManageSubtitle"></p>
+            </div>
+            <button class="modal-close" onclick="closeStoreOwnerManageModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="storeOwnerManageList" class="owner-manage-list"></div>
+            <div class="form-group">
+                <label for="storeOwnerAddSelect">점주 연결</label>
+                <div class="owner-manage-add">
+                    <select id="storeOwnerAddSelect">
+                        <option value="">연결할 점주를 선택하세요</option>
+                    </select>
+                    <button type="button" class="btn btn-primary" id="storeOwnerAddBtn" onclick="handleStoreOwnerLink()">연결</button>
+                </div>
+                <small style="color:#64748b;">점주는 한 가게에만 1차 연결됩니다. 연결 시 기존 점주가 교체될 수 있습니다.</small>
+            </div>
+        </div>
+    </div>
+</div>
 
     <!-- 영업시간 설정 모달 -->
     <div id="businessHoursModal" class="modal" style="display: none;">
@@ -3785,6 +4549,91 @@
         let dashboardStoreSearchTerm = '';
         let dashboardStoreSearchTimer = null;
         let ownerManageModalState = null;
+        let storeOwnerManageState = { storeId: null };
+        let domainPermissionState = {
+            hasSubdomain: false,
+            qrLocked: false
+        };
+        let storeQueryState = {
+            page: 1,
+            pageSize: 10,
+            keyword: '',
+            status: '',
+            createdDate: '',
+            sortBy: 'createdAt',
+            sortOrder: 'desc',
+            ownerId: ''
+        };
+        let storePagination = {
+            page: 1,
+            pageSize: 10,
+            total: 0,
+            totalPages: 0
+        };
+        let storeViewMode = 'store';
+        let storeSearchTimer = null;
+        let ownerGroupedStores = [];
+
+        function serializeStoreForSession(store) {
+            if (!store || typeof store !== 'object') {
+                return null;
+            }
+            return {
+                id: store.id || '',
+                name: (store.basic?.storeName) || store.name || '',
+                status: store.status || '',
+                role: store.role || '',
+                subdomain: store.subdomain || '',
+                createdAt: store.createdAt || null,
+                linkedAt: store.linkedAt || null,
+                storePhone: store.basic?.storePhone || store.phone || ''
+            };
+        }
+
+        function restoreOwnerStoresFromSession() {
+            try {
+                const raw = sessionStorage.getItem('owner_store_list');
+                if (!raw) {
+                    return [];
+                }
+                const parsed = JSON.parse(raw);
+                if (!Array.isArray(parsed)) {
+                    return [];
+                }
+                return parsed
+                    .map(entry => {
+                        if (!entry || typeof entry !== 'object') {
+                            return null;
+                        }
+                        return {
+                            id: entry.id || '',
+                            role: entry.role || '',
+                            status: entry.status || '',
+                            subdomain: entry.subdomain || '',
+                            linkedAt: entry.linkedAt || null,
+                            createdAt: entry.createdAt || null,
+                            basic: {
+                                storeName: entry.name || '',
+                                storePhone: entry.storePhone || ''
+                            }
+                        };
+                    })
+                    .filter(store => store && store.id);
+            } catch (error) {
+                console.warn('owner_store_list 파싱 실패:', error);
+                return [];
+            }
+        }
+
+        function getStoreById(storeId) {
+            if (!storeId) {
+                return null;
+            }
+            return allStores.find(store => store.id === storeId)
+                || filteredStores.find(store => store.id === storeId)
+                || null;
+        }
+
         function findOwnerAccount(ownerId) {
             const owner = ownerAccounts.find(item => item.id === ownerId);
             if (!owner) {
@@ -3971,22 +4820,64 @@
 
         // 가게 목록 로드
         // 통계 업데이트
-        function updateStoreStats() {
+        function updateStoreStats(summary = null) {
+            if (summary && typeof summary === 'object') {
+                document.getElementById('totalStoresCount').textContent = summary.total ?? 0;
+                document.getElementById('activeStoresCount').textContent = summary.active ?? 0;
+                document.getElementById('pausedStoresCount').textContent = summary.paused ?? 0;
+                document.getElementById('todayStoresCount').textContent = summary.today ?? 0;
+                return;
+            }
+
             const total = allStores.length;
             const active = allStores.filter(s => s.status === 'active').length;
             const paused = allStores.filter(s => s.status === 'paused').length;
-            
-            // 오늘 추가된 가게
             const today = new Date().toISOString().split('T')[0];
             const todayStores = allStores.filter(s => {
-                const createdDate = new Date(s.createdAt).toISOString().split('T')[0];
+                const createdDate = s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : '';
                 return createdDate === today;
             }).length;
-            
+
             document.getElementById('totalStoresCount').textContent = total;
             document.getElementById('activeStoresCount').textContent = active;
             document.getElementById('pausedStoresCount').textContent = paused;
             document.getElementById('todayStoresCount').textContent = todayStores;
+        }
+
+        // 가게 목록 API 응답을 배열 형태로 변환하는 헬퍼
+        function normalizeStoreListResponse(response) {
+            if (Array.isArray(response)) {
+                return response;
+            }
+            if (response && typeof response === 'object') {
+                if (Array.isArray(response.data)) {
+                    return response.data;
+                }
+                if (Array.isArray(response.stores)) {
+                    return response.stores;
+                }
+            }
+            return [];
+        }
+
+        // 단일 가게 API 응답에서 가게 객체를 추출하는 헬퍼
+        function normalizeStoreDetailResponse(response, storeId = null) {
+            if (!response) {
+                return null;
+            }
+            if (storeId) {
+                const list = normalizeStoreListResponse(response);
+                if (list.length > 0) {
+                    return list.find(store => store.id === storeId) || null;
+                }
+            }
+            if (typeof response === 'object' && response.id) {
+                return response;
+            }
+            if (response && typeof response === 'object' && response.data && response.data.id) {
+                return response.data;
+            }
+            return null;
         }
 
         async function reloadOwnerAccounts() {
@@ -4448,6 +5339,7 @@
             try {
                 await apiRequest(`${API_BASE}/owners/${ownerId}/pause`, 'POST', {});
                 await loadOwnerAccounts();
+                await loadStoreList();
                 showToast('계정을 일시 중지했습니다.', 'warning');
             } catch (error) {
                 console.error('계정 중지 실패:', error);
@@ -4460,6 +5352,7 @@
             try {
                 await apiRequest(`${API_BASE}/owners/${ownerId}/resume`, 'POST', {});
                 await loadOwnerAccounts();
+                await loadStoreList();
                 showToast('계정을 다시 활성화했습니다.', 'success');
             } catch (error) {
                 console.error('계정 재개 실패:', error);
@@ -4472,6 +5365,7 @@
             try {
                 await apiRequest(`${API_BASE}/owners/${ownerId}`, 'DELETE');
                 await loadOwnerAccounts();
+                await loadStoreList();
                 showToast('계정을 삭제했습니다.', 'warning');
             } catch (error) {
                 console.error('계정 삭제 실패:', error);
@@ -4506,45 +5400,424 @@
         if (ownerModalSubmitBtn) {
             ownerModalSubmitBtn.addEventListener('click', handleOwnerModalSubmit);
         }
-        // 가게 목록 필터링
-        function filterStoreList() {
-            const searchQuery = document.getElementById('storeSearchInput').value.toLowerCase();
-            const statusFilter = document.getElementById('storeStatusFilter').value;
-            const sortBy = document.getElementById('storeSortBy').value;
-            
-            // 필터링
-            filteredStores = allStores.filter(store => {
-                // 검색 필터
-                if (searchQuery) {
-                    const searchText = `${store.basic?.storeName || ''} ${store.basic?.storePhone || ''} ${store.basic?.storeAddress || ''}`.toLowerCase();
-                    if (!searchText.includes(searchQuery)) return false;
-                }
-                
-                // 상태 필터
-                if (statusFilter && store.status !== statusFilter) {
-                    return false;
-                }
-                
-                return true;
+        function handleStoreSearchInput() {
+            const value = document.getElementById('storeSearchInput').value.trim();
+            if (storeSearchTimer) {
+                clearTimeout(storeSearchTimer);
+            }
+            storeSearchTimer = setTimeout(() => {
+                storeQueryState.keyword = value;
+                storeQueryState.page = 1;
+                loadStoreList();
+            }, 300);
+        }
+
+        function handleStoreStatusFilterChange() {
+            storeQueryState.status = document.getElementById('storeStatusFilter').value;
+            storeQueryState.page = 1;
+            loadStoreList();
+        }
+
+        function handleStoreOwnerFilterChange() {
+            storeQueryState.ownerId = document.getElementById('storeOwnerFilter').value;
+            storeQueryState.page = 1;
+            loadStoreList();
+        }
+
+        function handleStoreCreatedFilterChange() {
+            storeQueryState.createdDate = document.getElementById('storeCreatedFilter').value;
+            storeQueryState.page = 1;
+            loadStoreList();
+        }
+
+        function handleStoreSortChange() {
+            const sortValue = document.getElementById('storeSortBy').value;
+            storeQueryState.sortBy = sortValue;
+            storeQueryState.sortOrder = sortValue === 'name' ? 'asc' : 'desc';
+            storeQueryState.page = 1;
+            loadStoreList();
+        }
+
+        function setStoreViewMode(mode) {
+            if (!mode || storeViewMode === mode) {
+                return;
+            }
+            storeViewMode = mode;
+            storeQueryState.page = 1;
+            const buttons = document.querySelectorAll('.store-view-btn');
+            buttons.forEach(btn => {
+                const btnMode = btn.getAttribute('data-view');
+                btn.classList.toggle('active', btnMode === mode);
             });
-            
-            // 정렬
-            filteredStores.sort((a, b) => {
-                if (sortBy === 'name') {
-                    return (a.basic?.storeName || '').localeCompare(b.basic?.storeName || '');
-                } else if (sortBy === 'createdAt') {
-                    return new Date(b.createdAt) - new Date(a.createdAt);
-                } else if (sortBy === 'lastModified') {
-                    return new Date(b.lastModified || b.createdAt) - new Date(a.lastModified || a.createdAt);
+            renderStoreView();
+            updateStorePaginationControls();
+        }
+
+        async function renderStoreView() {
+            if (storeViewMode === 'owner') {
+                renderOwnerGroupView();
+            } else {
+                await renderStoreTable();
+            }
+        }
+
+        function updateStorePaginationControls() {
+            const infoEl = document.getElementById('storePaginationInfo');
+            const prevBtn = document.getElementById('storePrevPageBtn');
+            const nextBtn = document.getElementById('storeNextPageBtn');
+
+            if (infoEl) {
+                const totalPages = storePagination.totalPages || 1;
+                if (storeViewMode === 'owner') {
+                    const ownerCount = ownerGroupedStores.length;
+                    infoEl.textContent = `${storePagination.page} / ${totalPages} (점주 그룹 ${ownerCount}개)`;
+                } else {
+                    infoEl.textContent = `${storePagination.page} / ${totalPages} (총 ${storePagination.total || 0}개)`;
                 }
-                return 0;
+            }
+            if (prevBtn) {
+                prevBtn.disabled = storePagination.page <= 1;
+            }
+            if (nextBtn) {
+                nextBtn.disabled = storePagination.page >= (storePagination.totalPages || 1);
+            }
+        }
+
+        function changeStorePage(delta) {
+            const nextPage = storePagination.page + delta;
+            const maxPage = storePagination.totalPages || 1;
+            if (nextPage < 1 || nextPage > maxPage) {
+                return;
+            }
+            storeQueryState.page = nextPage;
+            loadStoreList();
+        }
+
+        function buildOwnerGroups(stores) {
+            const groupsMap = new Map();
+            const unassignedKey = '__unassigned';
+
+            stores.forEach(store => {
+                const owners = Array.isArray(store.owners) && store.owners.length > 0 ? store.owners : [null];
+                owners.forEach(owner => {
+                    const ownerId = owner?.id || unassignedKey;
+                    const existing = groupsMap.get(ownerId);
+                    if (!existing) {
+                        groupsMap.set(ownerId, {
+                            ownerId,
+                            ownerName: owner?.ownerName || owner?.email || (ownerId === unassignedKey ? '미연결' : '이름 미상'),
+                            email: owner?.email || '',
+                            phone: owner?.phone || '',
+                            stores: []
+                        });
+                    }
+                    groupsMap.get(ownerId).stores.push(store);
+                });
             });
-            
-            // 필터링된 개수 업데이트
-            document.getElementById('filteredStoresCount').textContent = filteredStores.length;
-            
-            // 테이블 다시 렌더링
-            renderStoreTable();
+
+            return Array.from(groupsMap.values()).sort((a, b) => {
+                if (a.ownerId === '__unassigned') return 1;
+                if (b.ownerId === '__unassigned') return -1;
+                return (a.ownerName || '').localeCompare(b.ownerName || '', 'ko', { sensitivity: 'base' });
+            });
+        }
+
+        function populateOwnerFilterOptions(stores) {
+            const ownerFilter = document.getElementById('storeOwnerFilter');
+            if (!ownerFilter) return;
+
+            const previousValue = ownerFilter.value || storeQueryState.ownerId || '';
+            const ownerMap = new Map();
+
+            stores.forEach(store => {
+                const owners = Array.isArray(store.owners) ? store.owners : [];
+                owners.forEach(owner => {
+                    if (!owner?.id) {
+                        return;
+                    }
+                    if (!ownerMap.has(owner.id)) {
+                        ownerMap.set(owner.id, {
+                            id: owner.id,
+                            name: owner.ownerName || owner.email || '이름 미상',
+                            email: owner.email || ''
+                        });
+                    }
+                });
+            });
+
+            let optionsHtml = '<option value="">전체 점주</option><option value="__unassigned">미연결</option>';
+            const sortedOwners = Array.from(ownerMap.values()).sort((a, b) => a.name.localeCompare(b.name, 'ko', { sensitivity: 'base' }));
+            sortedOwners.forEach(owner => {
+                const displayLabel = owner.email ? `${owner.name} (${owner.email})` : owner.name;
+                optionsHtml += `<option value="${owner.id}">${displayLabel}</option>`;
+            });
+
+            ownerFilter.innerHTML = optionsHtml;
+            if (previousValue && (previousValue === '__unassigned' || ownerMap.has(previousValue))) {
+                ownerFilter.value = previousValue;
+            } else {
+                ownerFilter.value = '';
+                storeQueryState.ownerId = '';
+            }
+        }
+
+        function buildStoreStatusBadge(status) {
+            if (status === 'paused') {
+                return '<span style="display:inline-block;padding:4px 12px;background:#fef3c7;color:#92400e;border-radius:12px;font-size:12px;font-weight:600;">일시정지</span>';
+            }
+            if (status === 'pending') {
+                return '<span style="display:inline-block;padding:4px 12px;background:#e0e7ff;color:#4338ca;border-radius:12px;font-size:12px;font-weight:600;">입점대기</span>';
+            }
+            return '<span style="display:inline-block;padding:4px 12px;background:#d1fae5;color:#065f46;border-radius:12px;font-size:12px;font-weight:600;">활성</span>';
+        }
+
+        function renderStoreOwnersCell(store) {
+            const owners = Array.isArray(store?.owners) ? store.owners : [];
+            if (!owners.length) {
+                return '<span class="owner-tag empty">연결된 점주 없음</span>';
+            }
+            return owners.map(owner => {
+                const ownerName = owner?.ownerName || '이름 미상';
+                const ownerEmail = owner?.email ? `<span style="display:block; font-weight:400; color:#1d4ed8; font-size:11px;">${owner.email}</span>` : '';
+                return `<span class="owner-tag">${ownerName}${ownerEmail}</span>`;
+            }).join('');
+        }
+
+        function renderOwnerGroupView() {
+            const tableWrapper = document.getElementById('storeTableWrapper');
+            const groupsContainer = document.getElementById('ownerGroupContainer');
+            const pagination = document.getElementById('storePagination');
+            if (tableWrapper) {
+                tableWrapper.style.display = 'none';
+            }
+            if (groupsContainer) {
+                groupsContainer.style.display = 'block';
+            }
+            ownerGroupedStores = buildOwnerGroups(filteredStores);
+
+            if (!groupsContainer) return;
+
+            if (ownerGroupedStores.length === 0) {
+                groupsContainer.innerHTML = '<div class="owner-group-empty">현재 조건에 해당하는 점주가 없습니다.</div>';
+                if (pagination) {
+                    pagination.style.display = 'flex';
+                }
+                return;
+            }
+
+            const groupCardsHtml = ownerGroupedStores.map(group => {
+                const storeItems = group.stores.map(store => {
+                    const statusBadge = buildStoreStatusBadge(store.status);
+                    const storeName = store?.basic?.storeName || store?.name || '이름 없음';
+                    const phone = store?.basic?.storePhone || store?.phone || '-';
+                    const subdomain = store?.subdomain ? `${window.location.origin}/${store.subdomain}` : '';
+                    const address = store?.basic?.storeAddress || store?.address || '';
+                    return `
+                        <div class="owner-group-store">
+                            <div style="flex:1; min-width: 220px;">
+                                <div style="font-weight:700; color:#1f2937;">${storeName}</div>
+                                <div style="font-size:12px; color:#64748b; margin-top:4px;">
+                                    ${phone !== '-' ? `<span>${phone}</span>` : ''}
+                                    ${address ? `<span style="margin-left:8px;">${address}</span>` : ''}
+                                    ${subdomain ? `<span style="margin-left:8px; color:#2563eb;">${subdomain}</span>` : ''}
+                                </div>
+                            </div>
+                            <div>${statusBadge}</div>
+                            <button type="button" onclick="event.stopPropagation(); selectStore('${store.id}')">가게 선택</button>
+                        </div>
+                    `;
+                }).join('');
+
+                const ownerMeta = [];
+                if (group.email) {
+                    ownerMeta.push(group.email);
+                }
+                if (group.phone) {
+                    ownerMeta.push(group.phone);
+                }
+                const metaText = ownerMeta.length > 0 ? ownerMeta.join(' · ') : '연락처 없음';
+
+                return `
+                    <div class="owner-group-card">
+                        <div class="owner-group-header">
+                            <div>
+                                <div class="owner-group-title">${group.ownerName}</div>
+                                <div class="owner-group-meta">${metaText}</div>
+                            </div>
+                            <div class="owner-group-meta">연결된 가게 ${group.stores.length}곳</div>
+                        </div>
+                        ${storeItems}
+                    </div>
+                `;
+            }).join('');
+
+            groupsContainer.innerHTML = groupCardsHtml;
+            if (pagination) {
+                pagination.style.display = 'flex';
+            }
+        }
+
+        async function openStoreOwnerManageModal(storeId) {
+            if (!IS_SUPERADMIN) {
+                showToast('점주 연결 관리는 슈퍼어드민만 가능합니다.', 'error');
+                return;
+            }
+            storeOwnerManageState = { storeId };
+            if (ownerAccounts.length === 0) {
+                await loadOwnerAccounts();
+            }
+            const store = getStoreById(storeId);
+            if (!store) {
+                showToast('가게 정보를 찾을 수 없습니다.', 'error');
+                return;
+            }
+            renderStoreOwnerManageModal(store);
+            const modal = document.getElementById('storeOwnerManageModal');
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+        }
+
+        function closeStoreOwnerManageModal() {
+            const modal = document.getElementById('storeOwnerManageModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+            storeOwnerManageState = { storeId: null };
+        }
+
+        function renderStoreOwnerManageModal(store) {
+            const titleEl = document.getElementById('storeOwnerManageTitle');
+            const subtitleEl = document.getElementById('storeOwnerManageSubtitle');
+            const listEl = document.getElementById('storeOwnerManageList');
+            const selectEl = document.getElementById('storeOwnerAddSelect');
+            const addBtn = document.getElementById('storeOwnerAddBtn');
+
+            if (!listEl || !selectEl || !addBtn) {
+                return;
+            }
+
+            const storeName = escapeHtml(store.basic?.storeName || store.name || '이름 없음');
+            const subdomainLabel = store.subdomain ? ` /${escapeHtml(store.subdomain)}` : '';
+            if (titleEl) {
+                titleEl.textContent = '점주 연결 관리';
+            }
+            if (subtitleEl) {
+                subtitleEl.innerHTML = `<strong>${storeName}</strong>${subdomainLabel ? `<span style="color:#64748b;">${subdomainLabel}</span>` : ''}`;
+            }
+
+            const owners = Array.isArray(store.owners) ? store.owners.filter(owner => owner && owner.id) : [];
+            if (owners.length === 0) {
+                listEl.innerHTML = '<div class="owner-manage-empty">연결된 점주가 없습니다. 새로운 점주를 연결해주세요.</div>';
+            } else {
+                listEl.innerHTML = owners.map(owner => {
+                    const ownerName = escapeHtml(owner.ownerName || owner.email || '점주');
+                    const ownerEmail = owner.email ? `<span>${escapeHtml(owner.email)}</span>` : '';
+                    const ownerPhone = owner.phone ? `<span>${escapeHtml(owner.phone)}</span>` : '';
+                    const ownerRole = owner.role ? `<span>역할: ${escapeHtml(owner.role)}</span>` : '';
+                    const ownerIdAttr = escapeForAttribute(owner.id || '');
+                    return `
+                        <div class="owner-manage-item">
+                            <div class="owner-manage-info">
+                                <strong>${ownerName}</strong>
+                                ${ownerEmail}
+                                ${ownerPhone}
+                                ${ownerRole}
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button type="button" class="btn btn-secondary" onclick="handleStoreOwnerUnlink('${ownerIdAttr}')">연결 해제</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            const availableOwners = ownerAccounts
+                .filter(owner => owner.status === 'approved')
+                .filter(owner => !owners.some(linked => linked?.id === owner.id));
+
+            const optionsHtml = ['<option value="">연결할 점주를 선택하세요</option>']
+                .concat(availableOwners.map(owner => {
+                    const name = escapeHtml(owner.ownerName || owner.email || '점주');
+                    const email = owner.email ? ` (${escapeHtml(owner.email)})` : '';
+                    return `<option value="${escapeForAttribute(owner.id)}">${name}${email}</option>`;
+                }));
+
+            selectEl.innerHTML = optionsHtml.join('');
+            selectEl.value = '';
+            addBtn.disabled = availableOwners.length === 0;
+            if (availableOwners.length === 0) {
+                selectEl.title = '연결 가능한 승인된 점주가 없습니다.';
+            } else {
+                selectEl.title = '';
+            }
+        }
+
+        async function handleStoreOwnerLink() {
+            if (!IS_SUPERADMIN) {
+                showToast('점주 연결 권한이 없습니다.', 'error');
+                return;
+            }
+            const storeId = storeOwnerManageState.storeId;
+            if (!storeId) {
+                showToast('가게 정보가 확인되지 않았습니다.', 'error');
+                return;
+            }
+            const selectEl = document.getElementById('storeOwnerAddSelect');
+            if (!selectEl) {
+                return;
+            }
+            const ownerId = selectEl.value;
+            if (!ownerId) {
+                showToast('연결할 점주를 선택해주세요.', 'error');
+                return;
+            }
+            try {
+                await apiRequest(`${API_BASE}/stores/${storeId}/owners`, 'POST', { ownerId });
+                showToast('점주를 연결했습니다.', 'success');
+                await loadOwnerAccounts();
+                await loadStoreList();
+                const updatedStore = getStoreById(storeId);
+                if (updatedStore) {
+                    renderStoreOwnerManageModal(updatedStore);
+                } else {
+                    closeStoreOwnerManageModal();
+                }
+            } catch (error) {
+                console.error('점주 연결 실패:', error);
+                showToast(error.message || '점주 연결에 실패했습니다.', 'error');
+            }
+        }
+
+        async function handleStoreOwnerUnlink(ownerId) {
+            if (!IS_SUPERADMIN) {
+                showToast('점주 연결 해제 권한이 없습니다.', 'error');
+                return;
+            }
+            const storeId = storeOwnerManageState.storeId;
+            if (!storeId || !ownerId) {
+                showToast('점주 연결 정보를 찾을 수 없습니다.', 'error');
+                return;
+            }
+            const confirmUnlink = confirm('선택한 점주와의 연결을 해제할까요?');
+            if (!confirmUnlink) {
+                return;
+            }
+            try {
+                await apiRequest(`${API_BASE}/stores/${storeId}/owners/${ownerId}`, 'DELETE');
+                showToast('점주 연결이 해제되었습니다.', 'warning');
+                await loadOwnerAccounts();
+                await loadStoreList();
+                const updatedStore = getStoreById(storeId);
+                if (updatedStore) {
+                    renderStoreOwnerManageModal(updatedStore);
+                } else {
+                    closeStoreOwnerManageModal();
+                }
+            } catch (error) {
+                console.error('점주 연결 해제 실패:', error);
+                showToast(error.message || '점주 연결 해제에 실패했습니다.', 'error');
+            }
         }
         
         // 가게 테이블 렌더링
@@ -4552,6 +5825,16 @@
             const tbody = document.getElementById('storeTableBody');
             const persistedStoreId = await getCurrentStoreId();
             const activeStoreId = window.currentStoreId || persistedStoreId || null;
+            const tableWrapper = document.getElementById('storeTableWrapper');
+            const ownerContainer = document.getElementById('ownerGroupContainer');
+            
+            if (tableWrapper) {
+                tableWrapper.style.display = 'block';
+            }
+            if (ownerContainer) {
+                ownerContainer.style.display = 'none';
+                ownerContainer.innerHTML = '';
+            }
             
             if (!tbody) return;
             
@@ -4562,7 +5845,7 @@
                     if (IS_STORE_OWNER) {
                         tbody.innerHTML = `
                             <tr>
-                                <td colspan="5" style="padding: 48px 32px;">
+                                <td colspan="6" style="padding: 48px 32px;">
                                     <div style="background: #f8fafc; border: 1px dashed #cbd5f5; border-radius: 16px; padding: 32px; text-align: center; color:#475569;">
                                         <div style="font-size: 42px;">📬</div>
                                         <h3 style="margin-top: 12px; margin-bottom: 8px; font-size: 20px; color: #1e293b;">관리자 승인 대기 중입니다</h3>
@@ -4574,7 +5857,7 @@
                     } else {
                         tbody.innerHTML = `
                             <tr>
-                                <td colspan="5" style="padding: 48px 32px;">
+                                <td colspan="6" style="padding: 48px 32px;">
                                     <div style="background: #f8fafc; border: 1px dashed #cbd5f5; border-radius: 16px; padding: 32px; text-align: center;">
                                         <div style="font-size: 42px;">🌱</div>
                                         <h3 style="margin-top: 12px; margin-bottom: 8px; font-size: 20px; color: #1e293b;">아직 등록된 가게가 없습니다</h3>
@@ -4586,7 +5869,7 @@
                         `;
                     }
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="5" style="padding: 40px; text-align: center; color: #94a3b8;">검색 조건에 맞는 가게가 없습니다.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" style="padding: 40px; text-align: center; color: #94a3b8;">검색 조건에 맞는 가게가 없습니다.</td></tr>';
                 }
                 return;
             }
@@ -4625,12 +5908,8 @@
                     : `${window.location.origin}/store.html?id=${store.id}`;
                 const shortId = store.id.split('_').pop().substring(0, 8);
                 
-                let statusBadge = '<span style="display: inline-block; padding: 4px 12px; background: #d1fae5; color: #065f46; border-radius: 12px; font-size: 12px; font-weight: 600;">활성</span>';
-                if (store.status === 'paused') {
-                    statusBadge = '<span style="display: inline-block; padding: 4px 12px; background: #fef3c7; color: #92400e; border-radius: 12px; font-size: 12px; font-weight: 600;">일시정지</span>';
-                } else if (store.status === 'pending') {
-                    statusBadge = '<span style="display: inline-block; padding: 4px 12px; background: #e0e7ff; color: #4338ca; border-radius: 12px; font-size: 12px; font-weight: 600;">입점대기</span>';
-                }
+                const statusBadge = buildStoreStatusBadge(store.status);
+                const ownersCell = renderStoreOwnersCell(store);
                 
                 console.log('🔍 [DEBUG] 가게 상태:', { storeId: store.id, status: store.status });
                 
@@ -4646,6 +5925,7 @@
                     `
                     : `
                         ${pauseResumeBtn}
+                        <button onclick="event.stopPropagation(); openStoreOwnerManageModal('${store.id}')" style="padding: 6px 12px; background: #6366f1; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">점주 관리</button>
                         <button onclick="event.stopPropagation(); viewStorePage('${store.id}')" style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">페이지보기</button>
                         <button onclick="event.stopPropagation(); copyStoreUrl('${storeUrl}')" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">URL 복사</button>
                         <button onclick="event.stopPropagation(); deleteStore('${store.id}')" style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">삭제</button>
@@ -4656,6 +5936,7 @@
                         <code style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-size: 12px; color: #475569;">${shortId}</code>
                     </td>
                     <td style="padding: 16px 12px; font-weight: 600; color: #1e293b;">${store.basic?.storeName || '이름 없음'}</td>
+                    <td style="padding: 16px 12px;">${ownersCell}</td>
                     <td style="padding: 16px 12px; color: #64748b;">${store.basic?.storePhone || '-'}</td>
                     <td style="padding: 16px 12px;">${statusBadge}</td>
                     <td style="padding: 16px 12px; text-align: center;">
@@ -4722,7 +6003,7 @@
                     return storeDate === today;
                 });
                 document.getElementById('filteredStoresCount').textContent = filteredStores.length;
-                renderStoreTable();
+                renderStoreView();
                 return;
             }
             
@@ -4761,33 +6042,76 @@
             try {
                 if (IS_STORE_OWNER) {
                     const ownerStoreId = sessionStorage.getItem('owner_store_id');
-                    if (!ownerStoreId) {
+                    const ownerId = sessionStorage.getItem('owner_id');
+
+                    let normalizedStores = [];
+                    if (ownerId) {
+                        try {
+                            const storesResponse = await apiRequest(`${API_BASE}/stores?ownerId=${ownerId}`);
+                            normalizedStores = normalizeStoreListResponse(storesResponse);
+                        } catch (error) {
+                            console.warn('점주 가게 목록 조회 실패, 세션 캐시 사용:', error);
+                        }
+                    }
+
+                    if (normalizedStores.length === 0 && ownerStoreId) {
+                        try {
+                            const storeResponse = await apiRequest(`${API_BASE}/stores/${ownerStoreId}`);
+                            const singleStore = normalizeStoreDetailResponse(storeResponse, ownerStoreId);
+                            normalizedStores = singleStore ? [singleStore] : normalizeStoreListResponse(storeResponse);
+                        } catch (error) {
+                            console.warn('점주 단일 가게 조회 실패:', error);
+                        }
+                    }
+
+                    if (normalizedStores.length === 0) {
+                        normalizedStores = restoreOwnerStoresFromSession();
+                    }
+
+                    if (normalizedStores.length === 0) {
                         allStores = [];
                         filteredStores = [];
                         document.getElementById('filteredStoresCount').textContent = '0';
-                        await renderStoreTable();
+                        await renderStoreView();
                         initializeSidebarStoreInfo();
+                        updateOwnerStoreActions(0);
                         return;
                     }
 
-                    const store = await apiRequest(`${API_BASE}/stores/${ownerStoreId}`);
-                    const normalizedStores = store && store.id ? [store] : [];
                     allStores = normalizedStores;
-                    filteredStores = normalizedStores;
+                    filteredStores = [...normalizedStores];
+                    updateOwnerStoreActions(normalizedStores.length);
 
                     try {
-                        await apiRequest(`${API_BASE}/current-store`, 'POST', { storeId: ownerStoreId });
+                        const serializedStores = normalizedStores
+                            .map(store => serializeStoreForSession(store))
+                            .filter(Boolean);
+                        sessionStorage.setItem('owner_store_list', JSON.stringify(serializedStores));
                     } catch (error) {
-                        console.warn('현재 가게 설정 동기화 실패:', error);
+                        console.warn('owner_store_list 저장 실패:', error);
+                    }
+
+                    const activeStoreId = ownerStoreId && normalizedStores.some(store => store.id === ownerStoreId)
+                        ? ownerStoreId
+                        : normalizedStores[0]?.id;
+
+                    if (activeStoreId) {
+                        sessionStorage.setItem('owner_store_id', activeStoreId);
+                        try {
+                            await apiRequest(`${API_BASE}/current-store`, 'POST', { storeId: activeStoreId });
+                        } catch (error) {
+                            console.warn('현재 가게 설정 동기화 실패:', error);
+                        }
                     }
 
                     document.getElementById('filteredStoresCount').textContent = normalizedStores.length;
-                    await renderStoreTable();
+                    populateOwnerFilterOptions(normalizedStores);
+                    await renderStoreView();
 
-                    if (normalizedStores.length > 0) {
-                        window.currentStoreId = ownerStoreId;
-                        await updateSelectedStoreCard(ownerStoreId);
-                        updateSelectedStoreVisual(ownerStoreId);
+                    if (activeStoreId) {
+                        window.currentStoreId = activeStoreId;
+                        await updateSelectedStoreCard(activeStoreId);
+                        updateSelectedStoreVisual(activeStoreId);
                     } else {
                         initializeSidebarStoreInfo();
                     }
@@ -4795,12 +6119,64 @@
                     return;
                 }
 
-                const stores = await apiRequest(`${API_BASE}/stores`);
+                if (IS_SUPERADMIN && ownerAccounts.length === 0) {
+                    await loadOwnerAccounts();
+                }
+
+                const query = new URLSearchParams({
+                    page: storeQueryState.page.toString(),
+                    pageSize: storeQueryState.pageSize.toString(),
+                    sortBy: storeQueryState.sortBy,
+                    sortOrder: storeQueryState.sortOrder
+                });
+                if (storeQueryState.keyword) {
+                    query.set('keyword', storeQueryState.keyword);
+                }
+                if (storeQueryState.status) {
+                    query.set('status', storeQueryState.status);
+                }
+                if (storeQueryState.ownerId && storeQueryState.ownerId !== '__unassigned') {
+                    query.set('ownerId', storeQueryState.ownerId);
+                }
+                if (storeQueryState.createdDate) {
+                    query.set('createdDate', storeQueryState.createdDate);
+                }
+
+                const storesResponse = await apiRequest(`${API_BASE}/stores?${query.toString()}`);
+                const stores = normalizeStoreListResponse(storesResponse);
                 allStores = stores;
-                filteredStores = stores;
+                filteredStores = [...stores];
+                populateOwnerFilterOptions(allStores);
+
+                if (storeQueryState.ownerId === '__unassigned') {
+                    filteredStores = filteredStores.filter(store => {
+                        const owners = Array.isArray(store.owners) ? store.owners : [];
+                        return owners.length === 0;
+                    });
+                    storePagination = {
+                        page: 1,
+                        pageSize: storeQueryState.pageSize,
+                        total: filteredStores.length,
+                        totalPages: 1
+                    };
+                    storeQueryState.page = 1;
+                }
+
+                if (storeQueryState.ownerId !== '__unassigned') {
+                    const pagination = storesResponse?.meta?.pagination || {};
+                    storePagination = {
+                        page: pagination.page || storeQueryState.page || 1,
+                        pageSize: pagination.pageSize || storeQueryState.pageSize,
+                        total: pagination.total || stores.length,
+                        totalPages: pagination.totalPages || 1
+                    };
+                    storeQueryState.page = storePagination.page;
+                }
+
+                updateOwnerStoreActions(stores.length);
 
                 if (IS_SUPERADMIN) {
-                    if (allStores.length === 0) {
+                    if (storePagination.total === 0) {
                         showNoStoreGuide();
                         initializeSidebarStoreInfo();
                     } else {
@@ -4808,17 +6184,36 @@
                     }
                 }
 
-                updateStoreStats();
-                document.getElementById('filteredStoresCount').textContent = filteredStores.length;
-                await renderStoreTable();
+                updateStoreStats(storesResponse?.meta?.summary || null);
+                document.getElementById('filteredStoresCount').textContent = storePagination.total;
+                await renderStoreView();
+                updateStorePaginationControls();
                 
             } catch (error) {
                 console.error('가게 목록 로드 실패:', error);
                 const tbody = document.getElementById('storeTableBody');
                 if (tbody) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="padding: 40px; text-align: center; color: #ef4444;">가게 목록을 불러오는데 실패했습니다.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" style="padding: 40px; text-align: center; color: #ef4444;">가게 목록을 불러오는데 실패했습니다.</td></tr>';
                 }
                 showToast('가게 목록을 불러오는데 실패했습니다.', 'error');
+            }
+        }
+
+        function updateOwnerStoreActions(storeCount) {
+            const container = document.getElementById('ownerStoreActions');
+            if (!container) return;
+
+            if (!IS_STORE_OWNER) {
+                container.style.display = 'none';
+                return;
+            }
+
+            container.style.display = 'flex';
+            const hint = container.querySelector('p');
+            if (hint) {
+                hint.textContent = storeCount > 0
+                    ? '승인된 가게를 선택하면 상세 설정을 관리할 수 있습니다.'
+                    : '승인 완료된 가게는 목록에 표시됩니다.';
             }
         }
 
@@ -4852,6 +6247,7 @@
                 setTimeout(async () => {
                     try {
                         await loadSettings();
+                        renderBasicSummary();
                         console.log('✅ [DEBUG] 설정 로딩 완료');
                         
                         // 배달앱 그리드 강제 새로고침
@@ -4872,7 +6268,9 @@
                 console.log('✅ [DEBUG] 가게 선택 후 사용자 정보 로딩 완료');
                 
                 // 토스트 알림
-                const stores = allStores.length > 0 ? allStores : await apiRequest(`${API_BASE}/stores`);
+                const stores = allStores.length > 0
+                    ? allStores
+                    : normalizeStoreListResponse(await apiRequest(`${API_BASE}/stores`));
                 const selectedStore = stores.find(s => s.id === storeId);
                 if (selectedStore) {
                     const storeName = selectedStore.basic?.storeName || selectedStore.name || '알 수 없는 가게';
@@ -4939,7 +6337,7 @@
         async function updateCurrentStoreInfo(storeId) {
             try {
                 const response = await apiRequest(`${API_BASE}/stores?storeId=${storeId}`);
-                const currentStore = Array.isArray(response) ? response.find(s => s.id === storeId) : response;
+                const currentStore = normalizeStoreDetailResponse(response, storeId);
                 if (currentStore) {
                     // 사이드바의 선택된 가게 정보 업데이트
                     await updateSelectedStoreCard(storeId);
@@ -4970,7 +6368,7 @@
         async function updateSidebarStoreInfo(storeId) {
             try {
                 const response = await apiRequest(`${API_BASE}/stores?storeId=${storeId}`);
-                const selectedStore = Array.isArray(response) ? response.find(store => store.id === storeId) : response;
+                const selectedStore = normalizeStoreDetailResponse(response, storeId);
                 
                 if (selectedStore) {
                     const nameElement = document.getElementById('selectedStoreName');
@@ -5009,8 +6407,9 @@
                     return;
                 }
                 
-                const stores = await apiRequest(`${API_BASE}/stores`);
-                const selectedStore = stores.find(store => store.id === storeId);
+                const storesResponse = await apiRequest(`${API_BASE}/stores`);
+                const storeList = normalizeStoreListResponse(storesResponse);
+                const selectedStore = storeList.find(store => store.id === storeId);
                 
                 if (selectedStore) {
                     const nameElement = document.getElementById('selectedStoreName');
@@ -5275,6 +6674,144 @@
             }
         }
 
+        function openOwnerStoreRequestModal() {
+            const modal = document.getElementById('ownerStoreRequestModal');
+            if (!modal) return;
+
+            document.getElementById('ownerRequestStoreName').value = '';
+            document.getElementById('ownerRequestSubtitle').value = '';
+            document.getElementById('ownerRequestPhone').value = '';
+            document.getElementById('ownerRequestPostalCode').value = '';
+            document.getElementById('ownerRequestRoadAddress').value = '';
+            document.getElementById('ownerRequestExtraAddress').value = '';
+            document.getElementById('ownerRequestAddressDetail').value = '';
+            document.getElementById('ownerRequestFullAddress').value = '';
+            document.getElementById('ownerRequestMemo').value = '';
+
+            modal.style.display = 'flex';
+        }
+
+        function closeOwnerStoreRequestModal() {
+            const modal = document.getElementById('ownerStoreRequestModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        function collectOwnerStoreRequestData() {
+            return {
+                storeName: document.getElementById('ownerRequestStoreName')?.value.trim() || '',
+                storeSubtitle: document.getElementById('ownerRequestSubtitle')?.value.trim() || '',
+                storePhone: document.getElementById('ownerRequestPhone')?.value.trim() || '',
+                postalCode: document.getElementById('ownerRequestPostalCode')?.value.trim() || '',
+                roadAddress: document.getElementById('ownerRequestRoadAddress')?.value.trim() || '',
+                extraAddress: document.getElementById('ownerRequestExtraAddress')?.value.trim() || '',
+                addressDetail: document.getElementById('ownerRequestAddressDetail')?.value.trim() || '',
+                memo: document.getElementById('ownerRequestMemo')?.value.trim() || ''
+            };
+        }
+
+        function openOwnerRequestAddressSearch() {
+            if (typeof daum === 'undefined' || !daum?.Postcode) {
+                alert('주소 검색 서비스를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+                return;
+            }
+
+            new daum.Postcode({
+                oncomplete: function(data) {
+                    const postalCodeEl = document.getElementById('ownerRequestPostalCode');
+                    const roadAddressEl = document.getElementById('ownerRequestRoadAddress');
+                    const extraAddressEl = document.getElementById('ownerRequestExtraAddress');
+                    const detailAddressEl = document.getElementById('ownerRequestAddressDetail');
+
+                    if (postalCodeEl) {
+                        postalCodeEl.value = data.zonecode || '';
+                    }
+
+                    const roadAddress = data.roadAddress || data.jibunAddress || '';
+                    if (roadAddressEl) {
+                        roadAddressEl.value = roadAddress;
+                    }
+
+                    let extraAddress = '';
+                    if (data.bname && /[동|로|가]$/g.test(data.bname)) {
+                        extraAddress += data.bname;
+                    }
+                    if (data.buildingName && data.apartment === 'Y') {
+                        extraAddress += extraAddress ? `, ${data.buildingName}` : data.buildingName;
+                    }
+                    if (extraAddressEl) {
+                        extraAddressEl.value = extraAddress ? `(${extraAddress})` : '';
+                    }
+
+                    if (detailAddressEl) {
+                        detailAddressEl.focus();
+                    }
+
+                    const state = collectOwnerStoreRequestData();
+                    document.getElementById('ownerRequestFullAddress').value = buildWizardFullAddress({
+                        postalCode: state.postalCode,
+                        roadAddress: state.roadAddress,
+                        extraAddress: state.extraAddress,
+                        addressDetail: state.addressDetail
+                    });
+                }
+            }).open();
+        }
+
+        async function submitOwnerStoreRequest() {
+            try {
+                if (!IS_STORE_OWNER) {
+                    showToast('사장님 전용 기능입니다.', 'error', '권한 부족');
+                    return;
+                }
+
+                const ownerId = sessionStorage.getItem('owner_id');
+                if (!ownerId) {
+                    showToast('점주 정보가 확인되지 않습니다. 다시 로그인해주세요.', 'error', '권한 부족');
+                    return;
+                }
+
+                const data = collectOwnerStoreRequestData();
+                if (!data.storeName) {
+                    showToast('가게명을 입력해주세요.', 'error', '입력 필요');
+                    document.getElementById('ownerRequestStoreName')?.focus();
+                    return;
+                }
+
+                if (!data.storePhone || !/^0\d{1,2}-\d{3,4}-\d{4}$/.test(data.storePhone)) {
+                    showToast('연락처를 정확히 입력해주세요. 예: 010-1234-5678', 'error', '입력 필요');
+                    document.getElementById('ownerRequestPhone')?.focus();
+                    return;
+                }
+
+                if (!data.roadAddress) {
+                    showToast('가게 주소를 검색해 입력해주세요.', 'error', '입력 필요');
+                    return;
+                }
+
+                const payload = {
+                    name: data.storeName,
+                    subtitle: data.storeSubtitle,
+                    phone: data.storePhone,
+                    postalCode: data.postalCode,
+                    roadAddress: data.roadAddress,
+                    extraAddress: data.extraAddress,
+                    addressDetail: data.addressDetail,
+                    memo: data.memo
+                };
+
+                const response = await apiRequest(`${API_BASE}/owners/${ownerId}/stores`, 'POST', payload);
+                const message = response?.message || '입점 신청이 접수되었습니다.';
+                showToast(message, 'success', '신청 완료');
+                closeOwnerStoreRequestModal();
+                await loadStoreList();
+            } catch (error) {
+                console.error('추가 입점 신청 실패:', error);
+                showToast(error.message || '입점 신청에 실패했습니다.', 'error', '신청 실패');
+            }
+        }
+
         // 가게 일시정지
         async function pauseStore(storeId) {
             try {
@@ -5315,7 +6852,7 @@
                 const response = await apiRequest(`${API_BASE}/stores/${storeId}`);
                 console.log('가게 정보 조회 응답:', response);
                 
-                const store = response.data || response;
+                const store = normalizeStoreDetailResponse(response, storeId);
                 console.log('가게 데이터:', store);
                 
                 let storeUrl;
@@ -5345,8 +6882,9 @@
         async function getStoreNameById(storeId) {
             try {
                 console.log('가게명 조회 요청:', storeId);
-                const stores = await apiRequest(`${API_BASE}/stores`);
-                console.log('가게 목록:', stores);
+                const storesResponse = await apiRequest(`${API_BASE}/stores`);
+                console.log('가게 목록:', storesResponse);
+                const stores = normalizeStoreListResponse(storesResponse);
                 const store = stores.find(s => s.id === storeId);
                 console.log('찾은 가게:', store);
                 return store ? (store.basic?.storeName || '이름 없음') : '알 수 없는 가게';
@@ -5678,6 +7216,48 @@
             });
         }
 
+        function renderBasicSummary() {
+            const summaryName = document.getElementById('summaryStoreName');
+            const summarySubtitle = document.getElementById('summaryStoreSubtitle');
+            const summaryPhone = document.getElementById('summaryStorePhone');
+            const summaryAddress = document.getElementById('summaryStoreAddress');
+
+            if (!summaryName || !summarySubtitle || !summaryPhone || !summaryAddress) {
+                return;
+            }
+
+            const storeNameInput = document.getElementById('storeName');
+            const storeSubtitleInput = document.getElementById('storeSubtitle');
+            const storePhoneInput = document.getElementById('storePhone');
+            const postalInput = document.getElementById('storePostalCode');
+            const roadInput = document.getElementById('storeRoadAddress');
+            const extraInput = document.getElementById('storeExtraAddress');
+            const detailInput = document.getElementById('storeAddressDetail');
+
+            const nameValue = (storeNameInput?.value || '').trim();
+            const subtitleValue = (storeSubtitleInput?.value || '').trim();
+            const phoneValue = (storePhoneInput?.value || '').trim();
+            const postalCode = (postalInput?.value || '').trim();
+            const roadAddress = (roadInput?.value || '').trim();
+            const extraAddress = (extraInput?.value || '').trim();
+            const detailAddress = (detailInput?.value || '').trim();
+
+            const addressParts = [];
+            if (roadAddress) addressParts.push(roadAddress);
+            if (detailAddress) addressParts.push(detailAddress);
+            if (extraAddress) addressParts.push(extraAddress);
+
+            let formattedAddress = addressParts.join('\n');
+            if (postalCode) {
+                formattedAddress = formattedAddress ? `[${postalCode}] ${formattedAddress}` : `[${postalCode}]`;
+            }
+
+            summaryName.textContent = nameValue || '-';
+            summarySubtitle.textContent = subtitleValue || '-';
+            summaryPhone.textContent = phoneValue || '-';
+            summaryAddress.textContent = formattedAddress || '-';
+        }
+
         async function saveBasicInfo() {
             try {
                 const currentStoreId = await getCurrentStoreId();
@@ -5726,7 +7306,8 @@
                 await apiRequest(`${API_BASE}/store/${currentStoreId}/settings`, 'POST', settings);
                 
                 // 가게 목록의 subtitle도 동기화 (로컬에서만 업데이트)
-                const stores = await apiRequest(`${API_BASE}/stores`);
+                const storesResponse = await apiRequest(`${API_BASE}/stores`);
+                const stores = normalizeStoreListResponse(storesResponse);
                 const currentStore = stores.find(store => store.id === currentStoreId);
                 if (currentStore) {
                     currentStore.subtitle = settings.basic.storeSubtitle;
@@ -5754,6 +7335,7 @@
                 );
                 
                 showStatus('가게명, 하단 텍스트, 전화번호, 주소가 저장되었습니다!', 'success');
+                renderBasicSummary();
                 
                 // 가게 목록 다시 로드하여 변경사항 반영
                 await loadStoreList();
@@ -5761,6 +7343,373 @@
                 console.error('기본 정보 저장 실패:', error);
                 showStatus('기본 정보 저장에 실패했습니다.', 'error');
             }
+        }
+
+        function openBasicInfoWizard() {
+            const modal = document.getElementById('basicInfoWizardModal');
+            if (!modal) return;
+
+            const storeName = document.getElementById('storeName')?.value || '';
+            const storeSubtitle = document.getElementById('storeSubtitle')?.value || '';
+            const storePhone = document.getElementById('storePhone')?.value || '';
+            const postalCode = document.getElementById('storePostalCode')?.value || '';
+            const roadAddress = document.getElementById('storeRoadAddress')?.value || '';
+            const extraAddress = document.getElementById('storeExtraAddress')?.value || '';
+            const addressDetail = document.getElementById('storeAddressDetail')?.value || '';
+            const existingSubdomain = document.getElementById('subdomain')?.value || '';
+
+            basicWizardState.storeName = storeName;
+            basicWizardState.storeSubtitle = storeSubtitle;
+            basicWizardState.storePhone = storePhone;
+            basicWizardState.postalCode = postalCode;
+            basicWizardState.roadAddress = roadAddress;
+            basicWizardState.extraAddress = extraAddress;
+            basicWizardState.addressDetail = addressDetail;
+            basicWizardState.subdomain = existingSubdomain;
+
+            const subdomainInputEl = document.getElementById('subdomain');
+            const hasSubdomain = Boolean((existingSubdomain || '').trim());
+            const qrLockedFromInput = subdomainInputEl?.dataset?.qrLocked === 'true';
+            const qrLockedEffective = qrLockedFromInput || domainPermissionState.qrLocked;
+
+            domainPermissionState.hasSubdomain = hasSubdomain;
+            domainPermissionState.qrLocked = qrLockedEffective;
+
+            const canOwnerEditDomain = IS_STORE_OWNER && !hasSubdomain && !qrLockedEffective;
+            const canSuperadminEditDomain = IS_SUPERADMIN && !qrLockedEffective;
+            const canEditDomain = canOwnerEditDomain || canSuperadminEditDomain;
+
+            shouldShowDomainStep = canEditDomain;
+            basicWizardSteps = shouldShowDomainStep
+                ? ['basic', 'contact', 'domain', 'review']
+                : ['basic', 'contact', 'review'];
+
+            const domainIndicator = modal.querySelector('.wizard-step-indicator[data-step-key="domain"]');
+            if (domainIndicator) {
+                domainIndicator.style.display = shouldShowDomainStep ? 'flex' : 'none';
+            }
+
+            const domainStep = modal.querySelector('.wizard-step[data-step-key="domain"]');
+            if (domainStep) {
+                domainStep.style.display = shouldShowDomainStep ? 'block' : 'none';
+            }
+
+            document.getElementById('wizardStoreName').value = storeName;
+            document.getElementById('wizardStoreSubtitle').value = storeSubtitle;
+            document.getElementById('wizardStorePhone').value = storePhone;
+            document.getElementById('wizardPostalCode').value = postalCode;
+            document.getElementById('wizardRoadAddress').value = roadAddress;
+            document.getElementById('wizardExtraAddress').value = extraAddress;
+            document.getElementById('wizardAddressDetail').value = addressDetail;
+            document.getElementById('wizardFullAddress').value = buildWizardFullAddress({
+                postalCode,
+                roadAddress,
+                extraAddress,
+                addressDetail
+            });
+            const wizardSubdomainInput = document.getElementById('wizardSubdomain');
+            if (wizardSubdomainInput) {
+                if (canEditDomain) {
+                    const initialValue = IS_SUPERADMIN && hasSubdomain ? existingSubdomain : '';
+                    wizardSubdomainInput.value = initialValue;
+                } else {
+                    wizardSubdomainInput.value = existingSubdomain;
+                }
+                wizardSubdomainInput.disabled = !canEditDomain;
+            }
+            const wizardDomainHelper = document.getElementById('wizardDomainHelper');
+            if (wizardDomainHelper) {
+                if (!canEditDomain) {
+                    wizardDomainHelper.textContent = qrLockedEffective
+                        ? 'QR 코드가 이미 생성되어 서브도메인을 변경할 수 없습니다. 변경이 필요하면 슈퍼어드민에게 문의하세요.'
+                        : '이미 서브도메인이 설정되어 있어 수정할 수 없습니다. 변경이 필요하면 슈퍼어드민에게 문의하세요.';
+                } else if (!IS_SUPERADMIN) {
+                    wizardDomainHelper.textContent = '서브도메인은 최초 1회만 설정할 수 있습니다. QR 생성은 슈퍼어드민에게 요청해주세요.';
+                } else {
+                    wizardDomainHelper.textContent = '서브도메인은 최초 1회만 설정할 수 있으며 QR 생성 후에는 수정할 수 없습니다.';
+                }
+            }
+            const wizardGenerateQrBtn = document.getElementById('wizardGenerateQrBtn');
+            if (wizardGenerateQrBtn) {
+                const showQrButton = canEditDomain && IS_SUPERADMIN;
+                wizardGenerateQrBtn.style.display = showQrButton ? 'inline-flex' : 'none';
+                wizardGenerateQrBtn.disabled = !showQrButton;
+            }
+            updateWizardDomainPreview(canEditDomain ? (IS_SUPERADMIN && hasSubdomain ? existingSubdomain : '') : existingSubdomain);
+
+            basicWizardStepIndex = 0;
+            setBasicWizardStep(0);
+            updateBasicWizardReview(basicWizardState);
+
+            modal.style.display = 'flex';
+        }
+
+        function closeBasicInfoWizard() {
+            const modal = document.getElementById('basicInfoWizardModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        function setBasicWizardStep(stepIndex) {
+            const modal = document.getElementById('basicInfoWizardModal');
+            if (!modal) return;
+
+            basicWizardStepIndex = Math.max(0, Math.min(stepIndex, basicWizardSteps.length - 1));
+            const currentStepKey = basicWizardSteps[basicWizardStepIndex];
+
+            const steps = modal.querySelectorAll('.wizard-step');
+            steps.forEach(stepEl => {
+                const key = stepEl.getAttribute('data-step-key');
+                const isConfigured = basicWizardSteps.includes(key);
+                const isActive = isConfigured && key === currentStepKey;
+                if (isConfigured) {
+                    stepEl.classList.toggle('active', isActive);
+                    stepEl.style.display = isActive ? '' : 'none';
+                } else {
+                    stepEl.classList.remove('active');
+                    stepEl.style.display = 'none';
+                }
+            });
+
+            const indicators = modal.querySelectorAll('.wizard-step-indicator');
+            indicators.forEach(indicator => {
+                const key = indicator.getAttribute('data-step-key');
+                const isVisible = basicWizardSteps.includes(key);
+                indicator.style.display = isVisible ? 'flex' : 'none';
+                indicator.classList.toggle('active', key === currentStepKey);
+                const numberSpan = indicator.querySelector('span');
+                if (numberSpan && isVisible) {
+                    numberSpan.textContent = (basicWizardSteps.indexOf(key) + 1).toString();
+                }
+            });
+
+            const prevBtn = document.getElementById('basicWizardPrevBtn');
+            const nextBtn = document.getElementById('basicWizardNextBtn');
+            const saveBtn = document.getElementById('basicWizardSaveBtn');
+
+            if (prevBtn) prevBtn.style.display = basicWizardStepIndex === 0 ? 'none' : 'inline-flex';
+            if (nextBtn) nextBtn.style.display = basicWizardStepIndex === basicWizardSteps.length - 1 ? 'none' : 'inline-flex';
+            if (saveBtn) saveBtn.style.display = basicWizardStepIndex === basicWizardSteps.length - 1 ? 'inline-flex' : 'none';
+
+            updateWizardDomainPreview(basicWizardState.subdomain || '');
+            updateBasicWizardReview(basicWizardState);
+        }
+
+        function collectBasicWizardData() {
+            return {
+                storeName: document.getElementById('wizardStoreName')?.value.trim() || '',
+                storeSubtitle: document.getElementById('wizardStoreSubtitle')?.value.trim() || '',
+                storePhone: document.getElementById('wizardStorePhone')?.value.trim() || '',
+                postalCode: document.getElementById('wizardPostalCode')?.value.trim() || '',
+                roadAddress: document.getElementById('wizardRoadAddress')?.value.trim() || '',
+                extraAddress: document.getElementById('wizardExtraAddress')?.value.trim() || '',
+                addressDetail: document.getElementById('wizardAddressDetail')?.value.trim() || '',
+                subdomain: document.getElementById('wizardSubdomain')?.value.trim() || basicWizardState.subdomain || ''
+            };
+        }
+
+        function handleBasicWizardNext() {
+            const currentStepKey = basicWizardSteps[basicWizardStepIndex];
+            if (!validateBasicWizardStep(currentStepKey)) {
+                return;
+            }
+            Object.assign(basicWizardState, collectBasicWizardData());
+            updateBasicWizardReview(basicWizardState);
+            setBasicWizardStep(basicWizardStepIndex + 1);
+        }
+
+        function handleBasicWizardPrev() {
+            setBasicWizardStep(basicWizardStepIndex - 1);
+        }
+
+        function buildWizardFullAddress(state) {
+            const { postalCode, roadAddress, extraAddress, addressDetail } = state;
+            const parts = [];
+            if (roadAddress) parts.push(roadAddress);
+            if (addressDetail) parts.push(addressDetail);
+            if (extraAddress) parts.push(extraAddress);
+            let full = parts.join(' ');
+            if (postalCode) {
+                full = full ? `[${postalCode}] ${full}` : `[${postalCode}]`;
+            }
+            return full;
+        }
+
+        function updateWizardDomainPreview(subdomain) {
+            const previewEl = document.getElementById('wizardDomainPreview');
+            if (!previewEl) return;
+            const origin = window.location.origin || window.location.host || '';
+            if (subdomain && subdomain.length > 0) {
+                previewEl.textContent = `${origin.replace(/\/+$/, '')}/${subdomain}`;
+            } else if (domainPermissionState.hasSubdomain && !shouldShowDomainStep) {
+                previewEl.textContent = `${origin.replace(/\/+$/, '')}/${(document.getElementById('subdomain')?.value || '').replace(/^\/+/, '')}`;
+            } else {
+                previewEl.textContent = `${origin.replace(/\/+$/, '')}/(미설정)`;
+            }
+        }
+
+        function updateBasicWizardReview(state) {
+            document.getElementById('wizardReviewStoreName').textContent = state.storeName || '-';
+            document.getElementById('wizardReviewStoreSubtitle').textContent = state.storeSubtitle || '-';
+            document.getElementById('wizardReviewStorePhone').textContent = state.storePhone || '-';
+            document.getElementById('wizardReviewStoreAddress').textContent = buildWizardFullAddress(state) || '-';
+            document.getElementById('wizardReviewDomain').textContent = state.subdomain
+                ? `/${state.subdomain}`
+                : (document.getElementById('subdomain')?.value ? `/${document.getElementById('subdomain').value}` : '미설정');
+        }
+
+        function validateBasicWizardStep(stepKey) {
+            if (stepKey === 'basic') {
+                const name = document.getElementById('wizardStoreName')?.value.trim();
+                if (!name) {
+                    showToast('가게명을 입력해주세요.', 'error', '입력 필요');
+                    document.getElementById('wizardStoreName')?.focus();
+                    return false;
+                }
+            }
+            if (stepKey === 'contact') {
+                const phone = document.getElementById('wizardStorePhone')?.value.trim();
+                if (phone && !/^0\d{1,2}-\d{3,4}-\d{4}$/.test(phone)) {
+                    showToast('전화번호 형식이 올바르지 않습니다. 예: 010-1234-5678', 'error', '입력 필요');
+                    document.getElementById('wizardStorePhone')?.focus();
+                    return false;
+                }
+            }
+            if (stepKey === 'domain' && shouldShowDomainStep) {
+                const subdomainInput = document.getElementById('wizardSubdomain');
+                const subdomainValue = subdomainInput?.value.trim() || '';
+                if (!subdomainValue) {
+                    showToast('서브도메인을 입력해주세요.', 'error', '입력 필요');
+                    subdomainInput?.focus();
+                    return false;
+                }
+                if (!/^[a-zA-Z0-9_-]+$/.test(subdomainValue)) {
+                    showToast('서브도메인은 영문, 숫자, 하이픈(-), 언더스코어(_)만 사용할 수 있습니다.', 'error', '입력 필요');
+                    subdomainInput?.focus();
+                    return false;
+                }
+                basicWizardState.subdomain = subdomainValue;
+                updateWizardDomainPreview(subdomainValue);
+            }
+            return true;
+        }
+
+        async function submitBasicInfoWizard() {
+            Object.assign(basicWizardState, collectBasicWizardData());
+            const modal = document.getElementById('basicInfoWizardModal');
+            try {
+                document.getElementById('storeName').value = basicWizardState.storeName;
+                document.getElementById('storeSubtitle').value = basicWizardState.storeSubtitle;
+                document.getElementById('storePhone').value = basicWizardState.storePhone;
+                document.getElementById('storePostalCode').value = basicWizardState.postalCode;
+                document.getElementById('storeRoadAddress').value = basicWizardState.roadAddress;
+                document.getElementById('storeExtraAddress').value = basicWizardState.extraAddress;
+                document.getElementById('storeAddressDetail').value = basicWizardState.addressDetail;
+                document.getElementById('storeAddress').value = buildWizardFullAddress(basicWizardState);
+
+                await saveBasicInfo();
+
+                if (basicWizardSteps.includes('domain') && shouldShowDomainStep) {
+                    const newSubdomain = (basicWizardState.subdomain || '').trim();
+                    if (newSubdomain) {
+                        document.getElementById('subdomain').value = newSubdomain;
+                        await saveDomainSettings({
+                            subdomain: newSubdomain,
+                            suppressToast: true,
+                            skipReload: true
+                        });
+                        showToast('도메인 설정이 저장되었습니다.', 'success', '도메인 저장');
+                    }
+                }
+
+                await loadDomainSettings();
+                closeBasicInfoWizard();
+            } catch (error) {
+                console.error('기본 정보 저장 실패:', error);
+                showToast('기본 정보를 저장하지 못했습니다.', 'error', '저장 실패');
+            } finally {
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            }
+        }
+
+        async function handleWizardGenerateDomainQR() {
+            if (!IS_SUPERADMIN) {
+                showToast('QR 생성은 슈퍼어드민만 가능합니다.', 'error', '권한 부족');
+                return;
+            }
+            if (!shouldShowDomainStep) {
+                showToast('이미 서브도메인이 설정되어 있습니다.', 'info', '도메인 설정 완료');
+                return;
+            }
+            const subdomainInput = document.getElementById('wizardSubdomain');
+            const subdomainValue = subdomainInput?.value.trim() || '';
+            if (!subdomainValue) {
+                showToast('서브도메인을 입력해주세요.', 'error', '입력 필요');
+                subdomainInput?.focus();
+                return;
+            }
+            try {
+                document.getElementById('subdomain').value = subdomainValue;
+                basicWizardState.subdomain = subdomainValue;
+                await saveDomainSettings({
+                    subdomain: subdomainValue,
+                    suppressToast: true,
+                    skipReload: true
+                });
+                updateWizardDomainPreview(subdomainValue);
+                updateBasicWizardReview(basicWizardState);
+                generateDomainQR();
+            } catch (error) {
+                console.error('Wizard QR 생성 실패:', error);
+                showToast('QR 코드를 생성하지 못했습니다.', 'error', 'QR 생성 실패');
+            }
+        }
+
+        function openWizardAddressSearch() {
+            if (typeof daum === 'undefined' || !daum?.Postcode) {
+                alert('주소 검색 서비스를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+                return;
+            }
+
+            new daum.Postcode({
+                oncomplete: function(data) {
+                    const postalCodeEl = document.getElementById('wizardPostalCode');
+                    const roadAddressEl = document.getElementById('wizardRoadAddress');
+                    const extraAddressEl = document.getElementById('wizardExtraAddress');
+                    const detailAddressEl = document.getElementById('wizardAddressDetail');
+
+                    if (postalCodeEl) {
+                        postalCodeEl.value = data.zonecode || '';
+                    }
+
+                    const roadAddress = data.roadAddress || data.jibunAddress || '';
+                    if (roadAddressEl) {
+                        roadAddressEl.value = roadAddress;
+                    }
+
+                    let extraAddress = '';
+                    if (data.bname && /[동|로|가]$/g.test(data.bname)) {
+                        extraAddress += data.bname;
+                    }
+                    if (data.buildingName && data.apartment === 'Y') {
+                        extraAddress += extraAddress ? `, ${data.buildingName}` : data.buildingName;
+                    }
+                    if (extraAddressEl) {
+                        extraAddressEl.value = extraAddress ? `(${extraAddress})` : '';
+                    }
+
+                    if (detailAddressEl) {
+                        detailAddressEl.focus();
+                    }
+
+                    Object.assign(basicWizardState, collectBasicWizardData());
+                    document.getElementById('wizardFullAddress').value = buildWizardFullAddress(basicWizardState);
+                    updateBasicWizardReview(basicWizardState);
+                }
+            }).open();
         }
         // 배달앱 표시 순서 그리드 로드
         async function loadDeliveryOrderGrid() {
@@ -6459,7 +8408,8 @@
             }
             
             // 캐시된 정보가 없으면 API 호출
-            const stores = await apiRequest(`${API_BASE}/stores`);
+            const storesResponse = await apiRequest(`${API_BASE}/stores`);
+            const stores = normalizeStoreListResponse(storesResponse);
             const store = stores.find(s => s.id === storeId);
             
             if (!store) {
@@ -6932,7 +8882,9 @@
             sessionStorage.removeItem('owner_logged_in');
             sessionStorage.removeItem('owner_store_id');
             sessionStorage.removeItem('owner_name');
+            sessionStorage.removeItem('owner_email');
             sessionStorage.removeItem('owner_id');
+            sessionStorage.removeItem('owner_store_list');
             sessionStorage.removeItem('user_role');
             window.location.href = '/login';
         }
@@ -6944,7 +8896,8 @@
                 if (currentStoreId) {
                     // 가게 정보 조회하여 서브도메인 확인
                     try {
-                        const store = await apiRequest(`${API_BASE}/stores/${currentStoreId}`);
+                        const response = await apiRequest(`${API_BASE}/stores/${currentStoreId}`);
+                        const store = normalizeStoreDetailResponse(response, currentStoreId);
                         let storePageUrl;
                         
                         if (store && store.subdomain) {
@@ -7378,7 +9331,18 @@
                 return;
             }
 
-            tableBody.innerHTML = dashboardStoreMetrics.map(metric => {
+            const sortedMetrics = [...dashboardStoreMetrics].sort((a, b) => {
+                const aTime = a.lastEventAt ? new Date(a.lastEventAt).getTime() : 0;
+                const bTime = b.lastEventAt ? new Date(b.lastEventAt).getTime() : 0;
+                if (bTime !== aTime) {
+                    return bTime - aTime;
+                }
+                const aCreated = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                const bCreated = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                return bCreated - aCreated;
+            });
+
+            tableBody.innerHTML = sortedMetrics.map(metric => {
                 const safeStoreId = escapeForAttribute(metric.storeId || '');
                 const storeName = escapeHtml(metric.storeName || '이름 없음');
                 const subdomain = escapeHtml(metric.subdomain || '');
@@ -7505,45 +9469,69 @@
         }
 
         // 도메인 설정 저장
-        async function saveDomainSettings() {
+        async function saveDomainSettings(options = {}) {
+            const {
+                subdomain: overrideSubdomain,
+                customDomain = '',
+                suppressToast = false,
+                skipReload = false
+            } = options || {};
+
             try {
                 const currentStoreId = await getCurrentStoreId();
                 if (!currentStoreId) {
                     notifyStoreSelectionRequired();
-                    return;
+                    return { success: false };
                 }
-                
-                const subdomain = document.getElementById('subdomain').value.trim();
 
-                if (!subdomain) {
+                const subdomainInput = document.getElementById('subdomain');
+                let subdomainValue = typeof overrideSubdomain === 'string'
+                    ? overrideSubdomain.trim()
+                    : (subdomainInput?.value.trim() || '');
+
+                if (!subdomainValue) {
                     showToast('서브도메인을 입력해주세요.', 'error', '입력 필요');
-                    return;
+                    return { success: false };
                 }
 
-                const domainSettings = {
-                    subdomain: subdomain,
+                if (!/^[a-zA-Z0-9_-]+$/.test(subdomainValue)) {
+                    showToast('서브도메인은 영문, 숫자, 하이픈(-), 언더스코어(_)만 사용할 수 있습니다.', 'error', '입력 필요');
+                    return { success: false };
+                }
+
+                const role = IS_SUPERADMIN ? 'superadmin' : (IS_STORE_OWNER ? 'owner' : 'admin');
+
+                await apiRequest(`${API_BASE}/store/${currentStoreId}/domain-settings`, 'POST', {
+                    subdomain: subdomainValue,
+                    customDomain,
+                    role,
                     updatedAt: new Date().toISOString()
-                };
-
-                // 도메인 설정 저장
-                await apiRequest(`${API_BASE}/store/${currentStoreId}/domain-settings`, 'POST', domainSettings);
-
-                // 현재 도메인 정보 업데이트
-                updateCurrentDomainInfo(subdomain);
-
-                // QR 생성 버튼 활성화
-                document.getElementById('generateDomainQRBtn').disabled = false;
-
-                // 활동 로그 기록
-                await logActivity('도메인 설정 저장', {
-                    subdomain: subdomain
                 });
 
-                showToast('도메인 설정이 저장되었습니다!', 'success', '저장 완료');
+                if (subdomainInput) {
+                    subdomainInput.value = subdomainValue;
+                }
+                updateCurrentDomainInfo(subdomainValue);
 
+                await logActivity('도메인 설정 저장', {
+                    subdomain: subdomainValue
+                });
+
+                if (!suppressToast) {
+                    showToast('도메인 설정이 저장되었습니다!', 'success', '저장 완료');
+                }
+
+                if (!skipReload) {
+                    await loadDomainSettings();
+                }
+
+                return { success: true, subdomain: subdomainValue };
             } catch (error) {
                 console.error('도메인 설정 저장 실패:', error);
-                showToast('도메인 설정 저장에 실패했습니다.', 'error', '저장 실패');
+                if (!suppressToast) {
+                    showToast('도메인 설정 저장에 실패했습니다.', 'error', '저장 실패');
+                }
+                throw error;
             }
         }
 
@@ -7563,279 +9551,136 @@
             return `${window.location.origin}${normalized}`;
         }
 
-        // QR 코드 표시
-        function displayQRCode(qrCode) {
-            if (!qrCode || !qrCode.url) {
-                console.log('🔍 [DEBUG] QR 코드 데이터 없음');
-                return;
+        let currentDomainQrInfo = { url: '', domainUrl: '' };
+
+        function updateDomainSummaryView(subdomain, qrInfo) {
+            const summaryDomainEl = document.getElementById('summaryStoreDomain');
+            const noticeEl = document.getElementById('summaryDomainNotice');
+            const downloadBtn = document.getElementById('summaryQrDownloadBtn');
+            const resolvedSubdomain = (subdomain || '').trim();
+
+            if (summaryDomainEl) {
+                summaryDomainEl.textContent = resolvedSubdomain ? `/${resolvedSubdomain}` : '미설정';
             }
 
-            console.log('🔍 [DEBUG] displayQRCode 호출됨:', qrCode);
+            const hasQr = qrInfo && qrInfo.url;
+            if (downloadBtn) {
+                downloadBtn.style.display = hasQr ? 'inline-flex' : 'none';
+                downloadBtn.disabled = !hasQr;
+            }
 
-            // QR 코드 미리보기 영역 찾기
-            let qrPreview = document.querySelector('.qr-preview');
-            if (!qrPreview) {
-                // QR 코드 미리보기 영역이 없으면 생성
-                const qrSection = document.querySelector('#domain-settings .admin-section') || 
-                                 document.querySelector('#domain-settings') ||
-                                 document.querySelector('.admin-section');
-                if (qrSection) {
-                    console.log('🔍 [DEBUG] QR 미리보기 영역 생성');
-                    const resolvedUrl = resolveQrUrl(qrCode.url);
-                    const qrPreviewHtml = `
-                        <div class="qr-preview" style="margin-top: 20px; text-align: center; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9;">
-                            <h4>도메인 QR 코드 미리보기</h4>
-                            <div id="qr-image-container">
-                                <img id="domainQRImage" src="${resolvedUrl}" alt="도메인 QR 코드" style="max-width: 200px; border: 1px solid #ddd; border-radius: 8px;" onerror="handleQRImageError(this)">
-                                <div id="qr-error" style="display: none; color: #666; padding: 20px;">
-                                    QR 코드 이미지를 불러올 수 없습니다.<br>
-                                    <button onclick="generateNewQR()" class="btn btn-primary" style="margin-top: 10px;">새 QR 코드 생성</button>
-                                </div>
-                            </div>
-                        <div style="margin-top: 10px;">
-                            <button onclick="downloadQRCode('${resolvedUrl}', '${qrCode.domainUrl || ''}')" class="btn btn-primary">QR 다운로드 (PNG)</button>
-                            <button onclick="updateQRCode()" class="btn btn-warning" style="margin-left: 10px;">QR 업데이트</button>
-                            <button onclick="deleteQRCode()" class="btn btn-danger" style="margin-left: 10px;">QR 삭제</button>
-                        </div>
-                            <div style="margin-top: 10px; font-size: 12px; color: #666;">
-                                도메인: ${qrCode.domainUrl || 'N/A'}<br>
-                                생성일: ${qrCode.createdAt ? new Date(qrCode.createdAt).toLocaleString() : 'N/A'}
-                            </div>
-                        </div>
-                    `;
-                    qrSection.insertAdjacentHTML('beforeend', qrPreviewHtml);
-                }
-        } else {
-            // 기존 QR 미리보기 영역을 완전히 새로 생성
-            console.log('🔍 [DEBUG] 기존 QR 미리보기 영역 새로 생성');
-            const qrImageUrl = resolveQrUrl(qrCode.url);
-            
-            qrPreview.innerHTML = `
-                <h4>도메인 QR 코드 미리보기</h4>
-                <div id="qr-image-container">
-                    <img id="domainQRImage" src="${qrImageUrl}" alt="도메인 QR 코드" style="max-width: 200px; border: 1px solid #ddd; border-radius: 8px;" onerror="handleQRImageError(this)">
-                    <div id="qr-error" style="display: none; color: #666; padding: 20px;">
-                        QR 코드 이미지를 불러올 수 없습니다.<br>
-                        <button onclick="generateNewQR()" class="btn btn-primary" style="margin-top: 10px;">새 QR 코드 생성</button>
-                    </div>
-                </div>
-                <div style="margin-top: 10px;">
-                    <button onclick="downloadQRCode('${qrImageUrl}', '${qrCode.domainUrl || ''}')" class="btn btn-primary">QR 다운로드 (PNG)</button>
-                    <button onclick="updateQRCode()" class="btn btn-warning" style="margin-left: 10px;">QR 업데이트</button>
-                    <button onclick="deleteQRCode()" class="btn btn-danger" style="margin-left: 10px;">QR 삭제</button>
-                </div>
-                <div style="margin-top: 10px; font-size: 12px; color: #666;">
-                    도메인: ${qrCode.domainUrl || 'N/A'}<br>
-                    생성일: ${qrCode.createdAt ? new Date(qrCode.createdAt).toLocaleString() : 'N/A'}
-                </div>
-            `;
-            
-            // QR 미리보기 영역 표시
-            qrPreview.style.display = 'block';
-            console.log('🔍 [DEBUG] QR 미리보기 영역 새로 생성 완료');
-        }
-        }
-        // QR 이미지 로드 에러 처리
-        function handleQRImageError(img) {
-            console.log('🔍 [DEBUG] QR 이미지 로드 실패:', img.src);
-            img.style.display = 'none';
-            const errorDiv = img.nextElementSibling;
-            if (errorDiv) {
-                errorDiv.style.display = 'block';
+            if (noticeEl) {
+                noticeEl.textContent = resolvedSubdomain
+                    ? '서브도메인은 최초 설정 이후에는 슈퍼어드민만 변경할 수 있으며, QR 생성이 완료된 후에는 변경할 수 없습니다.'
+                    : '서브도메인은 기본 정보 설정 변경 단계에서 최초 1회만 등록할 수 있습니다.';
             }
         }
 
-        // 새 QR 코드 생성 함수
-        window.generateNewQR = function() {
-            console.log('🔍 [DEBUG] 새 QR 코드 생성 요청');
-            const subdomain = document.getElementById('subdomain').value;
-            if (subdomain) {
-                generateDomainQR();
-            } else {
-                alert('먼저 서브도메인을 설정해주세요.');
-            }
-        };
-
-        // QR 코드 다운로드 (PNG)
-        async function downloadQRCode(qrUrl, domainUrl) {
+        async function loadDomainSettings() {
             try {
-                const resolvedUrl = resolveQrUrl(qrUrl);
-                console.log('🔍 [DEBUG] QR 코드 다운로드 시작:', resolvedUrl);
-                
-                // 이미지 다운로드
+                updateCurrentDomain();
+                const currentStoreId = await getCurrentStoreId();
+                if (!currentStoreId) {
+                    document.getElementById('subdomain').value = '';
+                    currentDomainQrInfo = { url: '', domainUrl: '' };
+                    updateDomainSummaryView('', null);
+                    applyDomainSettingsPermissions({});
+                    return;
+                }
+
+                const response = await apiRequest(`${API_BASE}/store/${currentStoreId}/domain-settings`);
+                if (response && response.success && response.data) {
+                    const domainSettings = response.data;
+                    const subdomain = domainSettings.subdomain || '';
+                    document.getElementById('subdomain').value = subdomain;
+                    currentDomainQrInfo = {
+                        url: domainSettings.qrCode?.url || '',
+                        domainUrl: domainSettings.qrCode?.domainUrl || ''
+                    };
+                    updateDomainSummaryView(subdomain, currentDomainQrInfo);
+                    applyDomainSettingsPermissions(domainSettings);
+                } else {
+                    document.getElementById('subdomain').value = '';
+                    currentDomainQrInfo = { url: '', domainUrl: '' };
+                    updateDomainSummaryView('', null);
+                    applyDomainSettingsPermissions({});
+                }
+            } catch (error) {
+                console.error('도메인 설정 로드 실패:', error);
+                document.getElementById('subdomain').value = '';
+                currentDomainQrInfo = { url: '', domainUrl: '' };
+                updateDomainSummaryView('', null);
+                applyDomainSettingsPermissions({});
+            }
+        }
+
+        async function downloadDomainQR() {
+            try {
+                if (!currentDomainQrInfo.url) {
+                    showToast('다운로드할 QR 코드가 없습니다.', 'error', '오류');
+                    return;
+                }
+
+                const resolvedUrl = resolveQrUrl(currentDomainQrInfo.url);
                 const response = await fetch(resolvedUrl);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                
+
                 const blob = await response.blob();
-                console.log('🔍 [DEBUG] Blob 생성 완료:', { type: blob.type, size: blob.size });
-                
-                // MIME 타입이 올바른지 확인
                 if (!blob.type.startsWith('image/')) {
                     console.warn('⚠️ [DEBUG] 예상치 못한 MIME 타입:', blob.type);
                 }
-                
+
                 const url = window.URL.createObjectURL(blob);
-                
-                // 현재 가게 정보 가져오기
                 const currentStoreId = await getCurrentStoreId();
                 const storeName = document.getElementById('storeName')?.value || 'store';
-                
-                // 파일명에 확장자를 명시적으로 포함하고 특수문자 제거
                 const cleanStoreName = storeName.replace(/[^a-zA-Z0-9가-힣]/g, '_');
-                const cleanStoreId = currentStoreId.replace(/[^a-zA-Z0-9]/g, '_');
+                const cleanStoreId = (currentStoreId || '').replace(/[^a-zA-Z0-9]/g, '_');
                 const filename = `qr_code_${cleanStoreName}_${cleanStoreId}.png`;
-                
-                console.log('🔍 [DEBUG] 다운로드 파일명:', filename);
-                
+
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = filename;
                 a.style.display = 'none';
-                
-                // 다운로드 속성 강제 설정
-                a.setAttribute('download', filename);
-                
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
                 window.URL.revokeObjectURL(url);
-                
-                console.log('✅ [DEBUG] QR 코드 다운로드 완료:', filename);
+
                 showToast('QR 코드가 PNG 파일로 다운로드되었습니다.', 'success', '다운로드 완료');
-                
-                // 활동 로그 기록
-                await logActivity('qr', 'QR 코드 다운로드', 'QR 코드를 다운로드했습니다.', {
-                    storeId: currentStoreId,
-                    filename: filename,
-                    fileSize: blob.size,
-                    mimeType: blob.type
-                });
+
+                if (currentStoreId) {
+                    await logActivity('qr', 'QR 코드 다운로드', 'QR 코드를 다운로드했습니다.', {
+                        storeId: currentStoreId,
+                        filename,
+                        fileSize: blob.size,
+                        mimeType: blob.type
+                    });
+                }
             } catch (error) {
                 console.error('❌ [DEBUG] QR 코드 다운로드 실패:', error);
                 showToast('QR 코드 다운로드에 실패했습니다.', 'error', '다운로드 실패');
             }
         }
 
-        // QR 코드 업데이트 (재생성)
-        function updateQRCode() {
-            showModal('QR 코드 업데이트', 'QR 코드를 새로 생성하시겠습니까?<br>기존 QR 코드는 덮어씌워집니다.', [
-                {
-                    text: '취소',
-                    class: 'btn-secondary',
-                    onclick: 'closeModal()'
-                },
-                {
-                    text: '업데이트',
-                    class: 'btn-warning',
-                    onclick: 'confirmQRUpdate()'
-                }
-            ]);
-        }
-        // QR 업데이트 확인
-        function confirmQRUpdate() {
-            closeModal();
-            generateDomainQR();
-        }
-
-        // QR 코드 삭제
-        function deleteQRCode() {
-            showModal('QR 코드 삭제', 'QR 코드를 삭제하시겠습니까?<br>삭제된 QR 코드는 복구할 수 없습니다.', [
-                {
-                    text: '취소',
-                    class: 'btn-secondary',
-                    onclick: 'closeModal()'
-                },
-                {
-                    text: '삭제',
-                    class: 'btn-danger',
-                    onclick: 'confirmQRDelete()'
-                }
-            ]);
-        }
-
-        // QR 삭제 확인
-        function confirmQRDelete() {
-            closeModal();
-            
-            // QR 코드 삭제 API 호출
-            const currentStoreId = window.currentStoreId;
-            if (currentStoreId) {
-                fetch(`${API_BASE}/delete-domain-qr`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        storeId: currentStoreId
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // QR 미리보기 영역 제거
-                        const qrPreview = document.querySelector('.qr-preview');
-                        if (qrPreview) {
-                            qrPreview.remove();
-                        }
-                        
-                        // QR 생성 버튼 다시 표시
-                        const generateBtn = document.getElementById('generateDomainQRBtn');
-                        if (generateBtn) {
-                            generateBtn.style.display = 'inline-block';
-                        }
-                        
-                        showToast('QR 코드가 삭제되었습니다.', 'success', '삭제 완료');
-                    } else {
-                        showToast('QR 코드 삭제에 실패했습니다.', 'error', '삭제 실패');
-                    }
-                })
-                .catch(error => {
-                    console.error('QR 코드 삭제 실패:', error);
-                    showToast('QR 코드 삭제에 실패했습니다.', 'error', '삭제 실패');
-                });
-            }
-        }
-        // 도메인 연결 테스트
-        async function testDomainConnection() {
-            try {
-                const subdomain = document.getElementById('subdomain').value.trim();
-
-                if (!subdomain) {
-                    showToast('테스트할 서브도메인을 입력해주세요.', 'error', '입력 필요');
-                    return;
-                }
-
-                showToast('도메인 연결을 테스트하고 있습니다...', 'info', '테스트 중');
-
-                // 도메인 테스트 API 호출
-                const testResult = await apiRequest(`${API_BASE}/test-domain`, 'POST', {
-                    subdomain: subdomain
-                });
-
-                if (testResult.success) {
-                    showToast('도메인 연결 테스트가 성공했습니다!', 'success', '테스트 성공');
-                } else {
-                    showToast(`도메인 연결 테스트 실패: ${testResult.error}`, 'error', '테스트 실패');
-                }
-
-            } catch (error) {
-                console.error('도메인 연결 테스트 실패:', error);
-                showToast('도메인 연결 테스트에 실패했습니다.', 'error', '테스트 실패');
-            }
-        }
-
-        // 도메인 QR 생성
         function generateDomainQR() {
-            const subdomain = document.getElementById('subdomain').value.trim();
-            
-            if (!subdomain) {
-                showToast('서브도메인을 먼저 설정해주세요.', 'error', '도메인 설정 필요');
+            if (!IS_SUPERADMIN) {
+                showToast('QR 생성은 슈퍼어드민만 가능합니다.', 'error', '권한 부족');
+                return;
+            }
+            if (domainPermissionState.qrLocked) {
+                showToast('이미 생성된 QR 코드는 변경할 수 없습니다.', 'error', 'QR 잠김');
                 return;
             }
 
-            showModal('QR 코드 생성', `서브도메인 "${subdomain}"에 대한 QR 코드를 생성하시겠습니까?`, [
+            const subdomainValue = document.getElementById('subdomain')?.value.trim();
+            if (!subdomainValue) {
+                showToast('먼저 서브도메인을 설정해주세요.', 'error', '도메인 필요');
+                return;
+            }
+
+            showModal('QR 코드 생성', `서브도메인 "${subdomainValue}"에 대한 QR 코드를 생성하시겠습니까?`, [
                 {
                     text: '취소',
                     class: 'btn-secondary',
@@ -7848,125 +9693,6 @@
                 }
             ]);
         }
-
-        // QR 생성 확인
-        async function confirmQRGenerate() {
-            closeModal();
-            
-            try {
-                const currentStoreId = await getCurrentStoreId();
-                if (!currentStoreId) {
-                    notifyStoreSelectionRequired();
-                    return;
-                }
-
-                const subdomain = document.getElementById('subdomain').value.trim();
-
-                showToast('도메인 QR 코드를 생성하고 있습니다...', 'info', 'QR 생성 중');
-
-                // 도메인 QR 생성 API 호출
-                const response = await apiRequest(`${API_BASE}/generate-domain-qr`, 'POST', {
-                    storeId: currentStoreId,
-                    subdomain: subdomain
-                });
-
-                if (response.success) {
-                    // QR 코드 미리보기 표시
-                    const qrCodeData = {
-                        url: response.qrCodeUrl,
-                        domainUrl: response.domainUrl,
-                        createdAt: new Date().toISOString()
-                    };
-                    displayQRCode(qrCodeData);
-                    
-                    // QR 생성 버튼 숨기기
-                    const generateBtn = document.getElementById('generateDomainQRBtn');
-                    if (generateBtn) {
-                        generateBtn.style.display = 'none';
-                    }
-
-                    showToast('도메인 QR 코드가 생성되었습니다!', 'success', 'QR 생성 완료');
-
-                    // 활동 로그 기록
-                    await logActivity('domain', '도메인 QR 생성', 
-                        `도메인 QR 코드가 생성되었습니다.\n경로: /${subdomain}`, 
-                        { qrCodeUrl: response.qrCodeUrl }
-                    );
-                } else {
-                    showToast('도메인 QR 코드 생성에 실패했습니다.', 'error', 'QR 생성 실패');
-                }
-
-            } catch (error) {
-                console.error('도메인 QR 생성 실패:', error);
-                showToast('도메인 QR 코드 생성에 실패했습니다.', 'error', 'QR 생성 실패');
-            }
-        }
-
-        // 도메인 QR 다운로드
-        async function downloadDomainQR() {
-            try {
-                const qrImage = document.getElementById('domainQRImage');
-                if (!qrImage.src) {
-                    showToast('다운로드할 QR 코드가 없습니다.', 'error', '오류');
-                    return;
-                }
-
-                const response = await fetch(qrImage.src);
-                const blob = await response.blob();
-                
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `domain-qr-${Date.now()}.png`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-
-                showToast('도메인 QR 코드가 다운로드되었습니다!', 'success', '다운로드 완료');
-
-            } catch (error) {
-                console.error('도메인 QR 다운로드 실패:', error);
-                showToast('도메인 QR 코드 다운로드에 실패했습니다.', 'error', '다운로드 실패');
-            }
-        }
-
-        // 도메인 QR 삭제
-        async function deleteDomainQR() {
-            try {
-                const currentStoreId = await getCurrentStoreId();
-                if (!currentStoreId) {
-                    notifyStoreSelectionRequired();
-                    return;
-                }
-
-                // 도메인 QR 삭제 API 호출
-                const response = await apiRequest(`${API_BASE}/delete-domain-qr`, 'DELETE', {
-                    storeId: currentStoreId
-                });
-
-                if (response.success) {
-                    // UI 초기화
-                    document.getElementById('domainQRPreview').style.display = 'none';
-                    document.getElementById('domainQRImage').src = '';
-                    document.getElementById('generateDomainQRBtn').style.display = 'inline-block';
-                    document.getElementById('downloadDomainQRBtn').style.display = 'none';
-                    document.getElementById('deleteDomainQRBtn').style.display = 'none';
-
-                    showToast('도메인 QR 코드가 삭제되었습니다.', 'success', '삭제 완료');
-
-                    // 활동 로그 기록
-                    await logActivity('domain', '도메인 QR 삭제', '도메인 QR 코드가 삭제되었습니다.');
-                } else {
-                    showToast('도메인 QR 코드 삭제에 실패했습니다.', 'error', '삭제 실패');
-                }
-
-            } catch (error) {
-                console.error('도메인 QR 삭제 실패:', error);
-                showToast('도메인 QR 코드 삭제에 실패했습니다.', 'error', '삭제 실패');
-            }
-        }
-
         // 현재 도메인 업데이트
         function updateCurrentDomain() {
             const currentDomain = window.location.host;
@@ -7981,71 +9707,92 @@
             }
         }
 
-        // 도메인 설정 로드
-        async function loadDomainSettings() {
+        function applyDomainSettingsPermissions(domainData = {}) {
+            const resolvedSubdomain = domainData.subdomain || domainData.domainSettings?.subdomain || '';
+            const hasSubdomain = Boolean(resolvedSubdomain);
+            const qrLockedAt = domainData.qrLockedAt || domainData.domainSettings?.qrLockedAt || null;
+            const qrLocked = Boolean(qrLockedAt);
+
+            domainPermissionState = {
+                hasSubdomain,
+                qrLocked
+            };
+
+            const subdomainInput = document.getElementById('subdomain');
+            if (subdomainInput) {
+                subdomainInput.dataset.hasSubdomain = hasSubdomain ? 'true' : 'false';
+                subdomainInput.dataset.qrLocked = qrLocked ? 'true' : 'false';
+                subdomainInput.readOnly = hasSubdomain;
+            }
+
+            const summaryDownloadBtn = document.getElementById('summaryQrDownloadBtn');
+            if (summaryDownloadBtn) {
+                summaryDownloadBtn.style.display = currentDomainQrInfo.url ? 'inline-flex' : 'none';
+                summaryDownloadBtn.disabled = !currentDomainQrInfo.url;
+            }
+        }
+
+        function populateOwnerAccountSection() {
+            if (!IS_STORE_OWNER) return;
+            const emailEl = document.getElementById('ownerAccountEmail');
+            const nameEl = document.getElementById('ownerAccountName');
+            if (emailEl) {
+                emailEl.textContent = sessionStorage.getItem('owner_email') || '-';
+            }
+            if (nameEl) {
+                nameEl.textContent = sessionStorage.getItem('owner_name') || '-';
+            }
+        }
+
+        async function changeOwnerPassword() {
+            if (!IS_STORE_OWNER) {
+                showToast('사장님 전용 기능입니다.', 'error', '권한 부족');
+                return;
+            }
+
+            const ownerId = sessionStorage.getItem('owner_id');
+            if (!ownerId) {
+                showToast('점주 정보를 찾을 수 없습니다. 다시 로그인해주세요.', 'error', '권한 부족');
+                return;
+            }
+
+            const currentPassword = document.getElementById('ownerCurrentPassword')?.value.trim() || '';
+            const newPassword = document.getElementById('ownerNewPassword')?.value.trim() || '';
+            const confirmPassword = document.getElementById('ownerNewPasswordConfirm')?.value.trim() || '';
+
+            if (!currentPassword || !newPassword || !confirmPassword) {
+                showToast('현재 비밀번호와 새 비밀번호를 모두 입력해주세요.', 'error', '입력 필요');
+                return;
+            }
+
+            if (newPassword.length < 8) {
+                showToast('새 비밀번호는 8자 이상 입력해주세요.', 'error', '입력 필요');
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                showToast('새 비밀번호가 일치하지 않습니다.', 'error', '입력 필요');
+                return;
+            }
+
+            if (newPassword === currentPassword) {
+                showToast('새 비밀번호는 기존 비밀번호와 달라야 합니다.', 'error', '입력 필요');
+                return;
+            }
+
             try {
-                // 현재 도메인 업데이트
-                updateCurrentDomain();
-                
-                const currentStoreId = await getCurrentStoreId();
-                if (!currentStoreId) {
-                    // 가게가 선택되지 않은 경우 폼 초기화
-                    document.getElementById('subdomain').value = '';
-                    updateCurrentDomainInfo('');
-                    document.getElementById('generateDomainQRBtn').disabled = true;
-                    return;
-                }
+                await apiRequest(`${API_BASE}/owners/${ownerId}/password`, 'POST', {
+                    currentPassword,
+                    newPassword
+                });
 
-                // 도메인 설정 조회
-                const response = await apiRequest(`${API_BASE}/store/${currentStoreId}/domain-settings`);
-                
-                if (response && response.success && response.data) {
-                    const domainSettings = response.data;
-                    document.getElementById('subdomain').value = domainSettings.subdomain || '';
-                    updateCurrentDomainInfo(domainSettings.subdomain);
-                    
-                    // 도메인이 설정된 경우 QR 생성 버튼 활성화
-                    if (domainSettings.subdomain) {
-                        document.getElementById('generateDomainQRBtn').disabled = false;
-                    }
-                    
-                    // QR 코드가 있는 경우 표시
-                    console.log('🔍 [DEBUG] domainSettings.qrCode 확인:', domainSettings.qrCode);
-                    if (domainSettings.qrCode && domainSettings.qrCode.url) {
-                        console.log('🔍 [DEBUG] QR 코드 발견, 직접 표시');
-                        const qrCodeData = {
-                            url: domainSettings.qrCode.url,
-                            domainUrl: `http://localhost:8081/${domainSettings.subdomain || ''}`,
-                            createdAt: domainSettings.qrCode.createdAt
-                        };
-                        displayQRCode(qrCodeData);
-                        
-                        // QR 생성 버튼 숨기고 다운로드/삭제 버튼 표시
-                        const generateBtn = document.getElementById('generateDomainQRBtn');
-                        if (generateBtn) {
-                            generateBtn.style.display = 'none';
-                        }
-                    } else {
-                        console.log('🔍 [DEBUG] QR 코드 없음');
-                        // QR 생성 버튼 표시
-                        const generateBtn = document.getElementById('generateDomainQRBtn');
-                        if (generateBtn) {
-                            generateBtn.style.display = 'inline-block';
-                        }
-                    }
-                } else {
-                    // 설정이 없는 경우 초기화
-                    document.getElementById('subdomain').value = '';
-                    updateCurrentDomainInfo('');
-                    document.getElementById('generateDomainQRBtn').disabled = true;
-                }
-
+                showToast('비밀번호가 변경되었습니다.', 'success', '변경 완료');
+                document.getElementById('ownerCurrentPassword').value = '';
+                document.getElementById('ownerNewPassword').value = '';
+                document.getElementById('ownerNewPasswordConfirm').value = '';
             } catch (error) {
-                console.error('도메인 설정 로드 실패:', error);
-                // 에러가 발생해도 폼은 초기화
-                document.getElementById('subdomain').value = '';
-                updateCurrentDomainInfo('');
-                document.getElementById('generateDomainQRBtn').disabled = true;
+                console.error('비밀번호 변경 실패:', error);
+                showToast(error.message || '비밀번호 변경에 실패했습니다.', 'error', '변경 실패');
             }
         }
         // 실제 존재하는 QR 코드 파일 찾기
@@ -8695,6 +10442,18 @@
         }
         // 로딩 상태 관리
         let isLoading = false;
+        let basicWizardSteps = ['basic', 'contact', 'domain', 'review'];
+        let basicWizardStepIndex = 0;
+        let shouldShowDomainStep = true;
+        const basicWizardState = {
+            storeName: '',
+            storeSubtitle: '',
+            storePhone: '',
+            postalCode: '',
+            roadAddress: '',
+            extraAddress: '',
+            addressDetail: ''
+        };
         
         // 페이지 로드 시 초기화
         // 가이드 메시지 초기화
@@ -9084,7 +10843,8 @@
                 // 가게 정보 조회하여 서브도메인 확인
                 let targetUrl;
                 try {
-                    const store = await apiRequest(`${API_BASE}/stores/${currentStoreId}`);
+                    const response = await apiRequest(`${API_BASE}/stores/${currentStoreId}`);
+                    const store = normalizeStoreDetailResponse(response, currentStoreId);
                     if (store && store.subdomain) {
                         // 서브도메인이 있는 경우 서브도메인 URL 사용
                         targetUrl = `${baseUrl}/${store.subdomain}`;
@@ -9160,6 +10920,7 @@
             initializeGuideMessages();
             setupOwnerTabs();
             initializeDashboardControls();
+            populateOwnerAccountSection();
             
             try {
                 await loadStoreList();
@@ -9172,6 +10933,7 @@
                             return;
                         }
                         await loadSettings();
+                        renderBasicSummary();
                     } catch (error) {
                         console.error('초기 설정 로드 실패:', error);
                     }

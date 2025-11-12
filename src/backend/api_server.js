@@ -24,6 +24,9 @@ const db = require('../database/connection');
 require('dotenv').config({ path: path.join(__dirname, '../../env.database') });
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
+// AI 오케스트레이터
+const aiOrchestrator = require('../ai/orchestrator');
+
 const PORT = process.env.PORT || 8081;
 const DATA_BACKEND = process.env.DATA_BACKEND || 'postgres';
 
@@ -90,6 +93,107 @@ function parseRequestBody(req) {
       }
     });
   });
+}
+
+// 전화번호 및 주소 유효성 검사용 정규식
+const PHONE_DISPLAY_PATTERN = /^0\d{1,2}-\d{3,4}-\d{4}$/;
+const ADDRESS_ALLOWED_PATTERN = /^[가-힣A-Za-z0-9\s\-.,#/()]+$/;
+
+/**
+ * 전화번호를 통일된 하이픈 포맷(예: 010-1234-5678)으로 정규화한다.
+ * @param {string} raw 사용자 입력 전화번호
+ * @returns {string} 정상 포맷 또는 빈 문자열
+ */
+function normalizePhoneNumber(raw) {
+  if (!raw) return '';
+  const digits = String(raw).replace(/\D/g, '');
+  if (digits.length < 9 || digits.length > 11) {
+    return '';
+  }
+
+  if (digits.startsWith('02')) {
+    if (digits.length === 9) {
+      return `02-${digits.slice(2, 5)}-${digits.slice(5)}`;
+    }
+    if (digits.length === 10) {
+      return `02-${digits.slice(2, 6)}-${digits.slice(6)}`;
+    }
+    return '';
+  }
+
+  if (digits.length === 10) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+
+  if (digits.length === 11) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  }
+
+  return '';
+}
+
+/**
+ * 전화번호 유효성을 검사한다.
+ * @param {string} raw 사용자 입력 전화번호
+ * @returns {{isValid:boolean, normalized:string}}
+ */
+function validatePhoneNumber(raw) {
+  const normalized = normalizePhoneNumber(raw);
+  return {
+    normalized,
+    isValid: Boolean(normalized) && PHONE_DISPLAY_PATTERN.test(normalized)
+  };
+}
+
+function sanitizeAddressSegment(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+/**
+ * 주소 입력값을 검증하고 통일된 형태로 반환한다.
+ * @param {object} rawData 요청 데이터의 주소 필드
+ * @returns {{isValid:boolean, message?:string, sanitized?:object}}
+ */
+function validateOwnerAddress(rawData = {}) {
+  const postalCode = sanitizeAddressSegment(rawData.storePostalCode || rawData.postalCode || '');
+  const roadAddress = sanitizeAddressSegment(rawData.storeRoadAddress || rawData.roadAddress || '');
+  const extraAddress = sanitizeAddressSegment(rawData.storeExtraAddress || rawData.extraAddress || '');
+  const addressDetail = sanitizeAddressSegment(rawData.storeAddressDetail || rawData.addressDetail || '');
+
+  if (!roadAddress) {
+    return { isValid: false, message: '가게 도로명 주소를 입력해주세요.' };
+  }
+  if (!ADDRESS_ALLOWED_PATTERN.test(roadAddress)) {
+    return { isValid: false, message: '도로명 주소에 허용되지 않는 문자가 포함되어 있습니다.' };
+  }
+  if (extraAddress && !ADDRESS_ALLOWED_PATTERN.test(extraAddress.replace(/^\(|\)$/g, ''))) {
+    return { isValid: false, message: '참고 항목에 허용되지 않는 문자가 포함되어 있습니다.' };
+  }
+  if (!addressDetail) {
+    return { isValid: false, message: '상세 주소를 입력해주세요.' };
+  }
+  if (!ADDRESS_ALLOWED_PATTERN.test(addressDetail)) {
+    return { isValid: false, message: '상세 주소에 허용되지 않는 문자가 포함되어 있습니다.' };
+  }
+
+  const fullAddressSegments = [roadAddress];
+  if (extraAddress) {
+    fullAddressSegments.push(extraAddress);
+  }
+  if (addressDetail) {
+    fullAddressSegments.push(addressDetail);
+  }
+
+  return {
+    isValid: true,
+    sanitized: {
+      storePostalCode: postalCode,
+      storeRoadAddress: roadAddress,
+      storeExtraAddress: extraAddress,
+      storeAddressDetail: addressDetail,
+      storeAddress: fullAddressSegments.filter(Boolean).join(' ').trim()
+    }
+  };
 }
 
 // 정적 파일 서빙
@@ -208,6 +312,7 @@ class APIRouter {
     this.routes.set('POST /api/owners/request', this.requestOwnerAccount.bind(this));
     this.routes.set('GET /api/owners', this.getOwnerAccounts.bind(this));
     this.routes.set('POST /api/owners/login', this.postOwnerLogin.bind(this));
+    this.routes.set('POST /api/owners/:ownerId/password', this.updateOwnerPasswordHandler.bind(this));
     
     // POST /api/store/select - 가게 선택
     this.routes.set('POST /api/store/select', (req, res, parsedUrl) => {
@@ -233,6 +338,10 @@ class APIRouter {
     
     // POST /api/ai/generate-content - AI 콘텐츠 생성
     this.routes.set('POST /api/ai/generate-content', this.generateAIContent.bind(this));
+    // POST /api/ai/seo/optimize - SEO 전략 생성
+    this.routes.set('POST /api/ai/seo/optimize', this.postSeoOptimization.bind(this));
+    // POST /api/ai/ab-tests/generate - A/B 테스트 전략 생성
+    this.routes.set('POST /api/ai/ab-tests/generate', this.postAbTestPlan.bind(this));
     
     // POST /api/stores/update - 가게 정보 업데이트 (호환성)
     this.routes.set('POST /api/stores/update', this.postStoresUpdate.bind(this));
@@ -263,7 +372,8 @@ class APIRouter {
     
     // GET /api/store/subdomain/:subdomain - 서브도메인으로 가게 조회
     this.routes.set('GET /api/store/subdomain/:subdomain', this.getStoreBySubdomain.bind(this));
-+    this.routes.set('POST /api/superadmin/update', this.updateSuperAdminAccount.bind(this));
+    this.routes.set('POST /api/superadmin/update', this.updateSuperAdminAccount.bind(this));
+    this.routes.set('POST /api/debug/log', this.logDebugMessage.bind(this));
   }
 
   async handleRequest(req, res) {
@@ -287,7 +397,43 @@ class APIRouter {
       // 동적 API 라우트 처리
       let handler = null;
       
-      if (pathname.startsWith('/api/store/')) {
+      if (pathname.startsWith('/api/stores/')) {
+        const parts = pathname.split('/');
+        if (parts.length >= 4 && parts[3]) { // /api/stores/:storeId
+          const storeId = parts[3];
+          if (parts.length === 4) { // GET/PUT/DELETE /api/stores/:storeId
+            if (method === 'GET') {
+              handler = (req, res, parsedUrl) => this.getStoreById(req, res, parsedUrl);
+            } else if (method === 'PUT') {
+              handler = (req, res, parsedUrl) => this.updateStore(req, res, parsedUrl);
+            } else if (method === 'DELETE') {
+              handler = (req, res, parsedUrl) => this.deleteStore(req, res, parsedUrl);
+            }
+          } else if (parts.length >= 5 && parts[4] === 'owners') { // /api/stores/:storeId/owners
+            if (parts.length === 5) {
+              if (method === 'GET') {
+                handler = (req, res, parsedUrl) => this.getStoreOwners(storeId, req, res, parsedUrl);
+              } else if (method === 'POST') {
+                handler = (req, res, parsedUrl) => this.linkOwnerToStoreHandler(storeId, req, res, parsedUrl);
+              }
+            } else if (parts.length === 6) {
+              const ownerId = decodeURIComponent(parts[5]);
+              if (method === 'DELETE') {
+                handler = (req, res, parsedUrl) => this.unlinkOwnerFromStoreHandler(storeId, ownerId, req, res, parsedUrl);
+              } else if (method === 'PATCH') {
+                handler = (req, res, parsedUrl) => this.updateStoreOwnerLinkHandler(storeId, ownerId, req, res, parsedUrl);
+              }
+            }
+          } else if (parts.length === 5) { // /api/stores/:storeId/action
+            const action = parts[4];
+            if (action === 'pause' && method === 'POST') {
+              handler = (req, res, parsedUrl) => this.pauseStore(req, res, parsedUrl);
+            } else if (action === 'resume' && method === 'POST') {
+              handler = (req, res, parsedUrl) => this.resumeStore(req, res, parsedUrl);
+            }
+          }
+        }
+      } else if (pathname.startsWith('/api/store/')) {
         const parts = pathname.split('/');
         if (parts.length >= 4 && parts[3]) { // /api/store/:id
           // 서브도메인 라우트 먼저 확인
@@ -299,17 +445,77 @@ class APIRouter {
             const storeId = parts[3];
             if (parts.length === 4) { // GET /api/store/:id
               handler = this.getStoreById.bind(this, storeId);
-            } else if (parts.length === 5 && parts[4] === 'settings') { // GET/POST /api/store/:id/settings
-              if (method === 'GET') {
-                handler = (req, res, parsedUrl) => this.getStoreSettings(storeId, req, res, parsedUrl);
-              } else if (method === 'POST') {
-                handler = (req, res, parsedUrl) => this.updateStoreSettings(storeId, req, res, parsedUrl);
+            } else if (parts.length === 5) {
+              const subPath = parts[4];
+              const extraPath = '';
+              if (subPath === 'settings') { // GET/POST /api/store/:id/settings
+                if (method === 'GET') {
+                  handler = (req, res, parsedUrl) => this.getStoreSettings(storeId, req, res, parsedUrl);
+                } else if (method === 'POST') {
+                  handler = (req, res, parsedUrl) => this.updateStoreSettings(storeId, req, res, parsedUrl);
+                }
+              } else if (subPath === 'domain-settings') { // GET/POST /api/store/:id/domain-settings
+                if (method === 'GET') {
+                  handler = (req, res, parsedUrl) => this.getDomainSettings(req, res, parsedUrl);
+                } else if (method === 'POST') {
+                  handler = (req, res, parsedUrl) => this.saveDomainSettings(req, res, parsedUrl);
+                }
+              } else if (subPath === 'seo-settings') { // GET/POST /api/store/:id/seo-settings
+                if (method === 'GET') {
+                  log('DEBUG', 'SEO 설정 라우트 매칭', { storeId, method, pathname });
+                  handler = (req, res, parsedUrl) => this.getSeoSettingsHandler(storeId, req, res, parsedUrl);
+                } else if (method === 'POST') {
+                  log('DEBUG', 'SEO 설정 저장 라우트 매칭', { storeId, method, pathname });
+                  handler = (req, res, parsedUrl) => this.saveSeoSettingsHandler(storeId, req, res, parsedUrl);
+                }
+              } else if (subPath === 'ab-test-settings') { // GET/POST /api/store/:id/ab-test-settings
+                if (method === 'GET') {
+                  log('DEBUG', 'A/B 테스트 설정 라우트 매칭', { storeId, method, pathname });
+                  handler = (req, res, parsedUrl) => this.getAbTestSettingsHandler(storeId, req, res, parsedUrl);
+                } else if (method === 'POST') {
+                  log('DEBUG', 'A/B 테스트 설정 저장 라우트 매칭', { storeId, method, pathname });
+                  handler = (req, res, parsedUrl) => this.saveAbTestSettingsHandler(storeId, req, res, parsedUrl);
+                }
               }
-            } else if (parts.length === 5 && parts[4] === 'domain-settings') { // GET/POST /api/store/:id/domain-settings
-              if (method === 'GET') {
-                handler = (req, res, parsedUrl) => this.getDomainSettings(req, res, parsedUrl);
-              } else if (method === 'POST') {
-                handler = (req, res, parsedUrl) => this.saveDomainSettings(req, res, parsedUrl);
+            } else if (parts.length >= 6) {
+              const subPath = parts[4];
+              const extraSegment = (parts[5] || '').split('?')[0];
+              if (subPath === 'settings') { // GET/POST /api/store/:id/settings
+                if (method === 'GET') {
+                  handler = (req, res, parsedUrl) => this.getStoreSettings(storeId, req, res, parsedUrl);
+                } else if (method === 'POST') {
+                  handler = (req, res, parsedUrl) => this.updateStoreSettings(storeId, req, res, parsedUrl);
+                }
+              } else if (subPath === 'domain-settings') { // GET/POST /api/store/:id/domain-settings
+                if (method === 'GET') {
+                  handler = (req, res, parsedUrl) => this.getDomainSettings(req, res, parsedUrl);
+                } else if (method === 'POST') {
+                  handler = (req, res, parsedUrl) => this.saveDomainSettings(req, res, parsedUrl);
+                }
+              } else if (subPath === 'seo-settings') {
+                if (!extraSegment) {
+                  if (method === 'GET') {
+                    log('DEBUG', 'SEO 설정 라우트 매칭', { storeId, method, pathname });
+                    handler = (req, res, parsedUrl) => this.getSeoSettingsHandler(storeId, req, res, parsedUrl);
+                  } else if (method === 'POST') {
+                    log('DEBUG', 'SEO 설정 저장 라우트 매칭', { storeId, method, pathname });
+                    handler = (req, res, parsedUrl) => this.saveSeoSettingsHandler(storeId, req, res, parsedUrl);
+                  }
+                } else if (extraSegment === 'history' && method === 'GET') {
+                  handler = (req, res, parsedUrl) => this.getSeoSettingsHistoryHandler(storeId, req, res, parsedUrl);
+                }
+              } else if (subPath === 'ab-test-settings') {
+                if (!extraSegment) {
+                  if (method === 'GET') {
+                    log('DEBUG', 'A/B 테스트 설정 라우트 매칭', { storeId, method, pathname });
+                    handler = (req, res, parsedUrl) => this.getAbTestSettingsHandler(storeId, req, res, parsedUrl);
+                  } else if (method === 'POST') {
+                    log('DEBUG', 'A/B 테스트 설정 저장 라우트 매칭', { storeId, method, pathname });
+                    handler = (req, res, parsedUrl) => this.saveAbTestSettingsHandler(storeId, req, res, parsedUrl);
+                  }
+                } else if (extraSegment === 'history' && method === 'GET') {
+                  handler = (req, res, parsedUrl) => this.getAbTestSettingsHistoryHandler(storeId, req, res, parsedUrl);
+                }
               }
             }
           }
@@ -325,14 +531,20 @@ class APIRouter {
         if (match) {
           const ownerId = decodeURIComponent(match[1]);
           const action = match[2] || '';
-          if (action === 'approve' && method === 'POST') {
+          if (!action && method === 'GET') {
+            handler = (req, res, parsedUrl) => this.getOwnerAccountDetailHandler(ownerId, req, res, parsedUrl);
+          } else if (action === 'approve' && method === 'POST') {
             handler = (req, res, parsedUrl) => this.approveOwnerAccount(ownerId, req, res, parsedUrl);
           } else if (action === 'reject' && method === 'POST') {
             handler = (req, res, parsedUrl) => this.rejectOwnerAccount(ownerId, req, res, parsedUrl);
+          } else if (action === 'stores' && method === 'POST') {
+            handler = (req, res, parsedUrl) => this.createStoreForOwnerHandler(ownerId, req, res, parsedUrl);
           } else if (action === 'pause' && method === 'POST') {
             handler = (req, res, parsedUrl) => this.pauseOwnerAccountHandler(ownerId, req, res, parsedUrl);
           } else if (action === 'resume' && method === 'POST') {
             handler = (req, res, parsedUrl) => this.resumeOwnerAccountHandler(ownerId, req, res, parsedUrl);
+          } else if (action === 'password' && method === 'POST') {
+            handler = (req, res, parsedUrl) => this.updateOwnerPasswordHandler(ownerId, req, res, parsedUrl);
           } else if (!action && method === 'DELETE') {
             handler = (req, res, parsedUrl) => this.deleteOwnerAccountHandler(ownerId, req, res, parsedUrl);
           }
@@ -342,27 +554,6 @@ class APIRouter {
         if (parts.length >= 4 && parts[3]) { // /api/qr-codes/:storeId
           const storeId = parts[3];
           handler = this.getQRCodesByStore.bind(this, storeId);
-        }
-      } else if (pathname.startsWith('/api/stores/')) {
-        const parts = pathname.split('/');
-        if (parts.length >= 4 && parts[3]) { // /api/stores/:storeId
-          const storeId = parts[3];
-          if (parts.length === 4) { // GET/PUT/DELETE /api/stores/:storeId
-            if (method === 'GET') {
-              handler = (req, res, parsedUrl) => this.getStoreById(req, res, parsedUrl);
-            } else if (method === 'PUT') {
-              handler = (req, res, parsedUrl) => this.updateStore(req, res, parsedUrl);
-            } else if (method === 'DELETE') {
-              handler = (req, res, parsedUrl) => this.deleteStore(req, res, parsedUrl);
-            }
-          } else if (parts.length === 5) { // /api/stores/:storeId/action
-            const action = parts[4];
-            if (action === 'pause' && method === 'POST') {
-              handler = (req, res, parsedUrl) => this.pauseStore(req, res, parsedUrl);
-            } else if (action === 'resume' && method === 'POST') {
-              handler = (req, res, parsedUrl) => this.resumeStore(req, res, parsedUrl);
-            }
-          }
         }
       } else if (pathname.startsWith('/api/qr/')) {
               const parts = pathname.split('/');
@@ -543,8 +734,35 @@ class APIRouter {
 
   async getStores(req, res, parsedUrl) {
     try {
-      const { storeId } = parsedUrl.query || {};
-      const stores = await dbServices.getStores(storeId || null);
+      const query = parsedUrl.query || {};
+      const {
+        storeId = '',
+        ownerId = '',
+        status = '',
+        keyword = '',
+        createdDate = '',
+        page = '1',
+        pageSize = '20',
+        sortBy = 'createdAt',
+        sortOrder = ''
+      } = query;
+
+      const includeSummary = query.includeSummary !== 'false';
+
+      const options = {
+        storeId: storeId || null,
+        ownerId: ownerId || null,
+        status: status || '',
+        keyword,
+        createdDate,
+        page: parseInt(page, 10) || 1,
+        pageSize: parseInt(pageSize, 10) || 20,
+        sortBy: sortBy || 'createdAt',
+        sortOrder: sortOrder || undefined,
+        includeSummary
+      };
+
+      const stores = await dbServices.getStores(options);
       sendJsonResponse(res, 200, stores);
     } catch (error) {
       log('ERROR', '가게 목록 조회 실패', error);
@@ -686,7 +904,10 @@ class APIRouter {
       const body = await parseRequestBody(req);
       const { name, email, phone, storeId, message, requestData, password } = body;
 
-      if (!name || !email) {
+      const trimmedName = typeof name === 'string' ? name.trim() : '';
+      const trimmedEmail = typeof email === 'string' ? email.trim() : '';
+
+      if (!trimmedName || !trimmedEmail) {
         sendErrorResponse(res, 400, '이름과 이메일은 필수입니다.');
         return;
       }
@@ -702,13 +923,37 @@ class APIRouter {
         return;
       }
 
+      const { isValid: phoneValid, normalized: normalizedPhone } = validatePhoneNumber(phone);
+      if (!phoneValid) {
+        sendErrorResponse(res, 400, '연락처 형식이 올바르지 않습니다. 예: 010-1234-5678');
+        return;
+      }
+
+      const ownerRequestData = (requestData && typeof requestData === 'object') ? requestData : {};
+      const addressValidation = validateOwnerAddress(ownerRequestData);
+      if (!addressValidation.isValid) {
+        sendErrorResponse(res, 400, addressValidation.message || '주소 정보가 올바르지 않습니다.');
+        return;
+      }
+
+      const sanitizedStoreName = sanitizeAddressSegment(ownerRequestData.storeName || ownerRequestData.name || '');
+      if (!sanitizedStoreName) {
+        sendErrorResponse(res, 400, '가게 이름을 입력해주세요.');
+        return;
+      }
+
+      const sanitizedRequestData = {
+        storeName: sanitizedStoreName,
+        ...addressValidation.sanitized
+      };
+
       const result = await dbServices.createOwnerRequest({
-        name,
-        email,
-        phone,
+        name: trimmedName,
+        email: trimmedEmail,
+        phone: normalizedPhone,
         storeId,
         message,
-        requestData,
+        requestData: sanitizedRequestData,
         password: trimmedPassword
       });
 
@@ -741,6 +986,102 @@ class APIRouter {
     } catch (error) {
       log('ERROR', '점주 계정 목록 조회 실패', error);
       sendErrorResponse(res, 500, '계정 목록 조회에 실패했습니다.');
+    }
+  }
+
+  async getStoreOwners(storeId, req, res, parsedUrl) {
+    if (!storeId) {
+      sendErrorResponse(res, 400, 'storeId가 필요합니다.');
+      return;
+    }
+
+    try {
+      const owners = await dbServices.getOwnersByStore(storeId);
+      sendJsonResponse(res, 200, {
+        success: true,
+        data: owners
+      });
+    } catch (error) {
+      log('ERROR', '가게 점주 목록 조회 실패', error);
+      sendErrorResponse(res, 500, error.message || '가게 점주 목록을 불러오지 못했습니다.');
+    }
+  }
+
+  async linkOwnerToStoreHandler(storeId, req, res, parsedUrl) {
+    if (!storeId) {
+      sendErrorResponse(res, 400, 'storeId가 필요합니다.');
+      return;
+    }
+
+    try {
+      const body = await parseRequestBody(req);
+      const ownerId = body?.ownerId;
+      let role = typeof body?.role === 'string' ? body.role.trim().toLowerCase() : 'manager';
+      const makePrimary = Boolean(body?.makePrimary);
+
+      if (!ownerId) {
+        sendErrorResponse(res, 400, 'ownerId가 필요합니다.');
+        return;
+      }
+
+      await dbServices.linkOwnerToStore(ownerId, storeId);
+
+      const owners = await dbServices.getOwnersByStore(storeId);
+      sendJsonResponse(res, 200, {
+        success: true,
+        owners,
+        message: '점주 계정을 가게에 연결했습니다.'
+      });
+    } catch (error) {
+      log('ERROR', '점주-가게 매핑 실패', error);
+      sendErrorResponse(res, 500, error.message || '점주 계정 교체에 실패했습니다.');
+    }
+  }
+
+  async updateStoreOwnerLinkHandler(storeId, ownerId, req, res, parsedUrl) {
+    if (!storeId || !ownerId) {
+      sendErrorResponse(res, 400, 'storeId와 ownerId가 필요합니다.');
+      return;
+    }
+
+    try {
+      const body = await parseRequestBody(req);
+      const makePrimary = Boolean(body?.makePrimary);
+      const action = typeof body?.action === 'string' ? body.action.trim().toLowerCase() : '';
+
+      if (makePrimary || action === 'primary') {
+        await dbServices.setPrimaryOwnerForStore(ownerId, storeId);
+      }
+
+      const owners = await dbServices.getOwnersByStore(storeId);
+      sendJsonResponse(res, 200, {
+        success: true,
+        owners,
+        message: '점주 정보가 업데이트되었습니다.'
+      });
+    } catch (error) {
+      log('ERROR', '점주-가게 매핑 업데이트 실패', error);
+      sendErrorResponse(res, 500, error.message || '점주 정보 업데이트에 실패했습니다.');
+    }
+  }
+
+  async unlinkOwnerFromStoreHandler(storeId, ownerId, req, res, parsedUrl) {
+    if (!storeId || !ownerId) {
+      sendErrorResponse(res, 400, 'storeId와 ownerId가 필요합니다.');
+      return;
+    }
+
+    try {
+      await dbServices.unlinkOwnerFromStore(ownerId, storeId);
+      const owners = await dbServices.getOwnersByStore(storeId);
+      sendJsonResponse(res, 200, {
+        success: true,
+        owners,
+        message: '점주 연결이 해제되었습니다.'
+      });
+    } catch (error) {
+      log('ERROR', '점주-가게 연결 해제 실패', error);
+      sendErrorResponse(res, 500, error.message || '점주 연결을 해제하지 못했습니다.');
     }
   }
 
@@ -929,6 +1270,8 @@ class APIRouter {
             filepath: '',
             createdAt: null,
           },
+          seoSettings: settings.seoSettings || {},
+          abTestSettings: settings.abTestSettings || {},
           createdAt: store.createdAt,
           updatedAt: store.lastModified,
         };
@@ -1331,6 +1674,236 @@ class APIRouter {
     } catch (error) {
       log('ERROR', 'AI 콘텐츠 생성 실패', error);
       sendErrorResponse(res, 500, 'AI 콘텐츠 생성에 실패했습니다.');
+    }
+  }
+
+  /**
+   * SEO 최적화 제안을 생성한다.
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   */
+  async postSeoOptimization(req, res) {
+    try {
+      const body = await parseRequestBody(req);
+      log('INFO', 'SEO 최적화 생성 요청', body);
+
+      const plan = await aiOrchestrator.generateSeoPlan(body || {});
+
+      sendJsonResponse(res, 200, {
+        success: true,
+        data: plan
+      });
+    } catch (error) {
+      log('ERROR', 'SEO 최적화 제안 생성 실패', error);
+      sendJsonResponse(res, 500, {
+        success: false,
+        error: {
+          code: 'SEO_GENERATION_FAILED',
+          message: 'SEO 최적화 제안 생성에 실패했습니다.'
+        }
+      });
+    }
+  }
+
+  /**
+   * A/B 테스트 전략을 생성한다.
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   */
+  async postAbTestPlan(req, res) {
+    try {
+      const body = await parseRequestBody(req);
+      log('INFO', 'A/B 테스트 전략 생성 요청', body);
+
+      const plan = await aiOrchestrator.generateAbTestPlan(body || {});
+
+      sendJsonResponse(res, 200, {
+        success: true,
+        data: plan
+      });
+    } catch (error) {
+      log('ERROR', 'A/B 테스트 전략 생성 실패', error);
+      sendJsonResponse(res, 500, {
+        success: false,
+        error: {
+          code: 'AB_TEST_GENERATION_FAILED',
+          message: 'A/B 테스트 전략 생성에 실패했습니다.'
+        }
+      });
+    }
+  }
+
+  /**
+   * 저장된 SEO 설정을 조회한다.
+   * @param {string} storeId 가게 ID
+   */
+  async getSeoSettingsHandler(storeId, req, res, parsedUrl) {
+    try {
+      const settings = await dbServices.getSeoSettingsForStore(storeId);
+      sendJsonResponse(res, 200, {
+        success: true,
+        data: settings
+      });
+    } catch (error) {
+      log('ERROR', 'SEO 설정 조회 실패', error);
+      sendJsonResponse(res, 500, {
+        success: false,
+        error: {
+          code: 'SEO_SETTINGS_FETCH_FAILED',
+          message: 'SEO 설정을 불러오지 못했습니다.'
+        }
+      });
+    }
+  }
+
+  /**
+   * SEO 설정 히스토리를 조회한다.
+   * @param {string} storeId 가게 ID
+   */
+  async getSeoSettingsHistoryHandler(storeId, req, res, parsedUrl) {
+    try {
+      const limitParam = parsedUrl?.query?.limit;
+      const limit = limitParam ? parseInt(limitParam, 10) : 10;
+      const history = await dbServices.getSeoSettingsHistory(storeId, limit);
+      sendJsonResponse(res, 200, {
+        success: true,
+        data: history
+      });
+    } catch (error) {
+      log('ERROR', 'SEO 설정 히스토리 조회 실패', error);
+      sendJsonResponse(res, 500, {
+        success: false,
+        error: {
+          code: 'SEO_HISTORY_FETCH_FAILED',
+          message: 'SEO 설정 히스토리를 불러오지 못했습니다.'
+        }
+      });
+    }
+  }
+
+  /**
+   * SEO 설정을 저장한다.
+   * @param {string} storeId 가게 ID
+   */
+  async saveSeoSettingsHandler(storeId, req, res, parsedUrl) {
+    try {
+      const body = await parseRequestBody(req);
+      const { seoSettings } = body || {};
+
+      if (!seoSettings || typeof seoSettings !== 'object') {
+        sendJsonResponse(res, 400, {
+          success: false,
+          error: {
+            code: 'INVALID_SEO_SETTINGS',
+            message: '저장할 SEO 설정 데이터가 필요합니다.'
+          }
+        });
+        return;
+      }
+
+      const saved = await dbServices.saveSeoSettingsForStore(storeId, seoSettings);
+      await this.logActivity('seo', 'SEO 설정 저장', 'SEO 설정을 저장했습니다.', storeId);
+
+      sendJsonResponse(res, 200, {
+        success: true,
+        data: saved
+      });
+    } catch (error) {
+      log('ERROR', 'SEO 설정 저장 실패', error);
+      sendJsonResponse(res, 500, {
+        success: false,
+        error: {
+          code: 'SEO_SETTINGS_SAVE_FAILED',
+          message: 'SEO 설정을 저장하지 못했습니다.'
+        }
+      });
+    }
+  }
+
+  /**
+   * 저장된 A/B 테스트 설정을 조회한다.
+   * @param {string} storeId 가게 ID
+   */
+  async getAbTestSettingsHandler(storeId, req, res, parsedUrl) {
+    try {
+      const settings = await dbServices.getAbTestSettingsForStore(storeId);
+      sendJsonResponse(res, 200, {
+        success: true,
+        data: settings
+      });
+    } catch (error) {
+      log('ERROR', 'A/B 테스트 설정 조회 실패', error);
+      sendJsonResponse(res, 500, {
+        success: false,
+        error: {
+          code: 'AB_SETTINGS_FETCH_FAILED',
+          message: 'A/B 테스트 설정을 불러오지 못했습니다.'
+        }
+      });
+    }
+  }
+
+  /**
+   * A/B 테스트 히스토리를 조회한다.
+   * @param {string} storeId 가게 ID
+   */
+  async getAbTestSettingsHistoryHandler(storeId, req, res, parsedUrl) {
+    try {
+      const limitParam = parsedUrl?.query?.limit;
+      const limit = limitParam ? parseInt(limitParam, 10) : 10;
+      const history = await dbServices.getAbTestSettingsHistory(storeId, limit);
+      sendJsonResponse(res, 200, {
+        success: true,
+        data: history
+      });
+    } catch (error) {
+      log('ERROR', 'A/B 테스트 히스토리 조회 실패', error);
+      sendJsonResponse(res, 500, {
+        success: false,
+        error: {
+          code: 'AB_HISTORY_FETCH_FAILED',
+          message: 'A/B 테스트 히스토리를 불러오지 못했습니다.'
+        }
+      });
+    }
+  }
+
+  /**
+   * A/B 테스트 설정을 저장한다.
+   * @param {string} storeId 가게 ID
+   */
+  async saveAbTestSettingsHandler(storeId, req, res, parsedUrl) {
+    try {
+      const body = await parseRequestBody(req);
+      const { abTestSettings } = body || {};
+
+      if (!abTestSettings || typeof abTestSettings !== 'object') {
+        sendJsonResponse(res, 400, {
+          success: false,
+          error: {
+            code: 'INVALID_AB_SETTINGS',
+            message: '저장할 A/B 테스트 설정 데이터가 필요합니다.'
+          }
+        });
+        return;
+      }
+
+      const saved = await dbServices.saveAbTestSettingsForStore(storeId, abTestSettings);
+      await this.logActivity('ab-test', 'A/B 테스트 설정 저장', 'A/B 테스트 설정을 저장했습니다.', storeId);
+
+      sendJsonResponse(res, 200, {
+        success: true,
+        data: saved
+      });
+    } catch (error) {
+      log('ERROR', 'A/B 테스트 설정 저장 실패', error);
+      sendJsonResponse(res, 500, {
+        success: false,
+        error: {
+          code: 'AB_SETTINGS_SAVE_FAILED',
+          message: 'A/B 테스트 설정을 저장하지 못했습니다.'
+        }
+      });
     }
   }
 
@@ -1763,19 +2336,26 @@ class APIRouter {
       // 가게 설정 조회
       const settings = await dbServices.getStoreSettings(storeId);
       const domainSettings = settings.domainSettings || {};
+      const qrCodeInfo = settings.qrCode || null;
+      const responseData = {
+        subdomain: domainSettings.subdomain || '',
+        customDomain: domainSettings.customDomain || '',
+        qrLockedAt: domainSettings.qrLockedAt || null,
+        lastModified: domainSettings.lastModified || null,
+        lastGeneratedAt: domainSettings.lastGeneratedAt || null,
+        qrCode: qrCodeInfo,
+        domainSettings: {
+          subdomain: domainSettings.subdomain || '',
+          customDomain: domainSettings.customDomain || '',
+          qrLockedAt: domainSettings.qrLockedAt || null,
+          lastModified: domainSettings.lastModified || null,
+          lastGeneratedAt: domainSettings.lastGeneratedAt || null
+        }
+      };
 
       sendJsonResponse(res, 200, {
         success: true,
-        data: {
-          subdomain: domainSettings.subdomain || '',
-          customDomain: domainSettings.customDomain || '',
-          qrCode: settings.qrCode || null,
-          domainSettings: {
-            subdomain: domainSettings.subdomain || '',
-            customDomain: domainSettings.customDomain || '',
-            qrCode: settings.qrCode || null
-          }
-        }
+        data: responseData
       });
     } catch (error) {
       log('ERROR', '도메인 설정 조회 실패', error);
@@ -1788,7 +2368,7 @@ class APIRouter {
     try {
       const storeId = parsedUrl.pathname.split('/')[3]; // /api/store/:storeId/domain-settings
       const body = await parseRequestBody(req);
-      const { subdomain, customDomain } = body;
+      const { subdomain, customDomain, role } = body || {};
 
       if (!storeId) {
         sendErrorResponse(res, 400, 'storeId가 필요합니다.');
@@ -1802,39 +2382,77 @@ class APIRouter {
         return;
       }
 
-      // 서브도메인 유효성 검사
-      if (subdomain && !/^[a-zA-Z0-9_-]+$/.test(subdomain)) {
+      const requestRole = typeof role === 'string' ? role.toLowerCase() : '';
+      const normalizedSubdomainInput = typeof subdomain === 'string' ? subdomain.trim() : '';
+      const normalizedCustomDomain = typeof customDomain === 'string' ? customDomain.trim() : '';
+
+      if (normalizedSubdomainInput && !/^[a-zA-Z0-9_-]+$/.test(normalizedSubdomainInput)) {
         sendErrorResponse(res, 400, '서브도메인은 영문, 숫자, 하이픈, 언더스코어만 사용할 수 있습니다.');
         return;
       }
 
-      // 도메인 설정 업데이트
-      const domainSettings = {
-        subdomain: subdomain || '',
-        customDomain: customDomain || '',
+      const currentSettings = await dbServices.getStoreSettings(storeId) || {};
+      const currentDomainSettings = currentSettings.domainSettings || {};
+      const existingSubdomain = (currentDomainSettings.subdomain || '').trim();
+      const qrLocked = Boolean(currentDomainSettings.qrLockedAt || (currentSettings.qrCode && currentSettings.qrCode.url));
+
+      if (!existingSubdomain && !normalizedSubdomainInput) {
+        sendErrorResponse(res, 400, '서브도메인을 입력해주세요.');
+        return;
+      }
+
+      if (existingSubdomain) {
+        const isSameSubdomain = normalizedSubdomainInput ? normalizedSubdomainInput === existingSubdomain : true;
+
+        if (!isSameSubdomain) {
+          if (qrLocked) {
+            sendErrorResponse(res, 400, 'QR 코드가 생성된 이후에는 서브도메인을 변경할 수 없습니다.');
+            return;
+          }
+
+          if (requestRole !== 'superadmin') {
+            sendErrorResponse(res, 403, '서브도메인 변경은 슈퍼어드민만 가능합니다.');
+            return;
+          }
+        }
+
+        if (!normalizedSubdomainInput && requestRole !== 'superadmin') {
+          sendErrorResponse(res, 403, '서브도메인을 삭제할 권한이 없습니다.');
+          return;
+        }
+      }
+
+      const effectiveSubdomain = normalizedSubdomainInput || existingSubdomain;
+      if (!effectiveSubdomain) {
+        sendErrorResponse(res, 400, '서브도메인을 입력해주세요.');
+        return;
+      }
+
+      const nextDomainSettings = {
+        ...currentDomainSettings,
+        subdomain: effectiveSubdomain,
+        customDomain: normalizedCustomDomain,
         lastModified: new Date().toISOString()
       };
 
-      // store_settings 테이블에 도메인 설정 저장
-      await dbServices.updateStoreSettings(storeId, { domainSettings });
+      await dbServices.updateStoreSettings(storeId, { domainSettings: nextDomainSettings });
       
-      // stores 테이블에 서브도메인 저장 (getStoreBySubdomain에서 사용)
-      if (subdomain) {
+      if (effectiveSubdomain !== (store.subdomain || '')) {
         await dbServices.updateStore(storeId, { 
           name: store.name,
           subtitle: store.subtitle,
           phone: store.phone,
           address: store.address,
-          subdomain: subdomain
+          subdomain: effectiveSubdomain
         });
       }
       
-      log('INFO', '도메인 설정 저장 완료', { storeId, domainSettings });
+      log('INFO', '도메인 설정 저장 완료', { storeId, domainSettings: nextDomainSettings });
 
       sendJsonResponse(res, 200, {
         success: true,
         message: '도메인 설정이 저장되었습니다.',
-        data: domainSettings
+        data: nextDomainSettings
       });
     } catch (error) {
       log('ERROR', '도메인 설정 저장 실패', error);
@@ -1846,10 +2464,16 @@ class APIRouter {
   async generateDomainQR(req, res, parsedUrl) {
     try {
       const body = await parseRequestBody(req);
-      const { storeId, subdomain } = body;
+      const { storeId, subdomain, role } = body || {};
       
       if (!storeId || !subdomain) {
         sendErrorResponse(res, 400, '가게 ID와 서브도메인이 필요합니다.');
+        return;
+      }
+
+      const requestRole = typeof role === 'string' ? role.toLowerCase() : '';
+      if (requestRole !== 'superadmin') {
+        sendErrorResponse(res, 403, 'QR 코드는 슈퍼어드민만 생성 또는 업데이트할 수 있습니다.');
         return;
       }
       
@@ -1859,9 +2483,23 @@ class APIRouter {
         sendErrorResponse(res, 404, '가게를 찾을 수 없습니다.');
         return;
       }
+
+      const currentSettings = await dbServices.getStoreSettings(storeId) || {};
+      const currentDomainSettings = currentSettings.domainSettings || {};
+      const existingSubdomain = (currentDomainSettings.subdomain || '').trim();
       
       // 도메인 URL 생성
-      const normalizedSubdomain = subdomain.replace(/^\/+|\/+$/g, '');
+      const normalizedSubdomain = subdomain.trim().replace(/^\/+|\/+$/g, '');
+      if (!normalizedSubdomain) {
+        sendErrorResponse(res, 400, '서브도메인을 입력해주세요.');
+        return;
+      }
+
+      if (existingSubdomain && existingSubdomain !== normalizedSubdomain) {
+        sendErrorResponse(res, 400, '서브도메인이 변경되었습니다. 먼저 도메인 설정을 업데이트해주세요.');
+        return;
+      }
+
       const origin = req.headers?.origin
         || `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host || `localhost:${PORT}`}`;
       const domainUrl = `${origin.replace(/\/+$/, '')}/${normalizedSubdomain}`;
@@ -1881,10 +2519,10 @@ class APIRouter {
 
       const qrCodeUrl = `/qr/${fileName}`;
 
-      const currentSettings = await dbServices.getStoreSettings(storeId);
       const updatedDomainSettings = {
-        ...(currentSettings.domainSettings || {}),
+        ...currentDomainSettings,
         subdomain: normalizedSubdomain,
+        qrLockedAt: currentDomainSettings.qrLockedAt || new Date().toISOString(),
         lastGeneratedAt: new Date().toISOString()
       };
       const mergedSettings = {
@@ -1931,10 +2569,16 @@ class APIRouter {
   async deleteDomainQR(req, res, parsedUrl) {
     try {
       const body = await parseRequestBody(req);
-      const { storeId } = body || {};
+      const { storeId, role } = body || {};
 
       if (!storeId) {
         sendErrorResponse(res, 400, 'storeId가 필요합니다.');
+        return;
+      }
+
+      const requestRole = typeof role === 'string' ? role.toLowerCase() : '';
+      if (requestRole !== 'superadmin') {
+        sendErrorResponse(res, 403, 'QR 코드를 삭제할 권한이 없습니다.');
         return;
       }
 
@@ -2137,6 +2781,18 @@ class APIRouter {
     }
   }
 
+  async logDebugMessage(req, res, parsedUrl) {
+    try {
+      const body = await parseRequestBody(req);
+      const { source = 'frontend', message = '', detail = null } = body || {};
+      log('WARN', '프론트 디버그 로그 수신', { source, message, detail });
+      sendJsonResponse(res, 200, { success: true });
+    } catch (error) {
+      log('ERROR', '디버그 로그 수신 실패', error);
+      sendErrorResponse(res, 500, error.message || '디버그 로그 저장에 실패했습니다.');
+    }
+  }
+
   async getDashboardSummary(req, res, parsedUrl) {
     try {
       const { storeId: rawStoreId = null, scope: rawScope = null, from = null, to = null } = parsedUrl.query || {};
@@ -2289,6 +2945,155 @@ class APIRouter {
     } catch (error) {
       log('ERROR', '슈퍼어드민 인증 확인 실패', error);
       sendErrorResponse(res, 500, error.message || '슈퍼어드민 인증을 확인하지 못했습니다.');
+    }
+  }
+
+  async getOwnerAccountDetailHandler(ownerId, req, res, parsedUrl) {
+    try {
+      const owner = await dbServices.getOwnerAccountDetail(ownerId);
+      if (!owner) {
+        sendErrorResponse(res, 404, '점주 계정을 찾을 수 없습니다.');
+        return;
+      }
+
+      sendJsonResponse(res, 200, {
+        success: true,
+        owner
+      });
+    } catch (error) {
+      log('ERROR', '점주 계정 상세 조회 실패', error);
+      sendErrorResponse(res, 500, error.message || '점주 계정 정보를 불러오지 못했습니다.');
+    }
+  }
+
+  async createStoreForOwnerHandler(ownerId, req, res, parsedUrl) {
+    if (!ownerId) {
+      sendErrorResponse(res, 400, '점주 ID가 필요합니다.');
+      return;
+    }
+
+    try {
+      const body = await parseRequestBody(req);
+      const trimmedName = sanitizeAddressSegment(body?.name || '');
+
+      if (!trimmedName) {
+        sendErrorResponse(res, 400, '가게명을 입력해주세요.');
+        return;
+      }
+
+      const { isValid: phoneValid, normalized: normalizedPhone } = validatePhoneNumber(body?.phone || '');
+      if (!phoneValid) {
+        sendErrorResponse(res, 400, '연락처 형식이 올바르지 않습니다. 예: 010-1234-5678');
+        return;
+      }
+
+      const addressValidation = validateOwnerAddress({
+        storePostalCode: body?.postalCode,
+        storeRoadAddress: body?.roadAddress,
+        storeExtraAddress: body?.extraAddress,
+        storeAddressDetail: body?.addressDetail
+      });
+
+      if (!addressValidation.isValid) {
+        sendErrorResponse(res, 400, addressValidation.message || '주소 정보가 올바르지 않습니다.');
+        return;
+      }
+
+      const sanitizedSubtitle = sanitizeAddressSegment(body?.subtitle || '');
+      const sanitizedCategory = sanitizeAddressSegment(body?.category || '');
+      const sanitizedDescription = typeof body?.description === 'string' ? body.description.trim() : '';
+      const memo = typeof body?.memo === 'string' ? body.memo.trim() : '';
+
+      const storePayload = {
+        name: trimmedName,
+        subtitle: sanitizedSubtitle,
+        phone: normalizedPhone,
+        address: addressValidation.sanitized.storeAddress || '',
+        status: 'pending',
+        basic: {
+          storeName: trimmedName,
+          storeSubtitle: sanitizedSubtitle,
+          storeCategory: sanitizedCategory,
+          storeDescription: sanitizedDescription,
+          storePhone: normalizedPhone,
+          storeAddress: addressValidation.sanitized.storeAddress || '',
+          storePostalCode: addressValidation.sanitized.storePostalCode || '',
+          storeRoadAddress: addressValidation.sanitized.storeRoadAddress || '',
+          storeExtraAddress: addressValidation.sanitized.storeExtraAddress || '',
+          storeAddressDetail: addressValidation.sanitized.storeAddressDetail || ''
+        }
+      };
+
+      const result = await dbServices.createStoreForOwner(ownerId, storePayload, memo);
+
+      sendJsonResponse(res, 200, {
+        success: true,
+        store: result.store,
+        owner: result.owner,
+        message: '입점 신청이 접수되었습니다.'
+      });
+    } catch (error) {
+      log('ERROR', '점주 가게 입점 신청 처리 실패', error);
+      sendErrorResponse(res, 500, error.message || '입점 신청 처리에 실패했습니다.');
+    }
+  }
+
+  async updateOwnerPasswordHandler(ownerId, req, res, parsedUrl) {
+    if (!ownerId) {
+      sendErrorResponse(res, 400, '점주 ID가 필요합니다.');
+      return;
+    }
+
+    try {
+      const body = await parseRequestBody(req);
+      const currentPassword = typeof body?.currentPassword === 'string' ? body.currentPassword.trim() : '';
+      const newPassword = typeof body?.newPassword === 'string' ? body.newPassword.trim() : '';
+
+      if (!currentPassword || !newPassword) {
+        sendErrorResponse(res, 400, '현재 비밀번호와 새 비밀번호를 모두 입력해주세요.');
+        return;
+      }
+
+      if (newPassword.length < 8) {
+        sendErrorResponse(res, 400, '새 비밀번호는 8자 이상 입력해주세요.');
+        return;
+      }
+
+      const ownerDetail = await dbServices.getOwnerAccountDetail(ownerId);
+      if (!ownerDetail) {
+        sendErrorResponse(res, 404, '점주 계정을 찾을 수 없습니다.');
+        return;
+      }
+
+      const storedHash = ownerDetail.passwordHash || '';
+      const hashedCurrent = hashPassword(currentPassword);
+      const isStoredHashed = /^[0-9a-f]{64}$/i.test(storedHash);
+      const passwordMatches = isStoredHashed
+        ? storedHash === hashedCurrent
+        : storedHash === currentPassword;
+
+      if (!passwordMatches) {
+        sendErrorResponse(res, 403, '현재 비밀번호가 일치하지 않습니다.');
+        return;
+      }
+
+      const updatedOwner = await dbServices.updateOwnerPassword(ownerId, newPassword);
+
+      sendJsonResponse(res, 200, {
+        success: true,
+        message: '비밀번호가 변경되었습니다.',
+        owner: {
+          id: updatedOwner.id,
+          name: updatedOwner.owner_name,
+          email: updatedOwner.email,
+          status: updatedOwner.status
+        }
+      });
+    } catch (error) {
+      log('ERROR', '점주 비밀번호 변경 실패', error);
+      const message = error && error.message ? error.message : '비밀번호를 변경할 수 없습니다.';
+      const statusCode = error && error.message && error.message.includes('찾을 수 없습니다') ? 404 : 500;
+      sendErrorResponse(res, statusCode, message);
     }
   }
 

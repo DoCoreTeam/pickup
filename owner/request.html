@@ -346,7 +346,7 @@
                         </div>
                         <div class="form-group">
                             <label for="ownerPhone">연락처</label>
-                            <input type="tel" id="ownerPhone" name="ownerPhone" placeholder="010-1234-5678">
+                            <input type="tel" id="ownerPhone" name="ownerPhone" placeholder="010-1234-5678" required autocomplete="tel">
                         </div>
                         <div class="form-group">
                             <label for="storeName">가게 이름</label>
@@ -361,7 +361,7 @@
                                 </div>
                                 <input type="text" id="ownerRoadAddress" class="form-input" placeholder="도로명 주소" readonly>
                                 <input type="text" id="ownerExtraAddress" class="form-input" placeholder="참고 항목" readonly>
-                                <input type="text" id="ownerAddressDetail" class="form-input" placeholder="상세 주소를 입력해주세요" oninput="syncOwnerFullAddress()" onblur="handleOwnerAddressDetailBlur()">
+                                <input type="text" id="ownerAddressDetail" class="form-input" placeholder="상세 주소를 입력해주세요" oninput="syncOwnerFullAddress()" onblur="handleOwnerAddressDetailBlur()" required>
                                 <input type="hidden" id="ownerFullAddress">
                             </div>
                             <small class="form-helper">주소 검색 후 상세 주소까지 입력하면 자동으로 저장됩니다.</small>
@@ -390,6 +390,57 @@
         const submitBtn = document.getElementById('submitBtn');
         const toastContainer = document.querySelector('.toast-container');
         const backButton = document.getElementById('backButton');
+        const ownerPhoneInput = document.getElementById('ownerPhone');
+        const ADDRESS_ALLOWED_PATTERN = /^[가-힣A-Za-z0-9\s\-.,#/()]+$/;
+
+        /**
+         * 입력된 전화번호를 하이픈 포맷(예: 010-1234-5678)으로 정규화한다.
+         * 조건에 맞지 않으면 빈 문자열을 반환한다.
+         */
+        function normalizePhoneInput(rawValue) {
+            if (!rawValue) return '';
+            const digits = String(rawValue).replace(/\D/g, '');
+            if (digits.length < 9 || digits.length > 11) {
+                return '';
+            }
+
+            if (digits.startsWith('02')) {
+                if (digits.length === 9) {
+                    return `02-${digits.slice(2, 5)}-${digits.slice(5)}`;
+                }
+                if (digits.length === 10) {
+                    return `02-${digits.slice(2, 6)}-${digits.slice(6)}`;
+                }
+                return '';
+            }
+
+            if (digits.length === 10) {
+                return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+            }
+
+            if (digits.length === 11) {
+                return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+            }
+
+            return '';
+        }
+
+        function isValidPhoneInput(rawValue) {
+            const normalized = normalizePhoneInput(rawValue);
+            return Boolean(normalized);
+        }
+
+        if (ownerPhoneInput) {
+            ownerPhoneInput.addEventListener('input', (event) => {
+                event.target.value = event.target.value.replace(/[^0-9-]/g, '');
+            });
+            ownerPhoneInput.addEventListener('blur', (event) => {
+                const formatted = normalizePhoneInput(event.target.value);
+                if (formatted) {
+                    event.target.value = formatted;
+                }
+            });
+        }
 
         if (backButton) {
             backButton.addEventListener('click', () => {
@@ -423,7 +474,7 @@
             const payload = {
                 name: document.getElementById('ownerName').value.trim(),
                 email: document.getElementById('ownerEmail').value.trim(),
-                phone: document.getElementById('ownerPhone').value.trim(),
+                phone: document.getElementById('ownerPhone').value,
                 message: document.getElementById('memo').value.trim(),
                 postalCode: document.getElementById('ownerPostalCode').value.trim(),
                 roadAddress: document.getElementById('ownerRoadAddress').value.trim(),
@@ -442,11 +493,21 @@
             };
 
             syncOwnerFullAddress();
+            payload.requestData.storeAddress = document.getElementById('ownerFullAddress').value.trim();
 
             if (!payload.name || !payload.email || !payload.requestData.storeName || !payload.requestData.storeRoadAddress) {
                 showToast('error', '필수 정보를 모두 입력해주세요.');
                 return;
             }
+
+            if (!isValidPhoneInput(payload.phone)) {
+                showToast('error', '연락처 형식이 올바르지 않습니다. 예: 010-1234-5678');
+                ownerPhoneInput?.focus();
+                return;
+            }
+
+            const normalizedPhone = normalizePhoneInput(payload.phone);
+            payload.phone = normalizedPhone;
 
             if (!payload.password) {
                 showToast('error', '비밀번호를 입력해주세요.');
@@ -465,6 +526,21 @@
 
             if (!payload.roadAddress) {
                 showToast('error', '주소 검색을 완료해주세요.');
+                return;
+            }
+
+            if (!ADDRESS_ALLOWED_PATTERN.test(payload.roadAddress)) {
+                showToast('error', '도로명 주소에 허용되지 않는 문자가 포함되어 있습니다.');
+                return;
+            }
+
+            if (!payload.addressDetail || !ADDRESS_ALLOWED_PATTERN.test(payload.addressDetail)) {
+                showToast('error', '상세 주소를 올바르게 입력해주세요.');
+                return;
+            }
+
+            if (payload.extraAddress && !ADDRESS_ALLOWED_PATTERN.test(payload.extraAddress.replace(/^\(|\)$/g, ''))) {
+                showToast('error', '참고 항목에 허용되지 않는 문자가 포함되어 있습니다.');
                 return;
             }
 

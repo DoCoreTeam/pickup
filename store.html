@@ -912,6 +912,15 @@
       let currentStoreId = null;
       let settings = {};
       let isLoading = true;
+      const AB_VARIANT_STORAGE_KEY = 'pickup_ab_variants_v1';
+      let activeAbVariants = {};
+      let abConversionListenerAttached = false;
+      const AB_PLACEMENT_CONFIG = [
+        { key: 'hero_title', match: ['히어로', '헤드라인', '제목', '타이틀'], selector: '.store-name' },
+        { key: 'hero_subtitle', match: ['서브', '부제', '소개', '하이라이트'], selector: '.store-subtitle' },
+        { key: 'cta_button', match: ['cta', '버튼', '콜투액션', '전화', '콜'], selector: '.phone-btn' },
+        { key: 'cta_label', match: ['라벨', '문구', '설명', '보조'], selector: '.phone-label' }
+      ];
 
       // ========================================
       // 🔧 유틸리티 함수들
@@ -985,6 +994,219 @@
         } catch (error) {
           console.warn('이벤트 로깅 실패:', eventType, error);
         }
+      }
+
+      function ensureMetaTag(name) {
+        let tag = document.querySelector(`meta[name="${name}"]`);
+        if (!tag) {
+          tag = document.createElement('meta');
+          tag.setAttribute('name', name);
+          document.head.appendChild(tag);
+        }
+        return tag;
+      }
+
+      function applySeoMetaSettings() {
+        const seo = settings?.seoSettings;
+        if (!seo || typeof seo !== 'object') {
+          return;
+        }
+
+        const metaTitle = (seo.metaTitle || '').trim();
+        const metaDescription = (seo.metaDescription || '').trim();
+        const keywords = Array.isArray(seo.keywords)
+          ? seo.keywords.filter(Boolean).join(', ')
+          : (typeof seo.keywords === 'string' ? seo.keywords : '');
+
+        if (metaTitle) {
+          document.title = metaTitle;
+        }
+        if (metaDescription) {
+          const descriptionTag = ensureMetaTag('description');
+          descriptionTag.setAttribute('content', metaDescription);
+        }
+        if (keywords) {
+          const keywordsTag = ensureMetaTag('keywords');
+          keywordsTag.setAttribute('content', keywords);
+        }
+
+        const subtitleEl = document.querySelector('.store-subtitle');
+        if (subtitleEl && seo.audienceFocus && seo.audienceFocus.trim()) {
+          subtitleEl.textContent = seo.audienceFocus.trim();
+          subtitleEl.setAttribute('data-seo-source', 'audienceFocus');
+        }
+
+        const ctaLabelEl = document.querySelector('.phone-label');
+        if (ctaLabelEl && seo.callToAction && seo.callToAction.trim()) {
+          ctaLabelEl.textContent = seo.callToAction.trim();
+          ctaLabelEl.setAttribute('data-seo-source', 'callToAction');
+        }
+      }
+
+      function resolveAbPlacement(...strings) {
+        const combined = strings
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!combined) return null;
+        return AB_PLACEMENT_CONFIG.find(config =>
+          config.match.some(token => combined.includes(token))
+        );
+      }
+
+      function readAbVariantStorage() {
+        if (typeof window === 'undefined') return {};
+        if (window.__pickupAbVariantStorage) {
+          return window.__pickupAbVariantStorage;
+        }
+        try {
+          const raw = localStorage.getItem(AB_VARIANT_STORAGE_KEY);
+          window.__pickupAbVariantStorage = raw ? JSON.parse(raw) : {};
+        } catch (error) {
+          console.warn('AB 스토리지 읽기 실패:', error);
+          window.__pickupAbVariantStorage = {};
+        }
+        return window.__pickupAbVariantStorage;
+      }
+
+      function writeAbVariantStorage(data) {
+        if (typeof window === 'undefined') return;
+        window.__pickupAbVariantStorage = data;
+        try {
+          localStorage.setItem(AB_VARIANT_STORAGE_KEY, JSON.stringify(data));
+        } catch (error) {
+          console.warn('AB 스토리지 저장 실패:', error);
+        }
+      }
+
+      function pickVariantOption(storeId, key, options) {
+        if (!storeId || !Array.isArray(options) || options.length === 0) {
+          return null;
+        }
+        const storage = readAbVariantStorage();
+        const storeBucket = storage[storeId] || {};
+        const stored = storeBucket[key];
+
+        if (stored && Number.isInteger(stored.index) && options[stored.index]) {
+          return { option: options[stored.index], index: stored.index, storage };
+        }
+
+        const randomIndex = Math.floor(Math.random() * options.length);
+        storeBucket[key] = {
+          index: randomIndex,
+          timestamp: Date.now()
+        };
+        storage[storeId] = storeBucket;
+        writeAbVariantStorage(storage);
+        return { option: options[randomIndex], index: randomIndex, storage };
+      }
+
+      function updatePlacementContent(selector, value, config) {
+        if (!value) return;
+        const element = document.querySelector(selector);
+        if (!element) return;
+
+        let textValue = typeof value === 'string' ? value.trim() : value;
+        if (!textValue) return;
+
+        if (config.key === 'cta_button') {
+          const clean = textValue.replace(/^📞\s*/, '');
+          textValue = `📞 ${clean}`;
+        }
+
+        element.textContent = textValue;
+        element.setAttribute('data-ab-active', 'true');
+        element.setAttribute('data-ab-slot', config.key);
+      }
+
+      function applyAbTestExperiments() {
+        activeAbVariants = {};
+        const abSettings = settings?.abTestSettings;
+        if (!abSettings || typeof abSettings !== 'object') return;
+
+        const storeId = currentStore?.id || currentStoreId;
+        if (!storeId) return;
+
+        const copyVariants = Array.isArray(abSettings.copyVariants) ? abSettings.copyVariants : [];
+        copyVariants.forEach((variantSet, index) => {
+          if (!variantSet) return;
+          const placement = variantSet.placement || `copy-${index + 1}`;
+          const config = resolveAbPlacement(placement);
+          if (!config) return;
+
+          const ideas = Array.isArray(variantSet.ideas) ? variantSet.ideas.filter(Boolean) : [];
+          if (!ideas.length) return;
+
+          const key = `copy:${placement.toLowerCase()}`;
+          const picked = pickVariantOption(storeId, key, ideas);
+          if (!picked || !picked.option) return;
+
+          updatePlacementContent(config.selector, picked.option, config);
+          activeAbVariants[key] = {
+            placement,
+            value: picked.option,
+            source: 'copyVariants'
+          };
+          logEvent('ab_variant_shown', {
+            storeId,
+            slot: config.key,
+            placement,
+            variant: picked.option,
+            source: 'copyVariants'
+          });
+        });
+
+        const tests = Array.isArray(abSettings.tests) ? abSettings.tests : [];
+        tests.forEach((test, index) => {
+          if (!test || !Array.isArray(test.variants) || !test.variants.length) return;
+          const testName = test.name || `A/B 테스트 ${index + 1}`;
+          const key = `test:${testName.toLowerCase()}`;
+          const picked = pickVariantOption(storeId, key, test.variants);
+          if (!picked || !picked.option) return;
+
+          const variant = picked.option;
+          const displayText = (variant.description || variant.label || '').trim();
+          const config = resolveAbPlacement(testName, variant.label);
+          if (displayText && config) {
+            updatePlacementContent(config.selector, displayText, config);
+            activeAbVariants[key] = {
+              placement: config.key,
+              value: displayText,
+              variantLabel: variant.label || '',
+              source: 'experiments'
+            };
+          } else {
+            activeAbVariants[key] = {
+              placement: 'unmapped',
+              value: displayText || variant.label || '',
+              source: 'experiments'
+            };
+          }
+
+          logEvent('ab_variant_shown', {
+            storeId,
+            testName,
+            variantLabel: variant.label || '',
+            variantDescription: variant.description || '',
+            slot: config ? config.key : 'unmapped',
+            source: 'experiments'
+          });
+        });
+      }
+
+      function attachAbConversionTracking() {
+        if (abConversionListenerAttached) return;
+        const ctaButton = document.querySelector('.phone-btn');
+        if (!ctaButton) return;
+        abConversionListenerAttached = true;
+        ctaButton.addEventListener('click', () => {
+          if (!activeAbVariants || Object.keys(activeAbVariants).length === 0) return;
+          logEvent('ab_conversion', {
+            storeId: currentStore?.id || currentStoreId,
+            variants: activeAbVariants,
+            element: 'cta_button'
+          });
+        });
       }
 
       function getStoreIdFromUrl() {
@@ -1264,9 +1486,7 @@
         const promoVideoSrc = getPromoVideoSource();
         const storeSubtitleRaw = settings?.basic?.storeSubtitle?.trim() || currentStore.subtitle?.trim() || '';
         const safeStoreSubtitle = escapeHtml(storeSubtitleRaw);
-        const subtitleHtml = safeStoreSubtitle
-          ? `<div class="store-subtitle">${safeStoreSubtitle}</div>`
-          : '';
+        const subtitleHtml = `<div class="store-subtitle">${safeStoreSubtitle || ''}</div>`;
         const hasMenuImage = Boolean(settings?.images?.menuImage);
         const hasStoreAddress = Boolean(currentStore.address && currentStore.address.trim());
         const menuActionHtml = hasMenuImage ? `
@@ -1332,6 +1552,10 @@
             <!-- 섹션 순서에 따라 동적으로 생성됩니다 -->
           </div>
         `;
+
+        applySeoMetaSettings();
+        applyAbTestExperiments();
+        attachAbConversionTracking();
 
         // 동적 섹션 렌더링
         renderDynamicSections();

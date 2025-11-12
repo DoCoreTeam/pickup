@@ -11,9 +11,11 @@
     "migrate:json-to-postgres": "node scripts/migrate-json-to-postgres.js",
     "start:api": "node src/backend/api_server.js",
     "dev:api:db": "npm run start:db && sleep 5 && npm run migrate:json-to-postgres && npm run start:api",
+    "restart:api": "bash scripts/restart-api.sh",
     "test:api": "curl http://localhost:8081/api/healthz"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.5.0",
     "dotenv": "^16.3.1",
     "mime-types": "^2.1.35",
     "openai": "^6.7.0",

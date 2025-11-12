@@ -28,10 +28,23 @@ async function connect() {
   try {
     await client.connect();
     console.log('✅ PostgreSQL 연결 성공');
+    await ensureSchema();
   } catch (error) {
     console.error('❌ PostgreSQL 연결 실패:', error);
     process.exit(1);
   }
+}
+
+// 스키마 보강 (신규 컬럼 추가)
+async function ensureSchema() {
+  await client.query(`
+    ALTER TABLE store_settings
+    ADD COLUMN IF NOT EXISTS seo_settings JSONB DEFAULT '{}'::jsonb
+  `);
+  await client.query(`
+    ALTER TABLE store_settings
+    ADD COLUMN IF NOT EXISTS ab_test_settings JSONB DEFAULT '{}'::jsonb
+  `);
 }
 
 function hashPassword(password) {
@@ -132,8 +145,9 @@ async function migrateStoreSettings(settings) {
     await client.query(`
       INSERT INTO store_settings (
         store_id, basic, discount, delivery, pickup, images,
-        business_hours, section_order, qr_code, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        business_hours, section_order, qr_code, seo_settings, ab_test_settings,
+        created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       ON CONFLICT (store_id) DO UPDATE SET
         basic = EXCLUDED.basic,
         discount = EXCLUDED.discount,
@@ -143,6 +157,8 @@ async function migrateStoreSettings(settings) {
         business_hours = EXCLUDED.business_hours,
         section_order = EXCLUDED.section_order,
         qr_code = EXCLUDED.qr_code,
+        seo_settings = EXCLUDED.seo_settings,
+        ab_test_settings = EXCLUDED.ab_test_settings,
         updated_at = EXCLUDED.updated_at
     `, [
       storeId,
@@ -154,6 +170,8 @@ async function migrateStoreSettings(settings) {
       JSON.stringify(setting.businessHours || {}),
       JSON.stringify(setting.sectionOrder || {}),
       JSON.stringify(setting.qrCode || {}),
+      JSON.stringify(setting.seoSettings || {}),
+      JSON.stringify(setting.abTestSettings || {}),
       new Date(),
       new Date()
     ]);
@@ -276,6 +294,18 @@ async function migrateReleaseNotes() {
   }
 }
 
+async function syncOwnerStoreLinks() {
+  console.log('🔗 기존 점주-가게 매핑 동기화...');
+  await client.query(`
+    INSERT INTO store_owner_links (owner_id, store_id, role)
+    SELECT id, store_id, 'manager'
+      FROM store_owners
+     WHERE store_id IS NOT NULL
+    ON CONFLICT (owner_id, store_id) DO NOTHING
+  `);
+  console.log('✅ 점주-가게 매핑 동기화 완료');
+}
+
 async function main() {
   console.log('🚀 JSON to PostgreSQL 마이그레이션 시작...');
   
@@ -293,6 +323,7 @@ async function main() {
     await migrateCurrentStore(data.currentStoreId);
     await migrateActivityLogs(data.activityLogs);
     await migrateReleaseNotes(data.releaseNotes);
+    await syncOwnerStoreLinks();
     
     console.log('🎉 마이그레이션 완료!');
     

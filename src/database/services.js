@@ -6,12 +6,18 @@
  */
 
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config({ path: path.resolve(__dirname, '../../env.database') });
 
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
-const { getClient } = require('./connection');
-const db = getClient();
+const db = require('./connection');
+
+let historyTablesEnsured = false;
+let singleOwnerConstraintEnsured = false;
+let storeSettingsColumnsEnsured = false;
+let historyTablesAvailable = true;
+let storeSettingsColumnsAvailable = true;
 
 function hashPassword(password) {
   const trimmed = (password || '').trim();
@@ -19,6 +25,267 @@ function hashPassword(password) {
     return null;
   }
   return crypto.createHash('sha256').update(trimmed).digest('hex');
+}
+
+let legacyDataCache = null;
+let legacySuperadminCache = null;
+
+function loadLegacyData() {
+  if (legacyDataCache) {
+    return legacyDataCache;
+  }
+
+  try {
+    const dataPath = path.resolve(__dirname, '../../assets/data/data.json');
+    const raw = fs.readFileSync(dataPath, 'utf-8');
+    legacyDataCache = JSON.parse(raw);
+    return legacyDataCache;
+  } catch (error) {
+    console.warn('⚠️ 레거시 데이터 파일을 불러오지 못했습니다.', error?.message);
+    legacyDataCache = null;
+    return null;
+  }
+}
+
+function getLegacySuperadmin() {
+  if (legacySuperadminCache) {
+    return legacySuperadminCache;
+  }
+
+  const legacyData = loadLegacyData();
+  const legacy = legacyData?.superadmin;
+
+  if (!legacy || !legacy.username || !legacy.password) {
+    legacySuperadminCache = null;
+    return null;
+  }
+
+  const normalizedUsername = legacy.username.trim();
+  const passwordHash = /^[0-9a-f]{64}$/i.test(legacy.password)
+    ? legacy.password
+    : hashPassword(legacy.password);
+
+  legacySuperadminCache = {
+    username: normalizedUsername,
+    passwordHash
+  };
+
+  return legacySuperadminCache;
+}
+
+const PHONE_DISPLAY_PATTERN = /^0\d{1,2}-\d{3,4}-\d{4}$/;
+const ADDRESS_ALLOWED_PATTERN = /^[가-힣A-Za-z0-9\s\-.,#/()]+$/;
+
+function normalizePhoneNumber(phone) {
+  if (!phone) return '';
+  const digits = String(phone).replace(/\D/g, '');
+  if (digits.length < 9 || digits.length > 11) {
+    return '';
+  }
+
+  if (digits.startsWith('02')) {
+    if (digits.length === 9) {
+      return `02-${digits.slice(2, 5)}-${digits.slice(5)}`;
+    }
+    if (digits.length === 10) {
+      return `02-${digits.slice(2, 6)}-${digits.slice(6)}`;
+    }
+    return '';
+  }
+
+  if (digits.length === 10) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+
+  if (digits.length === 11) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  }
+
+  return '';
+}
+
+function sanitizeAddressSegment(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+async function getStoresByOwner(ownerId) {
+  const result = await db.query(
+    `SELECT 
+        sol.store_id,
+        sol.role,
+        sol.created_at,
+        s.name,
+        s.status,
+        CASE WHEN so.store_id = sol.store_id THEN TRUE ELSE FALSE END AS is_primary
+     FROM store_owner_links sol
+     LEFT JOIN stores s ON sol.store_id = s.id
+     LEFT JOIN store_owners so ON so.id = sol.owner_id
+    WHERE sol.owner_id = $1
+    ORDER BY s.name ASC NULLS LAST, sol.created_at ASC`,
+    [ownerId]
+  );
+
+  return result.rows.map(row => ({
+    id: row.store_id,
+    name: row.name || null,
+    status: row.status || null,
+    role: row.role || 'manager',
+    linkedAt: row.created_at,
+    isPrimary: row.is_primary || false
+  }));
+}
+
+async function getOwnersByStore(storeId) {
+  await ensureSingleOwnerConstraint();
+  const result = await db.query(
+    `SELECT 
+        o.id,
+        o.owner_name,
+        o.email,
+        o.phone,
+        o.status,
+        o.approved_at,
+        o.last_login,
+        sol.role,
+        sol.created_at,
+        CASE WHEN o.store_id = $1 THEN TRUE ELSE FALSE END AS is_primary
+     FROM store_owner_links sol
+     JOIN store_owners o ON sol.owner_id = o.id
+    WHERE sol.store_id = $1
+    ORDER BY o.owner_name ASC NULLS LAST, o.email ASC`,
+    [storeId]
+  );
+
+  return result.rows.map(row => ({
+    id: row.id,
+    ownerName: row.owner_name,
+    email: row.email,
+    phone: row.phone,
+    status: row.status,
+    approvedAt: row.approved_at,
+    lastLogin: row.last_login,
+    role: 'primary',
+    linkedAt: row.created_at,
+    isPrimary: row.is_primary
+  }));
+}
+
+async function linkOwnerToStore(ownerId, storeId) {
+  if (!ownerId || !storeId) {
+    throw new Error('ownerId와 storeId는 필수입니다.');
+  }
+
+  await ensureSingleOwnerConstraint();
+
+  await db.transaction(async client => {
+    const ownerResult = await client.query(
+      `SELECT id, status
+         FROM store_owners
+        WHERE id = $1`,
+      [ownerId]
+    );
+
+    if (ownerResult.rows.length === 0) {
+      throw new Error('존재하지 않는 점주 계정입니다.');
+    }
+
+    const ownerRecord = ownerResult.rows[0];
+    if (ownerRecord.status !== 'approved') {
+      throw new Error('승인된 점주 계정만 연결할 수 있습니다.');
+    }
+
+    await client.query(
+      `DELETE FROM store_owner_links
+        WHERE owner_id = $1`,
+      [ownerId]
+    );
+
+    await client.query(
+      `UPDATE store_owners
+          SET store_id = NULL
+        WHERE id = $1`,
+      [ownerId]
+    );
+
+    await client.query(
+      `DELETE FROM store_owner_links
+        WHERE store_id = $1`,
+      [storeId]
+    );
+
+    await client.query(
+      `UPDATE store_owners
+          SET store_id = NULL
+        WHERE store_id = $1`,
+      [storeId]
+    );
+
+    await client.query(
+      `INSERT INTO store_owner_links (owner_id, store_id, role)
+       VALUES ($1, $2, 'primary')
+       ON CONFLICT (owner_id, store_id)
+       DO UPDATE SET role = 'primary'`,
+      [ownerId, storeId]
+    );
+
+    await client.query(
+      `UPDATE store_owners
+          SET store_id = $2
+        WHERE id = $1`,
+      [ownerId, storeId]
+    );
+
+    await client.query(
+      `UPDATE stores
+          SET last_modified = CURRENT_TIMESTAMP
+        WHERE id = $1`,
+      [storeId]
+    );
+  });
+
+  return { ownerId, storeId, role: 'primary' };
+}
+
+async function unlinkOwnerFromStore(ownerId, storeId) {
+  if (!ownerId || !storeId) {
+    throw new Error('ownerId와 storeId는 필수입니다.');
+  }
+
+  await db.query(
+    `DELETE FROM store_owner_links
+      WHERE owner_id = $1 AND store_id = $2`,
+    [ownerId, storeId]
+  );
+
+  await db.query(
+    `UPDATE store_owners
+        SET store_id = CASE WHEN store_id = $2 THEN NULL ELSE store_id END
+      WHERE id = $1`,
+    [ownerId, storeId]
+  );
+
+  const remainingOwners = await db.query(
+    `SELECT COUNT(*)::int AS cnt
+       FROM store_owner_links
+      WHERE store_id = $1`,
+    [storeId]
+  );
+
+  if ((remainingOwners.rows[0]?.cnt || 0) === 0) {
+    await db.query(
+      `UPDATE stores
+          SET status = CASE WHEN status = 'active' THEN 'pending' ELSE status END,
+              last_modified = CURRENT_TIMESTAMP
+        WHERE id = $1`,
+      [storeId]
+    );
+  }
+
+  return { ownerId, storeId };
+}
+
+async function setPrimaryOwnerForStore(ownerId, storeId) {
+  return linkOwnerToStore(ownerId, storeId);
 }
 
 // 슈퍼어드민 조회
@@ -114,75 +381,344 @@ async function updateSuperAdminAccount({ username, password = null }) {
   };
 }
 
-// 가게 목록 조회
-async function getStores(filterStoreId = null) {
-  const params = [];
-  let whereClause = '';
+// 가게 목록 조회 (페이지네이션 및 필터 지원)
+// 가게 목록이 실패 없이 반환되도록 SQL을 정규화하고 중복 데이터를 제거한다.
+async function getStores(options = {}) {
+  const normalizedOptions = (options && typeof options === 'object' && !Array.isArray(options))
+    ? { ...options }
+    : options
+      ? { storeId: options }
+      : {};
 
-  if (filterStoreId) {
-    params.push(filterStoreId);
-    whereClause = 'WHERE s.id = $1';
+  const defaultOptions = {
+    storeId: null,
+    ownerId: null,
+    status: '',
+    keyword: '',
+    createdDate: '',
+    page: 1,
+    pageSize: 20,
+    sortBy: 'createdAt',
+    sortOrder: undefined,
+    includeSummary: true
+  };
+
+  const finalOptions = { ...defaultOptions, ...normalizedOptions };
+  if (!finalOptions.sortOrder) {
+    finalOptions.sortOrder = finalOptions.sortBy === 'name' ? 'asc' : 'desc';
   }
 
-  const result = await db.query(`
-    SELECT 
-      s.id, s.name, s.subtitle, s.phone, s.address, s.status, s.subdomain,
-      s.subdomain_status, s.subdomain_created_at, s.subdomain_last_modified,
-      s."order", s.created_at, s.last_modified, s.paused_at,
-      ss.delivery
-    FROM stores s
-    LEFT JOIN store_settings ss ON s.id = ss.store_id
-    ${whereClause}
-    ORDER BY s."order" ASC, s.created_at ASC
-  `, params);
-  
-  return result.rows.map(row => {
+  const safePage = Math.max(parseInt(finalOptions.page, 10) || 1, 1);
+  const safePageSize = Math.min(Math.max(parseInt(finalOptions.pageSize, 10) || 20, 1), 100);
+  const normalizedSortOrder = (finalOptions.sortOrder || 'desc').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  const normalizedKeyword = (finalOptions.keyword || '').trim().toLowerCase();
+  const normalizedStatus = (finalOptions.status || '').trim();
+  const normalizedCreatedDate = (finalOptions.createdDate || '').trim();
+  const normalizedOwnerId = (finalOptions.ownerId || '').trim();
+  const normalizedStoreId = (finalOptions.storeId || '').trim();
+
+  const baseParams = [];
+  const baseClauses = [];
+  let ownerJoinClause = '';
+
+  if (normalizedStoreId) {
+    baseParams.push(normalizedStoreId);
+    baseClauses.push(`s.id = $${baseParams.length}`);
+  }
+
+  if (normalizedOwnerId) {
+    if (normalizedOwnerId === '__unassigned') {
+      ownerJoinClause = 'LEFT JOIN store_owner_links sol ON sol.store_id = s.id';
+      baseClauses.push('sol.owner_id IS NULL');
+    } else {
+      ownerJoinClause = 'JOIN store_owner_links sol ON sol.store_id = s.id';
+      baseParams.push(normalizedOwnerId);
+      baseClauses.push(`sol.owner_id = $${baseParams.length}`);
+    }
+  }
+
+  if (normalizedKeyword) {
+    baseParams.push(`%${normalizedKeyword}%`);
+    const idx = baseParams.length;
+    baseClauses.push(`(
+      LOWER(COALESCE(s.name, '')) LIKE $${idx} OR
+      LOWER(COALESCE(s.subtitle, '')) LIKE $${idx} OR
+      LOWER(COALESCE(s.address, '')) LIKE $${idx} OR
+      LOWER(COALESCE(s.phone, '')) LIKE $${idx} OR
+      LOWER(COALESCE(s.subdomain, '')) LIKE $${idx}
+    )`);
+  }
+
+  if (normalizedCreatedDate) {
+    const referenceDate = normalizedCreatedDate === 'today'
+      ? new Date().toISOString().split('T')[0]
+      : normalizedCreatedDate.slice(0, 10);
+    baseParams.push(referenceDate);
+    baseClauses.push(`DATE(s.created_at) = $${baseParams.length}`);
+  }
+
+  const baseWhere = baseClauses.length ? `WHERE ${baseClauses.join(' AND ')}` : '';
+
+  const filterParams = baseParams.slice();
+  const filterClauses = baseClauses.slice();
+
+  if (normalizedStatus) {
+    filterParams.push(normalizedStatus);
+    filterClauses.push(`s.status = $${filterParams.length}`);
+  }
+
+  const filterWhere = filterClauses.length ? `WHERE ${filterClauses.join(' AND ')}` : '';
+
+  const sortColumnMap = {
+    name: 's.name',
+    createdAt: 's.created_at',
+    lastModified: 's.last_modified',
+    status: 's.status'
+  };
+  const sortColumn = sortColumnMap[finalOptions.sortBy] || 's.created_at';
+  const orderClause = `ORDER BY ${sortColumn} ${normalizedSortOrder}, s.created_at DESC`;
+
+  const countSql = `
+    SELECT COUNT(*)::int AS total
+    FROM (
+      SELECT DISTINCT s.id
+      FROM stores s
+      ${ownerJoinClause}
+      ${filterWhere}
+    ) filtered_ids
+  `;
+  const countResult = await db.query(countSql, filterParams);
+  const total = Number(countResult.rows?.[0]?.total || 0);
+  const totalPages = total > 0 ? Math.ceil(total / safePageSize) : 0;
+  const resolvedPage = totalPages > 0 ? Math.min(safePage, totalPages) : 1;
+  const offset = (resolvedPage - 1) * safePageSize;
+  const startRow = offset + 1;
+  const endRow = offset + safePageSize;
+
+  let summary = {
+    total,
+    active: 0,
+    paused: 0,
+    pending: 0,
+    today: 0
+  };
+
+  if (finalOptions.includeSummary !== false) {
+    const summarySql = `
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE status = 'active')::int AS active,
+        COUNT(*) FILTER (WHERE status = 'paused')::int AS paused,
+        COUNT(*) FILTER (WHERE status = 'pending')::int AS pending,
+        COUNT(*) FILTER (WHERE created_at::date = CURRENT_DATE)::int AS today
+      FROM (
+        SELECT s.id, s.status, s.created_at
+        FROM stores s
+        ${ownerJoinClause}
+        ${baseWhere}
+        GROUP BY s.id, s.status, s.created_at
+      ) base_counts
+    `;
+    const summaryResult = await db.query(summarySql, baseParams);
+    const summaryRow = summaryResult.rows?.[0] || {};
+    summary = {
+      total: Number(summaryRow.total) || 0,
+      active: Number(summaryRow.active) || 0,
+      paused: Number(summaryRow.paused) || 0,
+      pending: Number(summaryRow.pending) || 0,
+      today: Number(summaryRow.today) || 0
+    };
+  }
+
+  const dataRows = [];
+
+  if (total > 0) {
+    const startIdx = filterParams.length + 1;
+    const endIdx = filterParams.length + 2;
+    const dataSql = `
+      WITH filtered AS (
+        SELECT
+          s.id,
+          s.name,
+          s.subtitle,
+          s.phone,
+          s.address,
+          s.status,
+          s.subdomain,
+          s.subdomain_status,
+          s.subdomain_created_at,
+          s.subdomain_last_modified,
+          s."order",
+          s.created_at,
+          s.last_modified,
+          s.paused_at,
+          ROW_NUMBER() OVER (${orderClause}) AS row_number
+        FROM stores s
+        ${ownerJoinClause}
+        ${filterWhere}
+      ),
+      page AS (
+        SELECT *
+        FROM filtered
+        WHERE row_number BETWEEN $${startIdx} AND $${endIdx}
+      ),
+      owner_list AS (
+        SELECT
+          sol.store_id,
+          json_agg(
+            json_build_object(
+              'id', o.id,
+              'ownerName', o.owner_name,
+              'email', o.email,
+              'phone', o.phone,
+              'status', o.status,
+              'approvedAt', o.approved_at,
+              'lastLogin', o.last_login,
+              'role', COALESCE(sol.role, 'manager'),
+              'isPrimary', CASE WHEN o.store_id = sol.store_id THEN TRUE ELSE FALSE END,
+              'linkedAt', sol.created_at
+            )
+            ORDER BY o.owner_name ASC NULLS LAST, o.email ASC
+          ) AS owners
+        FROM store_owner_links sol
+        JOIN store_owners o ON sol.owner_id = o.id
+        WHERE sol.store_id IN (SELECT id FROM page)
+        GROUP BY sol.store_id
+      )
+      SELECT
+        p.id,
+        p.name,
+        p.subtitle,
+        p.phone,
+        p.address,
+        p.status,
+        p.subdomain,
+        p.subdomain_status,
+        p.subdomain_created_at,
+        p.subdomain_last_modified,
+        p."order",
+        p.created_at,
+        p.last_modified,
+        p.paused_at,
+        ss.basic,
+        ss.discount,
+        ss.delivery,
+        ss.pickup,
+        ss.images,
+        ss.business_hours,
+        ss.section_order,
+        ss.qr_code,
+        ss.domain_settings,
+        COALESCE(owner_list.owners, '[]'::json) AS owners,
+        p.row_number
+      FROM page p
+      LEFT JOIN store_settings ss ON ss.store_id = p.id
+      LEFT JOIN owner_list ON owner_list.store_id = p.id
+      ORDER BY p.row_number
+    `;
+
+    const dataResult = await db.query(dataSql, [...filterParams, startRow, endRow]);
+    dataRows.push(...dataResult.rows);
+  }
+
+  const toPlainObject = (raw, fallback) => {
+    if (!raw) return fallback;
+    if (typeof raw === 'string') {
+      try {
+        return JSON.parse(raw);
+      } catch (error) {
+        return fallback;
+      }
+    }
+    if (typeof raw === 'object') {
+      return raw;
+    }
+    return fallback;
+  };
+
+  const data = dataRows.map(row => {
+    const basic = toPlainObject(row.basic, {});
+    const discount = toPlainObject(row.discount, {});
+    const delivery = toPlainObject(row.delivery, {});
+    const pickup = toPlainObject(row.pickup, {});
+    const images = toPlainObject(row.images, {});
+    const businessHours = toPlainObject(row.business_hours, {});
+    const sectionOrderRaw = toPlainObject(row.section_order, []);
+    const sectionOrder = Array.isArray(sectionOrderRaw) ? sectionOrderRaw : [];
+    const qrCode = toPlainObject(row.qr_code, {});
+    const owners = Array.isArray(row.owners) ? row.owners : [];
+
     return {
       id: row.id,
-      name: row.name, // 기존 호환성을 위해 추가
-      subtitle: row.subtitle, // 기존 호환성을 위해 추가
-      phone: row.phone, // 기존 호환성을 위해 추가
-      address: row.address, // 기존 호환성을 위해 추가
-      status: row.status, // 가게 상태 추가
-      subdomain: row.subdomain, // 서브도메인 추가
+      name: row.name,
+      subtitle: row.subtitle,
+      phone: row.phone,
+      address: row.address,
+      status: row.status,
+      subdomain: row.subdomain,
       basic: {
-        storeName: row.name,
-        storeSubtitle: row.subtitle,
-        storePhone: row.phone,
-        storeAddress: row.address,
+        storeName: basic.storeName || row.name || '',
+        storeSubtitle: basic.storeSubtitle || row.subtitle || '',
+        storePhone: basic.storePhone || row.phone || '',
+        storeAddress: basic.storeAddress || row.address || ''
       },
-    discount: {
-      title: '',
-      enabled: false,
-      description: '',
-    },
-    delivery: {
-      baeminUrl: row.delivery?.baeminUrl || '',
-      ttaengUrl: row.delivery?.ttaengUrl || '',
-      yogiyoUrl: row.delivery?.yogiyoUrl || '',
-      coupangUrl: row.delivery?.coupangUrl || '',
-      deliveryOrder: row.delivery?.deliveryOrder || [],
-    },
-    pickup: {
-      title: '',
-      enabled: false,
-      description: '',
-    },
-    images: {
-      mainLogo: '',
-      menuImage: '',
-    },
-    businessHours: {},
-    sectionOrder: [],
-    qrCode: {
-      url: '',
-      filepath: '',
-      createdAt: null,
-    },
-    createdAt: row.created_at,
-    updatedAt: row.last_modified,
+      discount: {
+        title: discount.title || '',
+        enabled: Boolean(discount.enabled),
+        description: discount.description || ''
+      },
+      delivery: {
+        baeminUrl: delivery.baeminUrl || '',
+        ttaengUrl: delivery.ttaengUrl || '',
+        yogiyoUrl: delivery.yogiyoUrl || '',
+        coupangUrl: delivery.coupangUrl || '',
+        deliveryOrder: Array.isArray(delivery.deliveryOrder) ? delivery.deliveryOrder : []
+      },
+      pickup: {
+        title: pickup.title || '',
+        enabled: Boolean(pickup.enabled),
+        description: pickup.description || ''
+      },
+      images: {
+        mainLogo: images.mainLogo || '',
+        menuImage: images.menuImage || ''
+      },
+      businessHours,
+      sectionOrder,
+      qrCode: {
+        url: qrCode.url || '',
+        filepath: qrCode.filepath || '',
+        createdAt: qrCode.createdAt || null
+      },
+      createdAt: row.created_at,
+      updatedAt: row.last_modified,
+      owners
     };
   });
+
+  return {
+    data,
+    meta: {
+      pagination: {
+        page: resolvedPage,
+        pageSize: safePageSize,
+        total,
+        totalPages,
+        hasPrev: resolvedPage > 1,
+        hasNext: totalPages > 0 && resolvedPage < totalPages
+      },
+      filters: {
+        storeId: normalizedStoreId || '',
+        ownerId: normalizedOwnerId || '',
+        status: normalizedStatus || '',
+        keyword: normalizedKeyword || '',
+        createdDate: normalizedCreatedDate || '',
+        sortBy: finalOptions.sortBy,
+        sortOrder: normalizedSortOrder.toLowerCase()
+      },
+      summary
+    }
+  };
 }
 
 // 특정 가게 조회
@@ -203,6 +739,7 @@ async function getStoreById(storeId) {
   }
   
   const row = result.rows[0];
+  const owners = await getOwnersByStore(row.id);
   return {
     id: row.id,
     name: row.name, // 기존 호환성을 위해 추가
@@ -246,13 +783,14 @@ async function getStoreById(storeId) {
     },
     createdAt: row.created_at,
     updatedAt: row.last_modified,
+    owners
   };
 }
 
 // 가게 설정 조회
 async function getStoreSettings(storeId) {
   const result = await db.query(`
-    SELECT basic, discount, delivery, pickup, images, business_hours, section_order, qr_code, domain_settings
+    SELECT basic, discount, delivery, pickup, images, business_hours, section_order, qr_code, domain_settings, seo_settings, ab_test_settings
     FROM store_settings
     WHERE store_id = $1
   `, [storeId]);
@@ -271,7 +809,9 @@ async function getStoreSettings(storeId) {
     businessHours: settings.business_hours || {},
     sectionOrder: settings.section_order || {},
     qrCode: settings.qr_code || {},
-    domainSettings: settings.domain_settings || {}
+    domainSettings: settings.domain_settings || {},
+    seoSettings: settings.seo_settings || {},
+    abTestSettings: settings.ab_test_settings || {}
   };
 }
 
@@ -370,8 +910,82 @@ async function createOwnerRequest({
   const passwordHash = hashPassword(trimmedPassword);
 
   const normalizedName = (name || '').trim().toLowerCase();
-  const normalizedStoreName = (requestData.storeName || '').trim().toLowerCase();
-  const sanitizedPhone = (phone || '').replace(/[^0-9]/g, '');
+  const normalizedPhoneDisplay = normalizePhoneNumber(phone);
+  if (!normalizedPhoneDisplay || !PHONE_DISPLAY_PATTERN.test(normalizedPhoneDisplay)) {
+    return {
+      success: false,
+      error: '연락처 형식이 올바르지 않습니다. 예: 010-1234-5678'
+    };
+  }
+
+  const requestInfo = (requestData && typeof requestData === 'object') ? requestData : {};
+  const storeName = sanitizeAddressSegment(requestInfo.storeName || requestInfo.name || '');
+  const storePostalCode = sanitizeAddressSegment(requestInfo.storePostalCode || requestInfo.postalCode || '');
+  const storeRoadAddress = sanitizeAddressSegment(requestInfo.storeRoadAddress || requestInfo.roadAddress || '');
+  const storeExtraAddress = sanitizeAddressSegment(requestInfo.storeExtraAddress || requestInfo.extraAddress || '');
+  const storeAddressDetail = sanitizeAddressSegment(requestInfo.storeAddressDetail || requestInfo.addressDetail || '');
+
+  if (!storeName) {
+    return {
+      success: false,
+      error: '가게 이름을 입력해주세요.'
+    };
+  }
+
+  if (!storeRoadAddress) {
+    return {
+      success: false,
+      error: '가게 도로명 주소를 입력해주세요.'
+    };
+  }
+
+  if (!ADDRESS_ALLOWED_PATTERN.test(storeRoadAddress)) {
+    return {
+      success: false,
+      error: '도로명 주소에 허용되지 않는 문자가 포함되어 있습니다.'
+    };
+  }
+
+  if (!storeAddressDetail) {
+    return {
+      success: false,
+      error: '상세 주소를 입력해주세요.'
+    };
+  }
+
+  if (!ADDRESS_ALLOWED_PATTERN.test(storeAddressDetail)) {
+    return {
+      success: false,
+      error: '상세 주소에 허용되지 않는 문자가 포함되어 있습니다.'
+    };
+  }
+
+  if (storeExtraAddress && !ADDRESS_ALLOWED_PATTERN.test(storeExtraAddress.replace(/^\(|\)$/g, ''))) {
+    return {
+      success: false,
+      error: '참고 항목에 허용되지 않는 문자가 포함되어 있습니다.'
+    };
+  }
+
+  const fullAddressSegments = [storeRoadAddress];
+  if (storeExtraAddress) {
+    fullAddressSegments.push(storeExtraAddress);
+  }
+  if (storeAddressDetail) {
+    fullAddressSegments.push(storeAddressDetail);
+  }
+
+  const sanitizedRequestData = {
+    storeName,
+    storePostalCode,
+    storeRoadAddress,
+    storeExtraAddress,
+    storeAddressDetail,
+    storeAddress: fullAddressSegments.filter(Boolean).join(' ').trim()
+  };
+
+  const normalizedStoreName = storeName.toLowerCase();
+  const sanitizedPhone = normalizedPhoneDisplay.replace(/[^0-9]/g, '');
 
   if (normalizedName && normalizedStoreName && sanitizedPhone) {
     const duplicateCheck = await db.query(
@@ -403,10 +1017,10 @@ async function createOwnerRequest({
       ownerId,
       name,
       email,
-      phone,
+      normalizedPhoneDisplay,
       passwordHash,
-      message,
-      JSON.stringify(requestData || {})
+      typeof message === 'string' ? message.trim() : '',
+      JSON.stringify(sanitizedRequestData)
     ]
   );
 
@@ -431,7 +1045,7 @@ async function getOwnerAccounts(status = null) {
   const result = await db.query(
     `SELECT 
         o.id,
-        o.store_id,
+        o.store_id AS primary_store_id,
         o.owner_name,
         o.email,
         o.phone,
@@ -441,28 +1055,104 @@ async function getOwnerAccounts(status = null) {
         o.created_at,
         o.approved_at,
         o.last_login,
-        s.name AS store_name
+        ps.name AS primary_store_name,
+        ps.status AS primary_store_status,
+        sol.store_id AS linked_store_id,
+        sol.role AS link_role,
+        sol.created_at AS link_created_at,
+        ls.name AS linked_store_name,
+        ls.status AS linked_store_status
      FROM store_owners o
-     LEFT JOIN stores s ON o.store_id = s.id
+     LEFT JOIN stores ps ON o.store_id = ps.id
+     LEFT JOIN store_owner_links sol ON sol.owner_id = o.id
+     LEFT JOIN stores ls ON sol.store_id = ls.id
      ${whereClause}
-     ORDER BY o.created_at DESC`,
+     ORDER BY o.created_at DESC, ls.name ASC NULLS LAST`,
     params
   );
 
-  return result.rows.map(row => ({
-    id: row.id,
-    storeId: row.store_id,
-    storeName: row.store_name,
-    ownerName: row.owner_name,
-    email: row.email,
-    phone: row.phone,
-    status: row.status,
-    requestMessage: row.request_message,
-    requestData: row.request_data || {},
-    createdAt: row.created_at,
-    approvedAt: row.approved_at,
-    lastLogin: row.last_login
-  }));
+  const ownersMap = new Map();
+
+  for (const row of result.rows) {
+    let owner = ownersMap.get(row.id);
+    if (!owner) {
+      let requestData = row.request_data || {};
+      if (typeof requestData === 'string') {
+        try {
+          requestData = JSON.parse(requestData);
+        } catch (error) {
+          requestData = {};
+        }
+      }
+
+      owner = {
+        id: row.id,
+        storeId: row.primary_store_id,
+        storeName: row.primary_store_name,
+        ownerName: row.owner_name,
+        email: row.email,
+        phone: row.phone,
+        status: row.status,
+        requestMessage: row.request_message,
+        requestData,
+        createdAt: row.created_at,
+        approvedAt: row.approved_at,
+        lastLogin: row.last_login,
+        stores: [],
+        _storeMap: new Map()
+      };
+
+      ownersMap.set(row.id, owner);
+    }
+
+    const addStore = (storeId, storeName, storeStatus, role, linkedAt, isPrimary = false) => {
+      if (!storeId) return;
+      if (owner._storeMap.has(storeId)) {
+        const existing = owner._storeMap.get(storeId);
+        if (isPrimary) {
+          existing.isPrimary = true;
+          existing.role = existing.role === 'manager' ? 'primary' : existing.role;
+        }
+        if (role && role !== existing.role) {
+          existing.role = role;
+        }
+        return;
+      }
+
+      owner._storeMap.set(storeId, {
+        id: storeId,
+        name: storeName || null,
+        status: storeStatus || null,
+        role: role || (isPrimary ? 'primary' : 'manager'),
+        isPrimary,
+        linkedAt
+      });
+    };
+
+    addStore(
+      row.primary_store_id,
+      row.primary_store_name,
+      row.primary_store_status,
+      'primary',
+      row.link_created_at,
+      true
+    );
+
+    addStore(
+      row.linked_store_id,
+      row.linked_store_name,
+      row.linked_store_status,
+      row.link_role,
+      row.link_created_at,
+      row.primary_store_id && row.primary_store_id === row.linked_store_id
+    );
+  }
+
+  return Array.from(ownersMap.values()).map(owner => {
+    owner.stores = Array.from(owner._storeMap.values());
+    delete owner._storeMap;
+    return owner;
+  });
 }
 
 // 단일 점주 계정 조회
@@ -489,6 +1179,8 @@ async function getOwnerAccountDetail(ownerId) {
     }
   }
 
+  const stores = await getStoresByOwner(row.id);
+
   return {
     id: row.id,
     storeId: row.store_id,
@@ -498,7 +1190,8 @@ async function getOwnerAccountDetail(ownerId) {
     status: row.status,
     requestMessage: row.request_message,
     requestData,
-    passwordHash: row.password_hash
+    passwordHash: row.password_hash,
+    stores
   };
 }
 
@@ -526,9 +1219,12 @@ async function approveOwnerAccount(ownerId, { storeId, passwordHash }) {
         WHERE id = $1`,
       [storeId]
     );
+    await linkOwnerToStore(result.rows[0].id, storeId);
   }
 
-  return result.rows[0];
+  const owner = result.rows[0];
+  owner.stores = await getStoresByOwner(owner.id);
+  return owner;
 }
 
 // 가게 사장님 계정 거절/보류 처리
@@ -594,19 +1290,33 @@ async function pauseOwnerAccount(ownerId) {
     throw new Error('점주 계정을 찾을 수 없습니다.');
   }
 
+  const storeIds = new Set();
   const storeId = result.rows[0].store_id;
   if (storeId) {
+    storeIds.add(storeId);
+  }
+
+  const linkedStores = await getStoresByOwner(ownerId);
+  linkedStores.forEach(store => {
+    if (store.id) {
+      storeIds.add(store.id);
+    }
+  });
+
+  for (const id of storeIds) {
     await db.query(
       `UPDATE stores
           SET status = 'paused',
               paused_at = CURRENT_TIMESTAMP,
               last_modified = CURRENT_TIMESTAMP
         WHERE id = $1`,
-      [storeId]
+      [id]
     );
   }
 
-  return result.rows[0];
+  const owner = result.rows[0];
+  owner.stores = linkedStores;
+  return owner;
 }
 
 async function resumeOwnerAccount(ownerId) {
@@ -622,16 +1332,63 @@ async function resumeOwnerAccount(ownerId) {
     throw new Error('점주 계정을 찾을 수 없습니다.');
   }
 
+  const storeIds = new Set();
   const storeId = result.rows[0].store_id;
   if (storeId) {
+    storeIds.add(storeId);
+  }
+
+  const linkedStores = await getStoresByOwner(ownerId);
+  linkedStores.forEach(store => {
+    if (store.id) {
+      storeIds.add(store.id);
+    }
+  });
+
+  for (const id of storeIds) {
     await db.query(
       `UPDATE stores
           SET status = 'active',
               paused_at = NULL,
               last_modified = CURRENT_TIMESTAMP
         WHERE id = $1`,
-      [storeId]
+      [id]
     );
+  }
+
+  const owner = result.rows[0];
+  owner.stores = linkedStores;
+  return owner;
+}
+
+async function updateOwnerPassword(ownerId, newPassword) {
+  if (!ownerId) {
+    throw new Error('점주 ID가 필요합니다.');
+  }
+
+  const sanitizedPassword = typeof newPassword === 'string' ? newPassword.trim() : '';
+  if (!sanitizedPassword) {
+    throw new Error('새 비밀번호를 입력해주세요.');
+  }
+  if (sanitizedPassword.length < 8) {
+    throw new Error('비밀번호는 8자 이상 입력해주세요.');
+  }
+
+  const hashedPassword = hashPassword(sanitizedPassword);
+  if (!hashedPassword) {
+    throw new Error('비밀번호를 해시할 수 없습니다.');
+  }
+
+  const result = await db.query(
+    `UPDATE store_owners
+        SET password_hash = $2
+      WHERE id = $1
+      RETURNING id, owner_name, email, phone, status`,
+    [ownerId, hashedPassword]
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error('점주 계정을 찾을 수 없습니다.');
   }
 
   return result.rows[0];
@@ -647,24 +1404,24 @@ async function deleteOwnerAccount(ownerId) {
     throw new Error('점주 계정을 찾을 수 없습니다.');
   }
 
-  const storeId = existing.rows[0].store_id;
+  const linkedStores = await getStoresByOwner(ownerId);
+  for (const store of linkedStores) {
+    if (store.id) {
+      await unlinkOwnerFromStore(ownerId, store.id);
+    }
+  }
+
+  await db.query(
+    `DELETE FROM store_owner_links WHERE owner_id = $1`,
+    [ownerId]
+  );
 
   await db.query(
     `DELETE FROM store_owners WHERE id = $1`,
     [ownerId]
   );
 
-  if (storeId) {
-    await db.query(
-      `UPDATE stores
-          SET status = 'pending',
-              last_modified = CURRENT_TIMESTAMP
-        WHERE id = $1`,
-      [storeId]
-    );
-  }
-
-  return { success: true, ownerId, storeId };
+  return { success: true, ownerId, stores: linkedStores };
 }
 
 async function createStoreEvent({ storeId, eventType, eventPayload = {}, userAgent = null }) {
@@ -868,6 +1625,14 @@ async function authenticateStoreOwner(email, password) {
     return { success: false, error: '비밀번호가 일치하지 않습니다.' };
   }
 
+  const stores = await getStoresByOwner(owner.id);
+  const primaryStore =
+    stores.find(store => store.role === 'primary' || store.isPrimary) ||
+    stores[0] ||
+    null;
+
+  const resolvedStoreId = primaryStore?.id || owner.store_id || null;
+
   return {
     success: true,
     owner: {
@@ -875,7 +1640,10 @@ async function authenticateStoreOwner(email, password) {
       name: owner.owner_name,
       email: owner.email,
       phone: owner.phone,
-      storeId: owner.store_id
+      storeId: resolvedStoreId,
+      primaryStoreId: primaryStore?.id || null,
+      stores,
+      storeCount: stores.length
     }
   };
 }
@@ -888,19 +1656,6 @@ async function recordOwnerLogin(ownerId) {
       WHERE id = $1`,
     [ownerId]
   );
-}
-
-// 가게별 점주 조회
-async function getOwnersByStore(storeId) {
-  const result = await db.query(
-    `SELECT id, owner_name, email, phone, status, created_at, last_login
-       FROM store_owners
-      WHERE store_id = $1
-      ORDER BY created_at DESC`,
-    [storeId]
-  );
-
-  return result.rows;
 }
 
 // 가게 설정 업데이트
@@ -965,8 +1720,9 @@ async function updateStoreSettings(storeId, settings) {
       await db.query(`
         INSERT INTO store_settings (
           store_id, delivery, discount, pickup, images, 
-          business_hours, section_order, qr_code, domain_settings, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          business_hours, section_order, qr_code, domain_settings, seo_settings, ab_test_settings,
+          created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       `, [
         storeId,
         JSON.stringify(settings.delivery || {}),
@@ -976,7 +1732,9 @@ async function updateStoreSettings(storeId, settings) {
         JSON.stringify(settings.businessHours || {}),
         JSON.stringify(settings.sectionOrder || []),
         JSON.stringify(settings.qrCode || {}),
-        JSON.stringify(settings.domainSettings || {})
+        JSON.stringify(settings.domainSettings || {}),
+        JSON.stringify(settings.seoSettings || {}),
+        JSON.stringify(settings.abTestSettings || {})
       ]);
     }
     
@@ -988,13 +1746,684 @@ async function updateStoreSettings(storeId, settings) {
   }
 }
 
+/**
+ * 문자열을 안전하게 정리한다.
+ * @param {any} value 원본 값
+ * @param {number} maxLength 최대 길이
+ * @returns {string}
+ */
+function sanitizeString(value, maxLength = 255) {
+  if (value === null || value === undefined) return '';
+  const base = typeof value === 'string' ? value : String(value);
+  const trimmed = base.trim();
+  if (!maxLength || trimmed.length <= maxLength) {
+    return trimmed;
+  }
+  return trimmed.slice(0, maxLength);
+}
+
+/**
+ * 문자열 배열을 일정 길이로 정리한다.
+ * @param {any} list 원본 배열
+ * @param {number} itemLength 항목 최대 길이
+ * @param {number} limit 항목 최대 개수
+ * @returns {string[]}
+ */
+function sanitizeStringArray(list, itemLength = 120, limit = 10) {
+  if (!Array.isArray(list)) {
+    return [];
+  }
+  return list
+    .map(item => sanitizeString(item, itemLength))
+    .filter(item => item.length > 0)
+    .slice(0, limit);
+}
+
+/**
+ * SEO 설정 데이터를 길이 제한에 맞춰 정리한다.
+ * @param {object} raw 원본 SEO 설정
+ * @returns {object}
+ */
+function sanitizeSeoSettingsPayload(raw = {}) {
+  const checklist = Array.isArray(raw.checklist)
+    ? raw.checklist
+        .map(item => ({
+          item: sanitizeString(item?.item, 120),
+          priority: sanitizeString(item?.priority, 20) || '중간',
+          impact: sanitizeString(item?.impact, 160)
+        }))
+        .filter(item => item.item.length > 0)
+    : [];
+
+  return {
+    metaTitle: sanitizeString(raw.metaTitle, 60),
+    metaDescription: sanitizeString(raw.metaDescription, 150),
+    keywords: sanitizeStringArray(raw.keywords, 40, 10),
+    tone: sanitizeString(raw.tone, 80),
+    audienceFocus: sanitizeString(raw.audienceFocus, 120),
+    callToAction: sanitizeString(raw.callToAction, 60),
+    recommendedSections: sanitizeStringArray(raw.recommendedSections, 60, 10),
+    checklist,
+    riskWarnings: sanitizeStringArray(raw.riskWarnings, 160, 10),
+    finalAdvice: sanitizeString(raw.finalAdvice, 400)
+  };
+}
+
+/**
+ * A/B 테스트 설정 데이터를 길이 제한에 맞춰 정리한다.
+ * @param {object} raw 원본 A/B 설정
+ * @returns {object}
+ */
+function sanitizeAbTestSettingsPayload(raw = {}) {
+  const tests = Array.isArray(raw.tests)
+    ? raw.tests
+        .map(test => {
+          const variants = Array.isArray(test?.variants)
+            ? test.variants
+                .map(variant => ({
+                  label: sanitizeString(variant?.label, 20) || '',
+                  description: sanitizeString(variant?.description, 160)
+                }))
+                .filter(variant => variant.description.length > 0)
+            : [];
+
+          return {
+            name: sanitizeString(test?.name, 120),
+            hypothesis: sanitizeString(test?.hypothesis, 200),
+            variants,
+            primaryMetric: sanitizeString(test?.primaryMetric, 80),
+            secondaryMetrics: sanitizeStringArray(test?.secondaryMetrics, 60, 6),
+            estimatedDuration: sanitizeString(test?.estimatedDuration, 40)
+          };
+        })
+        .filter(test => test.name.length > 0 && test.variants.length > 0)
+    : [];
+
+  const copyVariants = Array.isArray(raw.copyVariants)
+    ? raw.copyVariants
+        .map(variant => ({
+          placement: sanitizeString(variant?.placement, 80),
+          ideas: sanitizeStringArray(variant?.ideas, 120, 8)
+        }))
+        .filter(variant => variant.placement.length > 0 && variant.ideas.length > 0)
+    : [];
+
+  return {
+    tests,
+    copyVariants,
+    analysisPlan: {
+      evaluationCriteria: sanitizeString(raw.analysisPlan?.evaluationCriteria, 200),
+      riskMitigation: sanitizeString(raw.analysisPlan?.riskMitigation, 200)
+    },
+    guardrails: sanitizeStringArray(raw.guardrails, 160, 8),
+    successSignals: sanitizeStringArray(raw.successSignals, 160, 8),
+    analysisTips: sanitizeStringArray(raw.analysisTips, 160, 8)
+  };
+}
+
+async function ensureHistoryTables() {
+  if (historyTablesEnsured || !historyTablesAvailable) return;
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS seo_settings_history (
+        id SERIAL PRIMARY KEY,
+        store_id VARCHAR(255) NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+        version INTEGER NOT NULL,
+        settings JSONB NOT NULL,
+        summary JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (store_id, version)
+      )
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS ab_test_settings_history (
+        id SERIAL PRIMARY KEY,
+        store_id VARCHAR(255) NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+        version INTEGER NOT NULL,
+        settings JSONB NOT NULL,
+        summary JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (store_id, version)
+      )
+    `);
+
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_seo_settings_history_store ON seo_settings_history(store_id, version DESC)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ab_settings_history_store ON ab_test_settings_history(store_id, version DESC)`);
+
+    historyTablesEnsured = true;
+  } catch (error) {
+    if (error?.code === '42501') {
+      console.warn('히스토리 테이블 준비 실패: 현재 사용자에게 CREATE 권한이 없어 히스토리 기능을 비활성화합니다.');
+      historyTablesAvailable = false;
+      historyTablesEnsured = true;
+      return;
+    }
+    console.error('히스토리 테이블 준비 실패:', error);
+    throw error;
+  }
+}
+
+/**
+ * store_settings 테이블에 SEO/AB 테스트 관련 컬럼을 보장한다.
+ * 컬럼이 없다면 추가하고, NULL 값은 빈 객체로 초기화한다.
+ */
+async function ensureStoreSettingsColumns() {
+  if (storeSettingsColumnsEnsured || !storeSettingsColumnsAvailable) {
+    return;
+  }
+  try {
+    await db.transaction(async client => {
+      await client.query(`
+        ALTER TABLE store_settings
+        ADD COLUMN IF NOT EXISTS seo_settings JSONB
+      `);
+      await client.query(`
+        ALTER TABLE store_settings
+        ADD COLUMN IF NOT EXISTS ab_test_settings JSONB
+      `);
+      await client.query(`
+        ALTER TABLE store_settings
+          ALTER COLUMN seo_settings SET DEFAULT '{}'::jsonb
+      `);
+      await client.query(`
+        ALTER TABLE store_settings
+          ALTER COLUMN ab_test_settings SET DEFAULT '{}'::jsonb
+      `);
+      await client.query(`
+        UPDATE store_settings
+           SET seo_settings = '{}'::jsonb
+         WHERE seo_settings IS NULL
+      `);
+      await client.query(`
+        UPDATE store_settings
+           SET ab_test_settings = '{}'::jsonb
+         WHERE ab_test_settings IS NULL
+      `);
+    });
+    storeSettingsColumnsEnsured = true;
+  } catch (error) {
+    if (error?.code === '42501') {
+      console.warn('스토어 설정 컬럼 준비 실패: 현재 사용자에게 ALTER 권한이 없어 보강을 건너뜁니다.');
+      storeSettingsColumnsAvailable = false;
+      storeSettingsColumnsEnsured = true;
+      return;
+    }
+    console.error('스토어 설정 컬럼 준비 실패:', error);
+    throw error;
+  }
+}
+
+async function ensureSingleOwnerConstraint() {
+  if (singleOwnerConstraintEnsured) return;
+  try {
+    await db.transaction(async client => {
+      await client.query(`
+        DELETE FROM store_owner_links sol
+        WHERE NOT EXISTS (
+          SELECT 1 FROM store_owners so
+           WHERE so.id = sol.owner_id
+        )
+      `);
+
+      const duplicateStores = await client.query(`
+        SELECT store_id
+          FROM store_owner_links
+         GROUP BY store_id
+        HAVING COUNT(*) > 1
+      `);
+
+      for (const row of duplicateStores.rows) {
+        const ownerRows = await client.query(
+          `SELECT sol.owner_id, COALESCE(so.status, '') AS status
+             FROM store_owner_links sol
+             LEFT JOIN store_owners so ON so.id = sol.owner_id
+            WHERE sol.store_id = $1`,
+          [row.store_id]
+        );
+
+        if (!ownerRows.rows.length) {
+          await client.query(`DELETE FROM store_owner_links WHERE store_id = $1`, [row.store_id]);
+          continue;
+        }
+
+        const approvedOwner = ownerRows.rows.find(owner => owner.status === 'approved');
+        const keeperId = approvedOwner ? approvedOwner.owner_id : ownerRows.rows[0].owner_id;
+        const removeIds = ownerRows.rows
+          .map(owner => owner.owner_id)
+          .filter(ownerId => ownerId !== keeperId);
+
+        if (removeIds.length) {
+          await client.query(
+            `DELETE FROM store_owner_links
+              WHERE store_id = $1
+                AND owner_id = ANY($2::text[])`,
+            [row.store_id, removeIds]
+          );
+
+          await client.query(
+            `UPDATE store_owners
+                SET store_id = NULL
+              WHERE id = ANY($1::text[])`,
+            [removeIds]
+          );
+        }
+
+        await client.query(
+          `UPDATE store_owner_links
+              SET role = 'primary'
+            WHERE store_id = $1`,
+          [row.store_id]
+        );
+
+        await client.query(
+          `UPDATE store_owners
+              SET store_id = $2
+            WHERE id = $1`,
+          [keeperId, row.store_id]
+        );
+      }
+
+      await client.query(`
+        UPDATE store_owners so
+           SET store_id = NULL
+         WHERE so.store_id IS NOT NULL
+           AND NOT EXISTS (
+             SELECT 1
+               FROM store_owner_links sol
+              WHERE sol.owner_id = so.id
+                AND sol.store_id = so.store_id
+           )
+      `);
+
+      await client.query(`
+        DELETE FROM store_owner_links sol
+        USING store_owners so
+        WHERE sol.owner_id = so.id
+          AND COALESCE(so.status, '') NOT IN ('approved', 'paused')
+      `);
+
+      await client.query(`
+        UPDATE store_owners
+           SET store_id = NULL
+         WHERE COALESCE(status, '') NOT IN ('approved', 'paused')
+      `);
+    });
+
+    let canAlterConstraints = false;
+    try {
+      const privilegeResult = await db.query(`
+        SELECT tableowner = current_user AS is_owner
+          FROM pg_tables
+         WHERE schemaname = 'public'
+           AND tablename = 'store_owner_links'
+         LIMIT 1
+      `);
+      canAlterConstraints = Boolean(privilegeResult.rows?.[0]?.is_owner);
+    } catch (privilegeError) {
+      console.warn('store_owner_links 테이블 권한 확인 중 오류가 발생했습니다:', privilegeError.message);
+    }
+
+    if (canAlterConstraints) {
+      await db.query(`
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_constraint
+         WHERE conname = 'store_owner_links_unique_store'
+           AND conrelid = 'store_owner_links'::regclass
+    ) THEN
+        ALTER TABLE store_owner_links
+          ADD CONSTRAINT store_owner_links_unique_store UNIQUE (store_id);
+    END IF;
+END$$;
+      `);
+
+      await db.query(`
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_constraint
+         WHERE conname = 'store_owner_links_unique_owner'
+           AND conrelid = 'store_owner_links'::regclass
+    ) THEN
+        ALTER TABLE store_owner_links
+          ADD CONSTRAINT store_owner_links_unique_owner UNIQUE (owner_id);
+    END IF;
+END$$;
+      `);
+    } else {
+      console.warn('store_owner_links 테이블 소유 권한이 없어 제약 추가를 건너뜁니다.');
+    }
+
+    singleOwnerConstraintEnsured = true;
+  } catch (error) {
+    if (error?.code === '42501') {
+      console.warn('점주 단일 연결 제약 정리를 위한 권한이 없어 초기화 단계를 건너뜁니다.');
+      singleOwnerConstraintEnsured = true;
+      return;
+    }
+    console.error('점주 단일 연결 제약 준비 실패:', error);
+    throw error;
+  }
+}
+
+function buildSeoHistorySummary(settings = {}) {
+  return {
+    metaTitle: sanitizeString(settings.metaTitle, 120),
+    keywords: sanitizeStringArray(settings.keywords, 40, 10),
+    tone: sanitizeString(settings.tone, 80),
+    callToAction: sanitizeString(settings.callToAction, 60)
+  };
+}
+
+function buildAbHistorySummary(settings = {}) {
+  const testCount = Array.isArray(settings.tests) ? settings.tests.length : 0;
+  const ideaCount = Array.isArray(settings.copyVariants)
+    ? settings.copyVariants.reduce((total, variant) => {
+        if (!variant || !Array.isArray(variant.ideas)) return total;
+        return total + variant.ideas.length;
+      }, 0)
+    : 0;
+
+  return {
+    testCount,
+    ideaCount,
+    evaluationCriteria: sanitizeString(settings.analysisPlan?.evaluationCriteria, 200)
+  };
+}
+
+async function appendSeoSettingsHistory(storeId, rawSettings = {}) {
+  if (!storeId || !historyTablesAvailable) return null;
+  try {
+    await ensureHistoryTables();
+    const sanitized = sanitizeSeoSettingsPayload(rawSettings);
+
+    const latest = await db.query(
+      `SELECT version, settings, summary, created_at
+         FROM seo_settings_history
+        WHERE store_id = $1
+        ORDER BY version DESC
+        LIMIT 1`,
+      [storeId]
+    );
+
+    if (latest.rows.length) {
+      const latestSettings = latest.rows[0].settings || {};
+      if (JSON.stringify(latestSettings) === JSON.stringify(sanitized)) {
+        return {
+          version: latest.rows[0].version,
+          settings: latestSettings,
+          summary: latest.rows[0].summary || buildSeoHistorySummary(latestSettings),
+          createdAt: latest.rows[0].created_at
+        };
+      }
+    }
+
+    const nextVersionResult = await db.query(
+      `SELECT COALESCE(MAX(version), 0) + 1 AS next_version
+         FROM seo_settings_history
+        WHERE store_id = $1`,
+      [storeId]
+    );
+    const nextVersion = nextVersionResult.rows[0]?.next_version || 1;
+    const summary = buildSeoHistorySummary(sanitized);
+
+    const inserted = await db.query(
+      `INSERT INTO seo_settings_history (store_id, version, settings, summary)
+       VALUES ($1, $2, $3, $4)
+       RETURNING version, settings, summary, created_at`,
+      [storeId, nextVersion, JSON.stringify(sanitized), JSON.stringify(summary)]
+    );
+
+    const row = inserted.rows[0];
+    return {
+      version: row.version,
+      settings: row.settings,
+      summary: row.summary || summary,
+      createdAt: row.created_at
+    };
+  } catch (error) {
+    if (error?.code === '42501' || error?.code === '42P01') {
+      console.warn('SEO 히스토리 저장 실패: 권한이 없거나 테이블이 없어 히스토리를 비활성화합니다.');
+      historyTablesAvailable = false;
+      return null;
+    }
+    console.error('SEO 히스토리 저장 실패:', error);
+    return null;
+  }
+}
+
+async function getSeoSettingsHistory(storeId, limit = 10) {
+  if (!storeId || !historyTablesAvailable) return [];
+  try {
+    await ensureHistoryTables();
+    const cappedLimit = Math.max(1, Math.min(Number(limit) || 10, 50));
+    const result = await db.query(
+      `SELECT version, settings, summary, created_at
+         FROM seo_settings_history
+        WHERE store_id = $1
+        ORDER BY version DESC
+        LIMIT $2`,
+      [storeId, cappedLimit]
+    );
+
+    return result.rows.map(row => {
+      const sanitized = sanitizeSeoSettingsPayload(row.settings || {});
+      return {
+        version: row.version,
+        settings: sanitized,
+        summary: row.summary || buildSeoHistorySummary(sanitized),
+        createdAt: row.created_at
+      };
+    });
+  } catch (error) {
+    if (error?.code === '42501' || error?.code === '42P01') {
+      console.warn('SEO 히스토리 조회 실패: 권한이 없거나 테이블이 없어 히스토리를 비활성화합니다.');
+      historyTablesAvailable = false;
+      return [];
+    }
+    console.error('SEO 히스토리 조회 실패:', error);
+    return [];
+  }
+}
+
+async function appendAbTestSettingsHistory(storeId, rawSettings = {}) {
+  if (!storeId || !historyTablesAvailable) return null;
+  try {
+    await ensureHistoryTables();
+    const sanitized = sanitizeAbTestSettingsPayload(rawSettings);
+
+    const latest = await db.query(
+      `SELECT version, settings, summary, created_at
+         FROM ab_test_settings_history
+        WHERE store_id = $1
+        ORDER BY version DESC
+        LIMIT 1`,
+      [storeId]
+    );
+
+    if (latest.rows.length) {
+      const latestSettings = latest.rows[0].settings || {};
+      if (JSON.stringify(latestSettings) === JSON.stringify(sanitized)) {
+        return {
+          version: latest.rows[0].version,
+          settings: latestSettings,
+          summary: latest.rows[0].summary || buildAbHistorySummary(latestSettings),
+          createdAt: latest.rows[0].created_at
+        };
+      }
+    }
+
+    const nextVersionResult = await db.query(
+      `SELECT COALESCE(MAX(version), 0) + 1 AS next_version
+         FROM ab_test_settings_history
+        WHERE store_id = $1`,
+      [storeId]
+    );
+    const nextVersion = nextVersionResult.rows[0]?.next_version || 1;
+    const summary = buildAbHistorySummary(sanitized);
+
+    const inserted = await db.query(
+      `INSERT INTO ab_test_settings_history (store_id, version, settings, summary)
+       VALUES ($1, $2, $3, $4)
+       RETURNING version, settings, summary, created_at`,
+      [storeId, nextVersion, JSON.stringify(sanitized), JSON.stringify(summary)]
+    );
+
+    const row = inserted.rows[0];
+    return {
+      version: row.version,
+      settings: row.settings,
+      summary: row.summary || summary,
+      createdAt: row.created_at
+    };
+  } catch (error) {
+    if (error?.code === '42501' || error?.code === '42P01') {
+      console.warn('A/B 히스토리 저장 실패: 권한이 없거나 테이블이 없어 히스토리를 비활성화합니다.');
+      historyTablesAvailable = false;
+      return null;
+    }
+    console.error('A/B 히스토리 저장 실패:', error);
+    return null;
+  }
+}
+
+async function getAbTestSettingsHistory(storeId, limit = 10) {
+  if (!storeId || !historyTablesAvailable) return [];
+  try {
+    await ensureHistoryTables();
+    const cappedLimit = Math.max(1, Math.min(Number(limit) || 10, 50));
+    const result = await db.query(
+      `SELECT version, settings, summary, created_at
+         FROM ab_test_settings_history
+        WHERE store_id = $1
+        ORDER BY version DESC
+        LIMIT $2`,
+      [storeId, cappedLimit]
+    );
+
+    return result.rows.map(row => {
+      const sanitized = sanitizeAbTestSettingsPayload(row.settings || {});
+      return {
+        version: row.version,
+        settings: sanitized,
+        summary: row.summary || buildAbHistorySummary(sanitized),
+        createdAt: row.created_at
+      };
+    });
+  } catch (error) {
+    if (error?.code === '42501' || error?.code === '42P01') {
+      console.warn('A/B 히스토리 조회 실패: 권한이 없거나 테이블이 없어 히스토리를 비활성화합니다.');
+      historyTablesAvailable = false;
+      return [];
+    }
+    console.error('A/B 히스토리 조회 실패:', error);
+    return [];
+  }
+}
+
+/**
+ * SEO 설정을 저장한다.
+ * @param {string} storeId 가게 ID
+ * @param {object} seoSettings SEO 설정 값
+ * @returns {Promise<object>}
+ */
+async function saveSeoSettingsForStore(storeId, seoSettings = {}) {
+  await ensureStoreSettingsColumns();
+  const sanitized = sanitizeSeoSettingsPayload(seoSettings);
+  await db.query(`
+    INSERT INTO store_settings (store_id, seo_settings, created_at, updated_at)
+    VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ON CONFLICT (store_id) DO UPDATE SET
+      seo_settings = EXCLUDED.seo_settings,
+      updated_at = CURRENT_TIMESTAMP
+  `, [
+    storeId,
+    JSON.stringify(sanitized)
+  ]);
+  await appendSeoSettingsHistory(storeId, sanitized);
+  return sanitized;
+}
+
+/**
+ * 저장된 SEO 설정을 조회한다.
+ * @param {string} storeId 가게 ID
+ * @returns {Promise<object|null>}
+ */
+async function getSeoSettingsForStore(storeId) {
+  await ensureStoreSettingsColumns();
+  const result = await db.query(`
+    SELECT seo_settings
+      FROM store_settings
+     WHERE store_id = $1
+  `, [storeId]);
+
+  if (result.rows.length === 0 || !result.rows[0].seo_settings) {
+    return null;
+  }
+
+  return sanitizeSeoSettingsPayload(result.rows[0].seo_settings);
+}
+
+/**
+ * A/B 테스트 설정을 저장한다.
+ * @param {string} storeId 가게 ID
+ * @param {object} abSettings A/B 테스트 설정 값
+ * @returns {Promise<object>}
+ */
+async function saveAbTestSettingsForStore(storeId, abSettings = {}) {
+  await ensureStoreSettingsColumns();
+  const sanitized = sanitizeAbTestSettingsPayload(abSettings);
+  await db.query(`
+    INSERT INTO store_settings (store_id, ab_test_settings, created_at, updated_at)
+    VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ON CONFLICT (store_id) DO UPDATE SET
+      ab_test_settings = EXCLUDED.ab_test_settings,
+      updated_at = CURRENT_TIMESTAMP
+  `, [
+    storeId,
+    JSON.stringify(sanitized)
+  ]);
+  await appendAbTestSettingsHistory(storeId, sanitized);
+  return sanitized;
+}
+
+/**
+ * 저장된 A/B 테스트 설정을 조회한다.
+ * @param {string} storeId 가게 ID
+ * @returns {Promise<object|null>}
+ */
+async function getAbTestSettingsForStore(storeId) {
+  await ensureStoreSettingsColumns();
+  const result = await db.query(`
+    SELECT ab_test_settings
+      FROM store_settings
+     WHERE store_id = $1
+  `, [storeId]);
+
+  if (result.rows.length === 0 || !result.rows[0].ab_test_settings) {
+    return null;
+  }
+
+  return sanitizeAbTestSettingsPayload(result.rows[0].ab_test_settings);
+}
+
 // 전체 데이터 조회 (기존 API 호환성)
 async function getAllData() {
-  const [superadmin, stores, currentStoreId] = await Promise.all([
+  const [superadmin, storesResult, currentStoreId] = await Promise.all([
     getSuperAdmin(),
-    getStores(),
+    getStores({ page: 1, pageSize: 500, includeSummary: false }),
     getCurrentStoreId()
   ]);
+  
+  const stores = Array.isArray(storesResult?.data)
+    ? storesResult.data
+    : Array.isArray(storesResult)
+      ? storesResult
+      : [];
   
   // 가게 설정들 조회
   const settings = {};
@@ -1007,7 +2436,7 @@ async function getAllData() {
   
   return {
     superadmin,
-    stores: stores, // 배열로 반환 (프론트엔드 호환성)
+    stores, // 배열로 반환 (프론트엔드 호환성)
     currentStoreId,
     settings,
     deliveryOrders: {}, // 기존 구조 유지
@@ -1017,39 +2446,113 @@ async function getAllData() {
 
 // 슈퍼어드민 인증
 async function authenticateSuperAdmin(username, password) {
-  const result = await db.query(`
-    SELECT id, username, password_hash
-    FROM superadmin
-    WHERE username = $1
-  `, [username]);
-  
-  if (result.rows.length === 0) {
-    return { success: false, error: '사용자를 찾을 수 없습니다.' };
+  const normalizedUsername = (username || '').trim();
+  let admin = null;
+  let queriedByUsername = false;
+
+  if (normalizedUsername) {
+    const result = await db.query(
+      `
+        SELECT id, username, password_hash
+        FROM superadmin
+        WHERE username = $1
+      `,
+      [normalizedUsername]
+    );
+    if (result.rows.length > 0) {
+      admin = result.rows[0];
+      queriedByUsername = true;
+    }
   }
-  
-  const admin = result.rows[0];
+
+  let legacySeeded = false;
+
+  if (!admin) {
+    const fallback = await db.query(`
+      SELECT id, username, password_hash
+      FROM superadmin
+      ORDER BY id
+      LIMIT 1
+    `);
+    if (fallback.rows.length > 0) {
+      admin = fallback.rows[0];
+    } else {
+      const legacySuperadmin = getLegacySuperadmin();
+      if (!legacySuperadmin) {
+        return { success: false, error: '사용자를 찾을 수 없습니다.' };
+      }
+
+      const inserted = await db.query(
+        `
+          INSERT INTO superadmin (username, password_hash, created_at, last_modified)
+          VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ON CONFLICT (username) DO UPDATE
+          SET password_hash = EXCLUDED.password_hash,
+              last_modified = CURRENT_TIMESTAMP
+          RETURNING id, username, password_hash
+        `,
+        [legacySuperadmin.username, legacySuperadmin.passwordHash]
+      );
+
+      admin = inserted.rows[0];
+      legacySeeded = true;
+    }
+  }
 
   if (!password || !admin.password_hash) {
     return { success: false, error: '비밀번호가 일치하지 않습니다.' };
   }
 
   const hashPattern = /^[0-9a-f]{64}$/i;
+  const hashedInput = hashPassword(password);
+  let passwordMatches = false;
+
   if (hashPattern.test(admin.password_hash)) {
-    const hashedInput = hashPassword(password);
-    if (admin.password_hash !== hashedInput) {
-      return { success: false, error: '비밀번호가 일치하지 않습니다.' };
-    }
+    passwordMatches = admin.password_hash === hashedInput;
   } else {
-    if (admin.password_hash !== password) {
-      return { success: false, error: '비밀번호가 일치하지 않습니다.' };
+    passwordMatches = admin.password_hash === password;
+    if (passwordMatches) {
+      await db.query(
+        `UPDATE superadmin
+            SET password_hash = $1,
+                last_modified = CURRENT_TIMESTAMP
+          WHERE id = $2`,
+        [hashedInput, admin.id]
+      );
     }
-    const hashed = hashPassword(password);
+  }
+
+  if (!passwordMatches) {
+    const legacySuperadmin = getLegacySuperadmin();
+    if (legacySuperadmin && legacySuperadmin.passwordHash === hashedInput) {
+      const updated = await db.query(
+        `UPDATE superadmin
+            SET username = $1,
+                password_hash = $2,
+                last_modified = CURRENT_TIMESTAMP
+          WHERE id = $3
+          RETURNING username, password_hash`,
+        [legacySuperadmin.username, legacySuperadmin.passwordHash, admin.id]
+      );
+      if (updated.rows.length > 0) {
+        admin.username = updated.rows[0].username;
+        admin.password_hash = updated.rows[0].password_hash;
+        passwordMatches = true;
+      }
+    }
+  }
+
+  if (!passwordMatches) {
+    return { success: false, error: '비밀번호가 일치하지 않습니다.' };
+  }
+
+  if (!legacySeeded && !queriedByUsername && normalizedUsername && normalizedUsername !== admin.username) {
     await db.query(
       `UPDATE superadmin
-          SET password_hash = $1,
+          SET username = $1,
               last_modified = CURRENT_TIMESTAMP
         WHERE id = $2`,
-      [hashed, admin.id]
+      [normalizedUsername, admin.id]
     );
   }
   
@@ -1205,6 +2708,69 @@ async function createStore(storeData = {}) {
   }
 }
 
+async function createStoreForOwner(ownerId, storeData = {}, memo = '') {
+  if (!ownerId) {
+    throw new Error('점주 ID가 필요합니다.');
+  }
+
+  const ownerResult = await db.query(
+    `SELECT id, owner_name, email, status
+       FROM store_owners
+      WHERE id = $1
+      LIMIT 1`,
+    [ownerId]
+  );
+
+  if (ownerResult.rows.length === 0) {
+    throw new Error('점주 계정을 찾을 수 없습니다.');
+  }
+
+  const owner = ownerResult.rows[0];
+  if (owner.status !== 'approved') {
+    throw new Error('승인된 점주 계정만 입점 신청이 가능합니다.');
+  }
+
+  const storeRecord = await createStore({
+    ...storeData,
+    status: storeData.status || 'pending'
+  });
+
+  await linkOwnerToStore(ownerId, storeRecord.id);
+  await setPrimaryOwnerForStore(ownerId, storeRecord.id);
+
+  const logId = `log_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  const description = `'${owner.owner_name || owner.email || '점주'}' 님이 '${storeRecord.name || '새 가게'}' 입점 신청을 제출했습니다.`;
+
+  try {
+    await createActivityLog({
+      id: logId,
+      logType: 'store',
+      action: '가게 입점 신청',
+      description,
+      user: owner.email || owner.id,
+      storeId: storeRecord.id,
+      details: {
+        ownerId,
+        memo: memo || '',
+        source: 'owner-dashboard',
+        status: 'pending'
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('입점 신청 로그 기록 실패:', error);
+  }
+
+  return {
+    store: storeRecord,
+    owner: {
+      id: owner.id,
+      ownerName: owner.owner_name,
+      email: owner.email
+    }
+  };
+}
+
 // 가게 수정
 async function updateStore(storeId, storeData) {
   try {
@@ -1313,6 +2879,7 @@ module.exports = {
   getActivityLogs,
   createActivityLog,
   createStore,
+  createStoreForOwner,
   updateStore,
   deleteStore,
   pauseStore,
@@ -1327,14 +2894,26 @@ module.exports = {
   rejectOwnerAccount,
   authenticateStoreOwner,
   recordOwnerLogin,
+  getStoresByOwner,
   getOwnersByStore,
+  linkOwnerToStore,
+  unlinkOwnerFromStore,
+  setPrimaryOwnerForStore,
   getOwnerAccountDetail,
+  getSeoSettingsForStore,
+  saveSeoSettingsForStore,
+  getSeoSettingsHistory,
+  appendSeoSettingsHistory,
+  getAbTestSettingsForStore,
+  saveAbTestSettingsForStore,
+  getAbTestSettingsHistory,
+  appendAbTestSettingsHistory,
+  updateOwnerPassword,
   hashPassword,
   pauseOwnerAccount,
   resumeOwnerAccount,
   deleteOwnerAccount,
   createStoreEvent,
   getEventSummary,
-  getEventTotalsByStore,
-  getReleaseNotes
+  getEventTotalsByStore
 };

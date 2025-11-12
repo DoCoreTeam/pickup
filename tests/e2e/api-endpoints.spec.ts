@@ -25,13 +25,16 @@ test.describe('API 엔드포인트', () => {
     
     expect(response.status()).toBe(200);
     
-    const stores = await response.json();
-    expect(Array.isArray(stores)).toBe(true);
+    const payload = await response.json();
+    expect(payload).toHaveProperty('data');
+    expect(Array.isArray(payload.data)).toBe(true);
+    expect(payload).toHaveProperty('meta');
+    expect(payload.meta).toHaveProperty('pagination');
     
-    if (stores.length > 0) {
-      expect(stores[0]).toHaveProperty('id');
-      expect(stores[0]).toHaveProperty('name');
-      expect(stores[0]).toHaveProperty('status');
+    if (payload.data.length > 0) {
+      expect(payload.data[0]).toHaveProperty('id');
+      expect(payload.data[0]).toHaveProperty('name');
+      expect(payload.data[0]).toHaveProperty('status');
     }
   });
 

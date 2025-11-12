@@ -40,13 +40,13 @@ test_check "API 서버 (포트 8081)" "curl -s http://localhost:8081/api/data | 
 # API 엔드포인트 테스트
 echo -e "\n${BLUE}🔌 API 엔드포인트 테스트${NC}"
 test_check "GET /api/data" "curl -s http://localhost:8081/api/data | jq '.stores' > /dev/null"
-test_check "GET /api/stores" "curl -s http://localhost:8081/api/stores | jq '.[0].id' > /dev/null"
+test_check "GET /api/stores" "curl -s http://localhost:8081/api/stores | jq '.data[0].id // .[0].id' > /dev/null"
 test_check "GET /api/current-store" "curl -s http://localhost:8081/api/current-store | jq . > /dev/null"
 
 # CORS 테스트
 echo -e "\n${BLUE}🌐 CORS 테스트${NC}"
 test_check "OPTIONS preflight" "curl -s -X OPTIONS http://localhost:8081/api/stores -H 'Origin: http://localhost:8080' -H 'Access-Control-Request-Method: GET' -D - | grep -q 'Access-Control-Allow-Origin'"
-test_check "CORS 헤더" "curl -s http://localhost:8081/api/stores | jq '.[0].id' > /dev/null"
+test_check "CORS 헤더" "curl -s http://localhost:8081/api/stores | jq '.data[0].id // .[0].id' > /dev/null"
 
 # 데이터 스키마 검증
 echo -e "\n${BLUE}📊 데이터 스키마 검증${NC}"

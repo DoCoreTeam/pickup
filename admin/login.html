@@ -124,33 +124,10 @@
             text-decoration: underline;
         }
 
-        .admin-switch {
-            position: absolute;
-            right: 20px;
-            bottom: 20px;
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.7);
-        }
-
-        .admin-switch button {
-            background: transparent;
-            border: none;
-            color: inherit;
-            cursor: pointer;
-            text-decoration: underline;
-            font-size: inherit;
-            padding: 0;
-        }
-
         @media (max-width: 480px) {
             .login-container {
                 margin: 1rem;
                 padding: 1.5rem;
-            }
-
-            .admin-switch {
-                right: 12px;
-                bottom: 12px;
             }
         }
     </style>
@@ -184,10 +161,6 @@
         <div class="sub-actions">
             <span id="ownerRequestCta" style="display: none;">입점을 원하신다면 <a href="/owner/request.html">입점 요청</a>을 보내주세요.</span>
         </div>
-    </div>
-
-    <div class="admin-switch">
-        <button type="button" id="adminSwitchLink">슈퍼어드민 로그인</button>
     </div>
 
     <script>
@@ -232,16 +205,19 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                        sessionStorage.setItem('user_role', 'superadmin');
+                    sessionStorage.setItem('user_role', 'superadmin');
                     sessionStorage.setItem('superadmin_logged_in', 'true');
                     sessionStorage.setItem('superadmin_username', username);
-                        sessionStorage.removeItem('owner_logged_in');
-                        sessionStorage.removeItem('owner_store_id');
-                        sessionStorage.removeItem('owner_name');
+                    sessionStorage.removeItem('owner_logged_in');
+                    sessionStorage.removeItem('owner_store_id');
+                    sessionStorage.removeItem('owner_name');
+                    sessionStorage.removeItem('owner_email');
+                    sessionStorage.removeItem('owner_store_list');
+                    sessionStorage.removeItem('owner_id');
                     window.location.href = '/admin';
-                    } else {
-                        throw new Error(result.message || '로그인에 실패했습니다.');
-                    }
+                } else {
+                    throw new Error(result.message || '로그인에 실패했습니다.');
+                }
                 } else {
                     const email = document.getElementById('ownerEmail').value.trim();
                     const password = document.getElementById('password').value.trim();
@@ -270,8 +246,14 @@
                         sessionStorage.setItem('user_role', 'owner');
                         sessionStorage.setItem('owner_logged_in', 'true');
                         sessionStorage.setItem('owner_name', result.owner.name || '사장님');
-                        sessionStorage.setItem('owner_store_id', result.owner.storeId || '');
+                        const ownerStores = Array.isArray(result.owner.stores) ? result.owner.stores : [];
+                        const primaryStoreId = result.owner.primaryStoreId
+                            || result.owner.storeId
+                            || (ownerStores.length > 0 ? ownerStores[0].id : '');
+                        sessionStorage.setItem('owner_store_id', primaryStoreId || '');
+                        sessionStorage.setItem('owner_store_list', JSON.stringify(ownerStores));
                         sessionStorage.setItem('owner_id', result.owner.id || '');
+                        sessionStorage.setItem('owner_email', result.owner.email || email);
                         sessionStorage.removeItem('superadmin_logged_in');
                         window.location.href = '/admin';
                     } else {
@@ -295,7 +277,6 @@
             const ownerEmailGroup = document.getElementById('ownerEmailGroup');
             const adminUsernameGroup = document.getElementById('adminUsernameGroup');
             const ownerRequestCta = document.getElementById('ownerRequestCta');
-            const adminSwitchLink = document.getElementById('adminSwitchLink');
 
             if (role === 'owner') {
                 title.textContent = '가게 사장님 로그인';
@@ -303,23 +284,17 @@
                 adminUsernameGroup.style.display = 'none';
                 ownerEmailGroup.style.display = 'block';
                 ownerRequestCta.style.display = 'inline';
-                adminSwitchLink.textContent = '슈퍼어드민 로그인';
             } else {
                 title.textContent = '슈퍼어드민 로그인';
                 subtitle.textContent = '관리자 페이지에 접근하려면 로그인하세요';
                 adminUsernameGroup.style.display = 'block';
                 ownerEmailGroup.style.display = 'none';
                 ownerRequestCta.style.display = 'none';
-                adminSwitchLink.textContent = '← 가게 사장님 로그인으로 돌아가기';
             }
 
             document.getElementById('errorMessage').style.display = 'none';
             document.getElementById('loginForm').reset();
         }
-
-        document.getElementById('adminSwitchLink').addEventListener('click', () => {
-            setRole(currentRole === 'owner' ? 'superadmin' : 'owner');
-        });
 
         // 이미 로그인된 경우 관리자 페이지로 리다이렉트
         const savedRole = sessionStorage.getItem('user_role');
@@ -328,6 +303,62 @@
         } else if (savedRole === 'owner' && sessionStorage.getItem('owner_logged_in') === 'true') {
             window.location.href = '/admin';
         }
+
+        /**
+         * 방향키 좌 → 위 → 우 입력 시 슈퍼어드민 로그인 화면을 노출하는 숨겨진 트리거를 등록한다.
+         * 입력 시퀀스는 1.5초 안에 완료되어야 하며, 이미 슈퍼어드민 화면일 경우 다시 입력하면 사장님 화면으로 되돌린다.
+         */
+        (function registerSuperadminSecretTrigger() {
+            const SECRET_SEQUENCE = ['ArrowLeft', 'ArrowUp', 'ArrowRight'];
+            const RESET_DELAY = 1500;
+            let sequenceIndex = 0;
+            let resetTimer = null;
+
+            function resetSequence() {
+                sequenceIndex = 0;
+                if (resetTimer) {
+                    clearTimeout(resetTimer);
+                    resetTimer = null;
+                }
+            }
+
+            document.addEventListener('keydown', (event) => {
+                const activeTag = (document.activeElement && document.activeElement.tagName || '').toLowerCase();
+                if (activeTag === 'input' || activeTag === 'textarea') {
+                    return;
+                }
+
+                const expectedKey = SECRET_SEQUENCE[sequenceIndex];
+                if (event.key === expectedKey) {
+                    sequenceIndex += 1;
+
+                    if (sequenceIndex === SECRET_SEQUENCE.length) {
+                        const nextRole = currentRole === 'superadmin' ? 'owner' : 'superadmin';
+                        setRole(nextRole);
+                        console.info(nextRole === 'superadmin'
+                            ? '🔐 슈퍼어드민 로그인 모드가 활성화되었습니다.'
+                            : '👤 가게 사장님 로그인 모드로 돌아갑니다.');
+                        resetSequence();
+                        return;
+                    }
+
+                    if (resetTimer) {
+                        clearTimeout(resetTimer);
+                    }
+                    resetTimer = setTimeout(resetSequence, RESET_DELAY);
+                } else {
+                    if (event.key === SECRET_SEQUENCE[0]) {
+                        sequenceIndex = 1;
+                        if (resetTimer) {
+                            clearTimeout(resetTimer);
+                        }
+                        resetTimer = setTimeout(resetSequence, RESET_DELAY);
+                    } else {
+                        resetSequence();
+                    }
+                }
+            });
+        })();
 
         // 초기 상태: 가게 사장님 로그인
         setRole('owner');
