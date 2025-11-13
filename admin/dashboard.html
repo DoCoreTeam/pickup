@@ -9511,6 +9511,34 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             
             const skipStoreCheck = sectionId === 'dashboard' && IS_SUPERADMIN;
 
+            // 도메인/QR 관리 섹션은 가게 선택 후에만 접근 가능
+            if (sectionId === 'domain-qr') {
+                if (!(await checkStoreSelected())) {
+                    showStoreSelectionRequired();
+                    return;
+                }
+                // 모든 섹션 숨기기
+                const sections = document.querySelectorAll('.admin-section');
+                sections.forEach(section => {
+                    section.style.display = 'none';
+                });
+                // 도메인/QR 관리 섹션 표시
+                const domainQrSection = document.getElementById('domain-qr');
+                if (domainQrSection) {
+                    domainQrSection.style.display = 'block';
+                }
+                // 도메인 설정 로드
+                await loadDomainSettings();
+                // 메뉴 활성화
+                const menuItems = document.querySelectorAll('.menu-item');
+                menuItems.forEach(item => item.classList.remove('active'));
+                const clickedItem = document.querySelector(`[onclick="showSection('domain-qr')"]`);
+                if (clickedItem) {
+                    clickedItem.classList.add('active');
+                }
+                return;
+            }
+            
             // 다른 섹션들은 가게 선택 후에만 접근 가능
             if (!skipStoreCheck && !(await checkStoreSelected())) {
                 showStoreSelectionRequired();
@@ -10187,7 +10215,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         }
         
         // 도메인/QR 섹션에서 저장
-        async function saveDomainFromSection() {
+        window.saveDomainFromSection = async function saveDomainFromSection() {
             const domainSubdomainInput = document.getElementById('domainSubdomain');
             const subdomainValue = domainSubdomainInput?.value.trim() || '';
             
@@ -10204,15 +10232,17 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             try {
                 await saveDomainSettings({ subdomain: subdomainValue });
                 await loadDomainSettings();
+                showToast('서브도메인이 저장되었습니다!', 'success', '저장 완료');
             } catch (error) {
                 console.error('도메인 저장 실패:', error);
+                showToast('도메인 저장에 실패했습니다.', 'error', '저장 실패');
             }
-        }
+        };
         
         // 도메인/QR 섹션에서 QR 생성
-        function generateDomainQRFromSection() {
+        window.generateDomainQRFromSection = function generateDomainQRFromSection() {
             generateDomainQR();
-        }
+        };
 
         async function downloadDomainQR() {
             try {
