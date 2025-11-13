@@ -10411,8 +10411,10 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         function applyDomainSettingsPermissions(domainData = {}) {
             const resolvedSubdomain = domainData.subdomain || domainData.domainSettings?.subdomain || '';
             const hasSubdomain = Boolean(resolvedSubdomain);
+            const hasQr = Boolean(domainData.qrCode?.url || domainData.domainSettings?.qrCode?.url);
             const qrLockedAt = domainData.qrLockedAt || domainData.domainSettings?.qrLockedAt || null;
-            const qrLocked = Boolean(qrLockedAt);
+            // QR이 실제로 존재할 때만 qrLocked를 true로 설정
+            const qrLocked = hasQr && Boolean(qrLockedAt);
 
             domainPermissionState = {
                 hasSubdomain,
