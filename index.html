@@ -389,27 +389,37 @@
 
       async function loadStores() {
         try {
+          console.log('🔍 [DEBUG] loadStores 함수 시작');
           log('INFO', '가게 목록 로딩 시작');
           const data = await apiRequest(`${API_BASE}/data`);
+          console.log('🔍 [DEBUG] API 응답:', data);
           
           if (data && data.stores && Array.isArray(data.stores)) {
             stores = data.stores;
+            console.log('🔍 [DEBUG] stores 배열:', stores);
             log('INFO', '가게 목록 로딩 완료', { count: stores.length });
             return stores;
           } else {
+            console.log('❌ [DEBUG] 데이터 형식 오류:', data);
             log('WARN', '가게 데이터가 없거나 형식이 잘못됨', data);
             return [];
           }
         } catch (error) {
+          console.log('❌ [DEBUG] loadStores 오류:', error);
           log('ERROR', '가게 목록 로딩 실패', error);
           return [];
         }
       }
 
       function renderStores() {
+        console.log('🔍 [DEBUG] renderStores 함수 시작');
         const contentDiv = document.getElementById('content');
+        console.log('🔍 [DEBUG] contentDiv:', contentDiv);
+        console.log('🔍 [DEBUG] isLoading:', isLoading);
+        console.log('🔍 [DEBUG] stores:', stores);
         
         if (isLoading) {
+          console.log('🔍 [DEBUG] 로딩 중...');
           contentDiv.innerHTML = `
             <div class="loading">
               <div class="loading-spinner"></div>
@@ -421,8 +431,10 @@
         
         // 가게 목록을 순서대로 정렬 (활성 가게만)
         const activeStores = stores.filter(store => store.status !== 'paused');
+        console.log('🔍 [DEBUG] activeStores:', activeStores);
         
         if (activeStores.length === 0) {
+          console.log('🔍 [DEBUG] 활성 가게 없음');
           contentDiv.innerHTML = `
             <div class="empty-state">
               <div class="empty-icon">🏪</div>
@@ -488,21 +500,26 @@
 
       async function initialize() {
         try {
+          console.log('🔍 [DEBUG] initialize 함수 시작');
           log('INFO', '페이지 초기화 시작');
           
           // URL 파라미터에서 store ID 확인
         const urlParams = new URLSearchParams(window.location.search);
           const storeId = urlParams.get('store');
+          console.log('🔍 [DEBUG] storeId:', storeId);
           
           if (storeId) {
+            console.log('🔍 [DEBUG] 가게 페이지로 이동');
             log('INFO', 'URL 파라미터에서 가게 ID 발견, 가게 페이지로 이동', { storeId });
             window.location.href = `store.html?storeId=${storeId}`;
           return;
         }
         
           // 가게 목록 로딩
+          console.log('🔍 [DEBUG] loadStores 호출');
           await loadStores();
           isLoading = false;
+          console.log('🔍 [DEBUG] loadStores 완료, renderStores 호출');
           
           // 렌더링
           renderStores();

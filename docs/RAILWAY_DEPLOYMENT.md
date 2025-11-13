@@ -4,23 +4,34 @@
 
 ### 1. Railway 프로젝트 설정
 - **Builder**: NIXPACKS
-- **Start Command**: `python3 start.py`
-- **Python Version**: 3.9.6
+- **Start Command**: `npm run start:api`
+- **Node.js Version**: >=18.0.0
 
 ### 2. 환경 변수
 Railway에서 자동으로 설정되는 변수:
-- `PORT`: Railway가 할당하는 포트 번호
+- `PORT`: Railway가 할당하는 포트 번호 (기본값: 8081)
+
+필수 환경 변수:
+- `DB_HOST`: PostgreSQL 호스트 (Railway PostgreSQL 플러그인 사용 시 자동 설정)
+- `DB_PORT`: PostgreSQL 포트 (기본값: 5432)
+- `DB_NAME`: 데이터베이스 이름
+- `DB_USER`: 데이터베이스 사용자
+- `DB_PASSWORD`: 데이터베이스 비밀번호
+- `DATA_BACKEND`: `postgres` (필수)
+
+선택적 환경 변수:
+- `NODE_ENV`: `production` (프로덕션 환경)
+- `OPENAI_API_KEY`: OpenAI API 키 (AI 기능 사용 시)
 
 ### 3. 파일 구조
 ```
 /
-├── start.py              # Railway 시작 스크립트
 ├── railway.json          # Railway 설정
 ├── Procfile             # Heroku/Railway 호환성
-├── requirements.txt     # Python 의존성 (현재 비어있음)
-├── runtime.txt          # Python 버전
+├── package.json         # Node.js 의존성 및 스크립트
+├── Dockerfile           # Docker 빌드 설정 (선택사항)
 └── src/backend/
-    └── api_server.py    # 메인 API 서버
+    └── api_server.js    # 메인 API 서버 (Node.js)
 ```
 
 ### 4. 배포 명령어
@@ -33,8 +44,9 @@ git push origin main
 ```
 
 ### 5. 문제 해결
-- **포트 오류**: `PORT` 환경 변수가 올바르게 설정되었는지 확인
-- **의존성 오류**: `requirements.txt`가 비어있어도 내장 HTTP 서버 사용으로 문제없음
+- **포트 오류**: `PORT` 환경 변수가 올바르게 설정되었는지 확인 (기본값: 8081)
+- **의존성 오류**: `npm install`이 정상적으로 실행되었는지 확인
+- **DB 연결 오류**: Railway PostgreSQL 플러그인을 사용하는 경우 `DATABASE_URL` 환경 변수가 자동으로 설정됩니다
 - **정적 파일 오류**: API 서버가 정적 파일을 직접 서빙하므로 별도 설정 불필요
 
 ### 6. 로그 확인

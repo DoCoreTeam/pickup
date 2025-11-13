@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>입점 요청 - 픽업</title>
+    <script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+
+        .page-container {
+            width: 100%;
+            padding: clamp(40px, 12vh, 72px) clamp(24px, 8vw, 72px);
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .request-card {
+            background: white;
+            width: min(100%, 620px);
+            margin: 0 auto;
+            border-radius: 22px;
+            box-shadow: 0 25px 50px rgba(30, 64, 175, 0.25);
+            padding: clamp(28px, 5vw, 40px);
+            box-sizing: border-box;
+        }
+
+        .request-inner {
+            width: min(100%, 520px);
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: clamp(20px, 4vw, 32px);
+        }
+
+        .request-header {
+            padding: clamp(18px, 4vw, 28px);
+            background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+            border-radius: 18px;
+        }
+
+        .request-header h1 {
+            margin: 0;
+            font-size: 28px;
+            color: #111827;
+        }
+
+        .request-header p {
+            margin: 12px 0 0;
+            color: #4b5563;
+            line-height: 1.6;
+        }
+
+        form {
+            padding: 0;
+        }
+
+        .request-content {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .address-search-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .address-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .address-row input {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .address-row button {
+            flex-shrink: 0;
+        }
+
+        .address-search-button {
+            padding: 10px 16px;
+            background: #4f46e5;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .address-search-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px rgba(79, 70, 229, 0.2);
+        }
+
+        .form-helper {
+            font-size: 12px;
+            color: #6b7280;
+            line-height: 1.6;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 12px 14px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: border-color 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-sizing: border-box;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .submit-btn .btn-spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+
+        .submit-btn.loading {
+            cursor: progress;
+            opacity: 0.9;
+        }
+
+        .submit-btn.loading .btn-spinner {
+            display: inline-block;
+        }
+
+        .submit-btn.loading .btn-label {
+            opacity: 0.75;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(99, 102, 241, 0.25);
+        }
+
+        .footer-note {
+            padding: clamp(4px, 2vw, 12px) 0 clamp(18px, 4.5vw, 28px);
+            font-size: 13px;
+            color: #6b7280;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+            .page-container {
+                padding: clamp(32px, 12vw, 48px) clamp(16px, 6vw, 32px);
+            }
+
+            .request-card {
+                width: min(100%, 560px);
+                padding: clamp(24px, 8vw, 36px);
+            }
+
+            .request-inner {
+                width: min(100%, 500px);
+                gap: clamp(16px, 5vw, 26px);
+            }
+
+            .request-header {
+                padding: clamp(16px, 6vw, 24px);
+                border-radius: 16px;
+            }
+
+            .footer-note {
+                padding: clamp(4px, 3vw, 10px) 0 clamp(14px, 6vw, 24px);
+            }
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            left: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 9999;
+            pointer-events: none;
+        }
+
+        .toast {
+            min-width: 240px;
+            max-width: 320px;
+            width: min(320px, calc(100vw - 48px));
+            padding: 14px 18px;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 14px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+            animation: fadeIn 0.2s ease, fadeOut 0.4s ease 4.2s forwards;
+            pointer-events: auto;
+        }
+
+        .toast.success {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        }
+
+        .toast.error {
+            background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeOut {
+            to { opacity: 0; transform: translateY(-10px); }
+        }
+
+        .catchphrase-highlight {
+             background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+             -webkit-background-clip: text;
+             -webkit-text-fill-color: transparent;
+             background-clip: text;
+             font-size: 18px;
+             font-weight: 800;
+             text-shadow: none;
+         }
+
+        .back-button {
+            align-self: flex-start;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            border-radius: 999px;
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            background: #ffffff;
+            color: #4f46e5;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+            box-shadow: 0 12px 24px rgba(79, 70, 229, 0.12);
+        }
+
+        .back-button:hover {
+            transform: translateY(-1px);
+            border-color: rgba(79, 70, 229, 0.45);
+            box-shadow: 0 16px 28px rgba(79, 70, 229, 0.18);
+        }
+
+        .back-button span {
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="page-container">
+        <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+        <div class="request-card">
+            <div class="request-inner">
+                <button type="button" class="back-button" id="backButton">
+                    <span aria-hidden="true">←</span>
+                    <span>뒤로가기</span>
+                </button>
+                <div class="request-header">
+                    <h1>입점 요청하기</h1>
+                    <p>
+                        픽업 플랫폼에서 가게를 쉽고 빠르게 홍보하세요.<br>
+                        아래 정보를 작성해 주시면 확인 후 빠르게 연락드리겠습니다.
+                    </p>
+                </div>
+                <form id="requestForm">
+                    <div class="request-content">
+                        <div class="form-group">
+                            <label for="ownerName">사장님 성함</label>
+                            <input type="text" id="ownerName" name="ownerName" placeholder="홍길동" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="ownerEmail">이메일</label>
+                            <input type="email" id="ownerEmail" name="ownerEmail" placeholder="example@store.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="ownerPassword">로그인 비밀번호</label>
+                            <input type="password" id="ownerPassword" name="ownerPassword" placeholder="영문, 숫자 포함 8자 이상" autocomplete="new-password" required>
+                            <small class="form-helper">입점 승인 후 동일한 비밀번호로 관리자 페이지에 로그인할 수 있습니다.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="ownerPasswordConfirm">비밀번호 확인</label>
+                            <input type="password" id="ownerPasswordConfirm" name="ownerPasswordConfirm" placeholder="비밀번호를 다시 입력해주세요" autocomplete="new-password" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="ownerPhone">연락처</label>
+                            <input type="tel" id="ownerPhone" name="ownerPhone" placeholder="010-1234-5678" required autocomplete="tel">
+                        </div>
+                        <div class="form-group">
+                            <label for="storeName">가게 이름</label>
+                            <input type="text" id="storeName" name="storeName" placeholder="예: 픽업삼겹살 강남점" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="ownerPostalCode">가게 주소</label>
+                            <div class="address-search-group">
+                                <div class="address-row">
+                                    <input type="text" id="ownerPostalCode" class="form-input" placeholder="우편번호" readonly>
+                                    <button type="button" class="address-search-button" onclick="openOwnerAddressSearch()">주소 검색</button>
+                                </div>
+                                <input type="text" id="ownerRoadAddress" class="form-input" placeholder="도로명 주소" readonly>
+                                <input type="text" id="ownerExtraAddress" class="form-input" placeholder="참고 항목" readonly>
+                                <input type="text" id="ownerAddressDetail" class="form-input" placeholder="상세 주소를 입력해주세요" oninput="syncOwnerFullAddress()" onblur="handleOwnerAddressDetailBlur()" required>
+                                <input type="hidden" id="ownerFullAddress">
+                            </div>
+                            <small class="form-helper">주소 검색 후 상세 주소까지 입력하면 자동으로 저장됩니다.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="memo">특이사항 / 요청사항</label>
+                            <textarea id="memo" name="memo" placeholder="운영시간, 주요 메뉴, 현재 사용 중인 배달 서비스 등을 자유롭게 적어주세요."></textarea>
+                        </div>
+                        <button type="submit" class="submit-btn" id="submitBtn">
+                            <span class="btn-spinner" aria-hidden="true"></span>
+                            <span class="btn-label">입점 요청 보내기</span>
+                        </button>
+                    </div>
+                </form>
+                <div class="footer-note">
+                    문의 후 1영업일 이내에 담당 매니저가 연락을 드립니다.<br>
+                    긴급 문의는 support@pickup.com 으로 연락 주세요.<br>
+                    설정한 비밀번호는 승인 시 자동으로 활성화되며, 관리자 페이지 로그인에 사용됩니다.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        const submitBtn = document.getElementById('submitBtn');
+        const toastContainer = document.querySelector('.toast-container');
+        const backButton = document.getElementById('backButton');
+        const ownerPhoneInput = document.getElementById('ownerPhone');
+        const ADDRESS_ALLOWED_PATTERN = /^[가-힣A-Za-z0-9\s\-.,#/()]+$/;
+
+        /**
+         * 입력된 전화번호를 하이픈 포맷(예: 010-1234-5678)으로 정규화한다.
+         * 조건에 맞지 않으면 빈 문자열을 반환한다.
+         */
+        function normalizePhoneInput(rawValue) {
+            if (!rawValue) return '';
+            const digits = String(rawValue).replace(/\D/g, '');
+            if (digits.length < 9 || digits.length > 11) {
+                return '';
+            }
+
+            if (digits.startsWith('02')) {
+                if (digits.length === 9) {
+                    return `02-${digits.slice(2, 5)}-${digits.slice(5)}`;
+                }
+                if (digits.length === 10) {
+                    return `02-${digits.slice(2, 6)}-${digits.slice(6)}`;
+                }
+                return '';
+            }
+
+            if (digits.length === 10) {
+                return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+            }
+
+            if (digits.length === 11) {
+                return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+            }
+
+            return '';
+        }
+
+        function isValidPhoneInput(rawValue) {
+            const normalized = normalizePhoneInput(rawValue);
+            return Boolean(normalized);
+        }
+
+        if (ownerPhoneInput) {
+            ownerPhoneInput.addEventListener('input', (event) => {
+                event.target.value = event.target.value.replace(/[^0-9-]/g, '');
+            });
+            ownerPhoneInput.addEventListener('blur', (event) => {
+                const formatted = normalizePhoneInput(event.target.value);
+                if (formatted) {
+                    event.target.value = formatted;
+                }
+            });
+        }
+
+        if (backButton) {
+            backButton.addEventListener('click', () => {
+                if (document.referrer && document.referrer !== window.location.href) {
+                    window.history.back();
+                } else {
+                    window.location.href = '/';
+                }
+            });
+        }
+
+        /**
+         * 토스트 알림을 생성해서 화면 좌측 하단에 표시한다.
+         * @param {'success' | 'error'} type 알림 유형
+         * @param {string} message 사용자에게 보여줄 메시지
+         */
+        function showToast(type, message) {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 4600);
+        }
+
+        document.getElementById('requestForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const payload = {
+                name: document.getElementById('ownerName').value.trim(),
+                email: document.getElementById('ownerEmail').value.trim(),
+                phone: document.getElementById('ownerPhone').value,
+                message: document.getElementById('memo').value.trim(),
+                postalCode: document.getElementById('ownerPostalCode').value.trim(),
+                roadAddress: document.getElementById('ownerRoadAddress').value.trim(),
+                extraAddress: document.getElementById('ownerExtraAddress').value.trim(),
+                addressDetail: document.getElementById('ownerAddressDetail').value.trim(),
+                requestData: {
+                    storeName: document.getElementById('storeName').value.trim(),
+                    storeAddress: document.getElementById('ownerFullAddress').value.trim(),
+                    storePostalCode: document.getElementById('ownerPostalCode').value.trim(),
+                    storeRoadAddress: document.getElementById('ownerRoadAddress').value.trim(),
+                    storeExtraAddress: document.getElementById('ownerExtraAddress').value.trim(),
+                    storeAddressDetail: document.getElementById('ownerAddressDetail').value.trim()
+                },
+                password: document.getElementById('ownerPassword').value.trim(),
+                passwordConfirm: document.getElementById('ownerPasswordConfirm').value.trim()
+            };
+
+            syncOwnerFullAddress();
+            payload.requestData.storeAddress = document.getElementById('ownerFullAddress').value.trim();
+
+            if (!payload.name || !payload.email || !payload.requestData.storeName || !payload.requestData.storeRoadAddress) {
+                showToast('error', '필수 정보를 모두 입력해주세요.');
+                return;
+            }
+
+            if (!isValidPhoneInput(payload.phone)) {
+                showToast('error', '연락처 형식이 올바르지 않습니다. 예: 010-1234-5678');
+                ownerPhoneInput?.focus();
+                return;
+            }
+
+            const normalizedPhone = normalizePhoneInput(payload.phone);
+            payload.phone = normalizedPhone;
+
+            if (!payload.password) {
+                showToast('error', '비밀번호를 입력해주세요.');
+                return;
+            }
+
+            if (payload.password.length < 8) {
+                showToast('error', '비밀번호는 8자 이상 입력해주세요.');
+                return;
+            }
+
+            if (payload.password !== payload.passwordConfirm) {
+                showToast('error', '비밀번호와 비밀번호 확인이 일치하지 않습니다.');
+                return;
+            }
+
+            if (!payload.roadAddress) {
+                showToast('error', '주소 검색을 완료해주세요.');
+                return;
+            }
+
+            if (!ADDRESS_ALLOWED_PATTERN.test(payload.roadAddress)) {
+                showToast('error', '도로명 주소에 허용되지 않는 문자가 포함되어 있습니다.');
+                return;
+            }
+
+            if (!payload.addressDetail || !ADDRESS_ALLOWED_PATTERN.test(payload.addressDetail)) {
+                showToast('error', '상세 주소를 올바르게 입력해주세요.');
+                return;
+            }
+
+            if (payload.extraAddress && !ADDRESS_ALLOWED_PATTERN.test(payload.extraAddress.replace(/^\(|\)$/g, ''))) {
+                showToast('error', '참고 항목에 허용되지 않는 문자가 포함되어 있습니다.');
+                return;
+            }
+
+            const fullAddress = document.getElementById('ownerFullAddress').value.trim();
+
+            const requestPayload = {
+                name: payload.name,
+                email: payload.email,
+                phone: payload.phone,
+                message: payload.message,
+                password: payload.password,
+                requestData: payload.requestData
+            };
+
+            requestPayload.requestData.storeAddress = fullAddress;
+
+            try {
+                submitBtn.classList.add('loading');
+                submitBtn.disabled = true;
+
+                const response = await fetch(`${API_BASE}/owners/request`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestPayload)
+                });
+
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(result?.error || result?.message || '요청을 처리하지 못했습니다.');
+                }
+
+                showToast('success', '입점 요청이 접수되었습니다. 담당자가 확인 후 연락드릴게요!');
+                event.target.reset();
+                document.getElementById('ownerPostalCode').value = '';
+                document.getElementById('ownerRoadAddress').value = '';
+                document.getElementById('ownerExtraAddress').value = '';
+                document.getElementById('ownerAddressDetail').value = '';
+                document.getElementById('ownerFullAddress').value = '';
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 1800);
+            } catch (error) {
+                console.error('입점 요청 오류:', error);
+                showToast('error', error.message || '요청 접수 중 오류가 발생했습니다.');
+            } finally {
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+            }
+        });
+
+        function syncOwnerFullAddress() {
+            const road = document.getElementById('ownerRoadAddress').value.trim();
+            const extra = document.getElementById('ownerExtraAddress').value.trim();
+            const detail = document.getElementById('ownerAddressDetail').value.trim();
+            const segments = [road];
+            if (extra) segments.push(extra);
+            if (detail) segments.push(detail);
+            document.getElementById('ownerFullAddress').value = segments.filter(Boolean).join(' ').trim();
+        }
+
+        function handleOwnerAddressDetailBlur() {
+            syncOwnerFullAddress();
+        }
+
+        function openOwnerAddressSearch() {
+            if (typeof daum === 'undefined' || !daum?.Postcode) {
+                showToast('error', '주소 검색 서비스를 불러오지 못했습니다.');
+                return;
+            }
+
+            new daum.Postcode({
+                oncomplete: function(data) {
+                    document.getElementById('ownerPostalCode').value = data.zonecode || '';
+                    const roadAddress = data.roadAddress || data.jibunAddress || '';
+                    document.getElementById('ownerRoadAddress').value = roadAddress;
+
+                    let extra = '';
+                    if (data.bname && /[동|로|가]$/g.test(data.bname)) {
+                        extra += data.bname;
+                    }
+                    if (data.buildingName && data.apartment === 'Y') {
+                        extra += extra ? `, ${data.buildingName}` : data.buildingName;
+                    }
+                    document.getElementById('ownerExtraAddress').value = extra ? `(${extra})` : '';
+                    const detailEl = document.getElementById('ownerAddressDetail');
+                    if (detailEl) {
+                        detailEl.focus();
+                    }
+                    syncOwnerFullAddress();
+                }
+            }).open();
+        }
+    </script>
+</body>
+</html>
+
+
+

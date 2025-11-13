@@ -15,7 +15,7 @@
 
     <style>
       :root {
-        --bg: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        --bg: #f8fafc;
         --card: #ffffff;
         --fg: #1a1a1a;
         --muted: #6b7280;
@@ -314,6 +314,86 @@
         font-weight: 500;
       }
 
+      .promo-video-section {
+        margin-bottom: 24px;
+        border-radius: var(--radius-lg);
+        background: var(--card);
+        box-shadow: var(--shadow-lg);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .promo-video-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .promo-video-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--fg);
+      }
+
+      .promo-video-button {
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 8px 16px rgba(79, 70, 229, 0.18);
+      }
+
+      .promo-video-button:hover {
+        background: #3730a3;
+        transform: translateY(-1px);
+      }
+
+      .promo-video-wrapper {
+        width: 100%;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #000;
+      }
+
+      .promo-video {
+        width: 100%;
+        height: 240px;
+        display: block;
+        object-fit: cover;
+        background: #000;
+      }
+
+      .promo-video-placeholder {
+        width: 100%;
+        padding: 28px;
+        border-radius: 12px;
+        border: 2px dashed rgba(148, 163, 184, 0.45);
+        text-align: center;
+        font-size: 14px;
+        color: #64748b;
+        background: rgba(148, 163, 184, 0.12);
+      }
+
+      @media (max-width: 480px) {
+        .promo-video {
+          height: 200px;
+        }
+
+        .promo-video-button {
+          padding: 6px 12px;
+          font-size: 13px;
+        }
+      }
+
       .delivery-section {
         background: var(--card);
         border-radius: 8px;
@@ -380,8 +460,6 @@
       .delivery-btn[onclick*="ttaeng"] {
         background: #EB5027;
         border-color: #EB5027;
-        color: white;
-      }
         color: white;
       }
 
@@ -728,6 +806,10 @@
         transition: all 0.2s ease;
         text-decoration: none;
         text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
       }
 
       .map-btn:hover {
@@ -830,6 +912,15 @@
       let currentStoreId = null;
       let settings = {};
       let isLoading = true;
+      const AB_VARIANT_STORAGE_KEY = 'pickup_ab_variants_v1';
+      let activeAbVariants = {};
+      let abConversionListenerAttached = false;
+      const AB_PLACEMENT_CONFIG = [
+        { key: 'hero_title', match: ['히어로', '헤드라인', '제목', '타이틀'], selector: '.store-name' },
+        { key: 'hero_subtitle', match: ['서브', '부제', '소개', '하이라이트'], selector: '.store-subtitle' },
+        { key: 'cta_button', match: ['cta', '버튼', '콜투액션', '전화', '콜'], selector: '.phone-btn' },
+        { key: 'cta_label', match: ['라벨', '문구', '설명', '보조'], selector: '.phone-label' }
+      ];
 
       // ========================================
       // 🔧 유틸리티 함수들
@@ -842,6 +933,23 @@
         } else {
           console.log(`[${timestamp}] [${level}] ${message}`);
         }
+      }
+
+      /**
+       * 사용자 입력을 안전하게 출력하기 위해 HTML 특수문자를 이스케이프합니다.
+       * @param {string} value 원본 문자열
+       * @returns {string} 이스케이프된 문자열
+       */
+      function escapeHtml(value) {
+        if (typeof value !== 'string') {
+          return '';
+        }
+        return value
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
       }
 
       async function apiRequest(url, options = {}) {
@@ -865,6 +973,242 @@
         }
       }
 
+      async function logEvent(eventType, payload = {}) {
+        try {
+          const targetStoreId = currentStore?.id || (currentStoreId && currentStoreId.startsWith('store_') ? currentStoreId : null);
+          if (!targetStoreId) {
+            return;
+          }
+
+          await fetch(`${API_BASE}/events`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              storeId: targetStoreId,
+              eventType,
+              payload
+            })
+          });
+        } catch (error) {
+          console.warn('이벤트 로깅 실패:', eventType, error);
+        }
+      }
+
+      function ensureMetaTag(name) {
+        let tag = document.querySelector(`meta[name="${name}"]`);
+        if (!tag) {
+          tag = document.createElement('meta');
+          tag.setAttribute('name', name);
+          document.head.appendChild(tag);
+        }
+        return tag;
+      }
+
+      function applySeoMetaSettings() {
+        const seo = settings?.seoSettings;
+        if (!seo || typeof seo !== 'object') {
+          return;
+        }
+
+        const metaTitle = (seo.metaTitle || '').trim();
+        const metaDescription = (seo.metaDescription || '').trim();
+        const keywords = Array.isArray(seo.keywords)
+          ? seo.keywords.filter(Boolean).join(', ')
+          : (typeof seo.keywords === 'string' ? seo.keywords : '');
+
+        if (metaTitle) {
+          document.title = metaTitle;
+        }
+        if (metaDescription) {
+          const descriptionTag = ensureMetaTag('description');
+          descriptionTag.setAttribute('content', metaDescription);
+        }
+        if (keywords) {
+          const keywordsTag = ensureMetaTag('keywords');
+          keywordsTag.setAttribute('content', keywords);
+        }
+
+        const subtitleEl = document.querySelector('.store-subtitle');
+        if (subtitleEl && seo.audienceFocus && seo.audienceFocus.trim()) {
+          subtitleEl.textContent = seo.audienceFocus.trim();
+          subtitleEl.setAttribute('data-seo-source', 'audienceFocus');
+        }
+
+        const ctaLabelEl = document.querySelector('.phone-label');
+        if (ctaLabelEl && seo.callToAction && seo.callToAction.trim()) {
+          ctaLabelEl.textContent = seo.callToAction.trim();
+          ctaLabelEl.setAttribute('data-seo-source', 'callToAction');
+        }
+      }
+
+      function resolveAbPlacement(...strings) {
+        const combined = strings
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!combined) return null;
+        return AB_PLACEMENT_CONFIG.find(config =>
+          config.match.some(token => combined.includes(token))
+        );
+      }
+
+      function readAbVariantStorage() {
+        if (typeof window === 'undefined') return {};
+        if (window.__pickupAbVariantStorage) {
+          return window.__pickupAbVariantStorage;
+        }
+        try {
+          const raw = localStorage.getItem(AB_VARIANT_STORAGE_KEY);
+          window.__pickupAbVariantStorage = raw ? JSON.parse(raw) : {};
+        } catch (error) {
+          console.warn('AB 스토리지 읽기 실패:', error);
+          window.__pickupAbVariantStorage = {};
+        }
+        return window.__pickupAbVariantStorage;
+      }
+
+      function writeAbVariantStorage(data) {
+        if (typeof window === 'undefined') return;
+        window.__pickupAbVariantStorage = data;
+        try {
+          localStorage.setItem(AB_VARIANT_STORAGE_KEY, JSON.stringify(data));
+        } catch (error) {
+          console.warn('AB 스토리지 저장 실패:', error);
+        }
+      }
+
+      function pickVariantOption(storeId, key, options) {
+        if (!storeId || !Array.isArray(options) || options.length === 0) {
+          return null;
+        }
+        const storage = readAbVariantStorage();
+        const storeBucket = storage[storeId] || {};
+        const stored = storeBucket[key];
+
+        if (stored && Number.isInteger(stored.index) && options[stored.index]) {
+          return { option: options[stored.index], index: stored.index, storage };
+        }
+
+        const randomIndex = Math.floor(Math.random() * options.length);
+        storeBucket[key] = {
+          index: randomIndex,
+          timestamp: Date.now()
+        };
+        storage[storeId] = storeBucket;
+        writeAbVariantStorage(storage);
+        return { option: options[randomIndex], index: randomIndex, storage };
+      }
+
+      function updatePlacementContent(selector, value, config) {
+        if (!value) return;
+        const element = document.querySelector(selector);
+        if (!element) return;
+
+        let textValue = typeof value === 'string' ? value.trim() : value;
+        if (!textValue) return;
+
+        if (config.key === 'cta_button') {
+          const clean = textValue.replace(/^📞\s*/, '');
+          textValue = `📞 ${clean}`;
+        }
+
+        element.textContent = textValue;
+        element.setAttribute('data-ab-active', 'true');
+        element.setAttribute('data-ab-slot', config.key);
+      }
+
+      function applyAbTestExperiments() {
+        activeAbVariants = {};
+        const abSettings = settings?.abTestSettings;
+        if (!abSettings || typeof abSettings !== 'object') return;
+
+        const storeId = currentStore?.id || currentStoreId;
+        if (!storeId) return;
+
+        const copyVariants = Array.isArray(abSettings.copyVariants) ? abSettings.copyVariants : [];
+        copyVariants.forEach((variantSet, index) => {
+          if (!variantSet) return;
+          const placement = variantSet.placement || `copy-${index + 1}`;
+          const config = resolveAbPlacement(placement);
+          if (!config) return;
+
+          const ideas = Array.isArray(variantSet.ideas) ? variantSet.ideas.filter(Boolean) : [];
+          if (!ideas.length) return;
+
+          const key = `copy:${placement.toLowerCase()}`;
+          const picked = pickVariantOption(storeId, key, ideas);
+          if (!picked || !picked.option) return;
+
+          updatePlacementContent(config.selector, picked.option, config);
+          activeAbVariants[key] = {
+            placement,
+            value: picked.option,
+            source: 'copyVariants'
+          };
+          logEvent('ab_variant_shown', {
+            storeId,
+            slot: config.key,
+            placement,
+            variant: picked.option,
+            source: 'copyVariants'
+          });
+        });
+
+        const tests = Array.isArray(abSettings.tests) ? abSettings.tests : [];
+        tests.forEach((test, index) => {
+          if (!test || !Array.isArray(test.variants) || !test.variants.length) return;
+          const testName = test.name || `A/B 테스트 ${index + 1}`;
+          const key = `test:${testName.toLowerCase()}`;
+          const picked = pickVariantOption(storeId, key, test.variants);
+          if (!picked || !picked.option) return;
+
+          const variant = picked.option;
+          const displayText = (variant.description || variant.label || '').trim();
+          const config = resolveAbPlacement(testName, variant.label);
+          if (displayText && config) {
+            updatePlacementContent(config.selector, displayText, config);
+            activeAbVariants[key] = {
+              placement: config.key,
+              value: displayText,
+              variantLabel: variant.label || '',
+              source: 'experiments'
+            };
+          } else {
+            activeAbVariants[key] = {
+              placement: 'unmapped',
+              value: displayText || variant.label || '',
+              source: 'experiments'
+            };
+          }
+
+          logEvent('ab_variant_shown', {
+            storeId,
+            testName,
+            variantLabel: variant.label || '',
+            variantDescription: variant.description || '',
+            slot: config ? config.key : 'unmapped',
+            source: 'experiments'
+          });
+        });
+      }
+
+      function attachAbConversionTracking() {
+        if (abConversionListenerAttached) return;
+        const ctaButton = document.querySelector('.phone-btn');
+        if (!ctaButton) return;
+        abConversionListenerAttached = true;
+        ctaButton.addEventListener('click', () => {
+          if (!activeAbVariants || Object.keys(activeAbVariants).length === 0) return;
+          logEvent('ab_conversion', {
+            storeId: currentStore?.id || currentStoreId,
+            variants: activeAbVariants,
+            element: 'cta_button'
+          });
+        });
+      }
+
       function getStoreIdFromUrl() {
         // URL 파라미터에서 storeId 또는 id 확인
         const urlParams = new URLSearchParams(window.location.search);
@@ -874,10 +1218,50 @@
           return storeIdFromParam;
         }
         
-        // 기존 경로 기반 파싱 (하위 호환성)
+        // 서브도메인 기반 접근 확인
         const path = window.location.pathname;
+        if (path && path !== '/' && !path.includes('.')) {
+          const subdomain = path.substring(1); // '/' 제거
+          return subdomain; // 서브도메인을 반환하여 나중에 getStoreBySubdomain에서 사용
+        }
+        
+        // 기존 경로 기반 파싱 (하위 호환성)
         const match = path.match(/\/store\/([^\/]+)/);
         return match ? match[1] : null;
+      }
+
+      // 서브도메인으로 가게 정보 조회
+      async function getStoreBySubdomain(subdomain) {
+        try {
+          const response = await apiRequest(`${API_BASE}/store/subdomain/${subdomain}`);
+          return response;
+        } catch (error) {
+          console.error('서브도메인 가게 조회 실패:', error);
+          throw error;
+        }
+      }
+
+      async function resolveStoreIdentifier(identifier) {
+        if (!identifier) {
+          return { storeId: null, subdomain: null, store: null };
+        }
+
+        if (identifier.startsWith('store_')) {
+          return { storeId: identifier, subdomain: null, store: null };
+        }
+
+        try {
+          const response = await getStoreBySubdomain(identifier);
+          const storeData = response?.data || response;
+          if (storeData?.id) {
+            return { storeId: storeData.id, subdomain: identifier, store: storeData };
+          }
+        } catch (error) {
+          console.error('서브도메인 → 가게 ID 변환 실패:', error);
+          throw new Error('가게를 찾을 수 없습니다.');
+        }
+
+        throw new Error('가게를 찾을 수 없습니다.');
       }
 
       // ========================================
@@ -887,26 +1271,53 @@
       async function loadStoreInfo(storeId) {
         try {
           log('INFO', '가게 정보 로딩 시작', { storeId });
-          const data = await apiRequest(`${API_BASE}/data`);
           
-          if (data && data.stores && Array.isArray(data.stores)) {
-            const store = data.stores.find(s => s.id === storeId);
-            if (store) {
-              // 가게가 중지된 경우 중지 페이지로 리다이렉트
-              if (store.status === 'paused') {
-                log('WARN', '가게가 중지됨, 중지 페이지로 리다이렉트', { storeId });
-                window.location.href = '/paused.html';
-                return;
+          let store = null;
+          let resolvedStoreId = storeId;
+          
+          // 서브도메인 기반 접근인지 확인
+          const path = window.location.pathname;
+          if (path && path !== '/' && !path.includes('.') && !path.includes('storeId=') && !path.includes('id=')) {
+            // 서브도메인으로 가게 조회
+            const subdomain = path.substring(1);
+            log('INFO', '서브도메인으로 가게 조회', { subdomain });
+            const resolved = await resolveStoreIdentifier(subdomain);
+            resolvedStoreId = resolved.storeId;
+            store = resolved.store || null;
+            if (!store) {
+              const data = await apiRequest(`${API_BASE}/data`);
+              if (data && data.stores && Array.isArray(data.stores)) {
+                store = data.stores.find(s => s.id === resolvedStoreId);
               }
-              
-              currentStore = store;
-              log('INFO', '가게 정보 로딩 완료', store);
-              return store;
-            } else {
-              throw new Error('가게를 찾을 수 없습니다');
             }
           } else {
-            throw new Error('가게 데이터가 없습니다');
+            // storeId 파라미터 또는 직접 ID 기반 조회
+            const resolved = await resolveStoreIdentifier(storeId);
+            resolvedStoreId = resolved.storeId;
+            store = resolved.store || null;
+            const data = await apiRequest(`${API_BASE}/data`);
+            
+            if (data && data.stores && Array.isArray(data.stores)) {
+              store = data.stores.find(s => s.id === resolvedStoreId);
+            } else {
+              throw new Error('가게 데이터가 없습니다');
+            }
+          }
+          
+          if (store) {
+            // 가게가 중지된 경우 중지 페이지로 리다이렉트
+            if (store.status === 'paused') {
+              log('WARN', '가게가 중지됨, 중지 페이지로 리다이렉트', { storeId: store.id });
+              window.location.href = '/paused.html';
+              return;
+            }
+            
+            currentStore = store;
+            currentStoreId = resolvedStoreId;
+            log('INFO', '가게 정보 로딩 완료', store);
+            return store;
+          } else {
+            throw new Error('가게를 찾을 수 없습니다');
           }
         } catch (error) {
           log('ERROR', '가게 정보 로딩 실패', error);
@@ -916,8 +1327,13 @@
 
       async function loadSettings(storeId) {
         try {
-          log('INFO', '설정 로딩 시작', { storeId });
-          const settingsData = await apiRequest(`${API_BASE}/settings?storeId=${storeId}`);
+          const resolved = await resolveStoreIdentifier(storeId);
+          if (!resolved.storeId) {
+            throw new Error('가게를 찾을 수 없습니다.');
+          }
+          const targetStoreId = resolved.storeId;
+          log('INFO', '설정 로딩 시작', { storeId: targetStoreId });
+          const settingsData = await apiRequest(`${API_BASE}/settings?storeId=${targetStoreId}`);
           
           // API 응답이 직접 설정 데이터인 경우
           if (settingsData && (settingsData.images || settingsData.pickupTitle)) {
@@ -944,9 +1360,25 @@
         }
       }
 
+      function getActiveDeliveryApps() {
+        const deliveryOrder = settings?.delivery?.deliveryOrder || ['ttaeng', 'baemin', 'coupang', 'yogiyo'];
+        const activeApps = deliveryOrder.filter(appId => {
+          const url = settings?.delivery?.[`${appId}Url`] || '';
+          return url && url.trim() !== '';
+        });
+        return activeApps;
+      }
+
       function renderDeliveryApps() {
         const deliveryGrid = document.getElementById('deliveryGrid');
-        if (!deliveryGrid) return;
+        if (!deliveryGrid) {
+          console.error('❌ deliveryGrid 요소를 찾을 수 없습니다');
+          return;
+        }
+
+        console.log('🔍 renderDeliveryApps 시작');
+        console.log('📊 settings 객체:', settings);
+        console.log('📊 settings.delivery:', settings?.delivery);
 
         const appConfigs = {
           baemin: { name: '배달의민족', icon: '/assets/images/icons/bm.svg' },
@@ -957,18 +1389,32 @@
 
         // 설정에서 배달앱 순서와 URL 가져오기
         const deliveryOrder = settings?.delivery?.deliveryOrder || ['ttaeng', 'baemin', 'coupang', 'yogiyo'];
-        
-        // URL이 있는 배달앱만 필터링
-        const activeApps = deliveryOrder.filter(appId => {
-          const url = settings?.delivery?.[`${appId}Url`] || '';
-          return url && url.trim() !== '';
+        console.log('📋 배달앱 순서:', deliveryOrder);
+
+        const activeApps = getActiveDeliveryApps();
+        activeApps.forEach(appId => {
+          console.log(`🔍 ${appId} URL 확인:`, settings?.delivery?.[`${appId}Url`]);
         });
+
+        console.log('✅ 활성 배달앱:', activeApps);
 
         deliveryGrid.innerHTML = '';
 
+        if (activeApps.length === 0) {
+          console.log('⚠️ 활성 배달앱이 없습니다');
+          const deliverySection = document.getElementById('deliverySection');
+          if (deliverySection) {
+            deliverySection.remove();
+          }
+          return;
+        }
+
         activeApps.forEach(appId => {
           const config = appConfigs[appId];
-          if (!config) return;
+          if (!config) {
+            console.warn(`⚠️ ${appId}에 대한 설정이 없습니다`);
+            return;
+          }
 
           const deliveryBtn = document.createElement('a');
           deliveryBtn.href = '#';
@@ -987,7 +1433,25 @@
           `;
 
           deliveryGrid.appendChild(deliveryBtn);
+          console.log(`✅ ${appId} 배달앱 버튼 추가됨`);
         });
+      }
+
+      function getPromoVideoSource() {
+        const promoVideo = settings?.images?.promoVideo;
+        if (!promoVideo) {
+          return null;
+        }
+
+        if (typeof promoVideo === 'string') {
+          return promoVideo;
+        }
+
+        if (promoVideo?.src) {
+          return promoVideo.src;
+        }
+
+        return null;
       }
 
       function renderStorePage() {
@@ -1018,7 +1482,42 @@
         document.title = `${currentStore.name} - 픽업`;
 
         // 설정에서 로고 이미지 가져오기
-        const logoImage = settings?.images?.mainLogo || '/assets/images/logos/default-logo.svg';
+        const logoImage = settings?.images?.mainLogo || settings?.basic?.storeLogo || '/assets/images/logos/default-logo.svg';
+        const promoVideoSrc = getPromoVideoSource();
+        const storeSubtitleRaw = settings?.basic?.storeSubtitle?.trim() || currentStore.subtitle?.trim() || '';
+        const safeStoreSubtitle = escapeHtml(storeSubtitleRaw);
+        const subtitleHtml = `<div class="store-subtitle">${safeStoreSubtitle || ''}</div>`;
+        const hasMenuImage = Boolean(settings?.images?.menuImage);
+        const hasStoreAddress = Boolean(currentStore.address && currentStore.address.trim());
+        const menuActionHtml = hasMenuImage ? `
+            <button class="action-btn" onclick="showMenu()">
+              <span class="action-icon">📋</span>
+              <span class="action-text">메뉴 보기</span>
+            </button>` : '';
+        const locationActionHtml = hasStoreAddress ? `
+            <button class="action-btn" onclick="showLocation()">
+              <span class="action-icon">📍</span>
+              <span class="action-text">위치 보기</span>
+            </button>` : '';
+        const pickupActionHtml = settings?.pickup?.enabled ? `
+            <button class="action-btn pickup-action" onclick="showPickupInfo()">
+              <span class="action-icon">📦</span>
+              <span class="action-text">픽업 안내</span>
+            </button>` : '';
+        const quickActionsHtml = [menuActionHtml, locationActionHtml, pickupActionHtml]
+          .filter(Boolean)
+          .join('');
+        const promoVideoHtml = promoVideoSrc ? `
+          <div class="promo-video-section">
+            <div class="promo-video-header">
+              <div class="promo-video-title">매장 소개 영상</div>
+              <button class="promo-video-button" type="button" onclick="showPromoVideo()">전체 화면</button>
+            </div>
+            <div class="promo-video-wrapper">
+              <video class="promo-video" src="${promoVideoSrc}" controls playsinline preload="metadata"></video>
+            </div>
+          </div>
+        ` : '';
 
         contentDiv.innerHTML = `
           <div class="store-hero">
@@ -1027,7 +1526,7 @@
                 <img src="${logoImage}" alt="${currentStore.name} 로고" />
               </div>
               <div class="store-name">${currentStore.name || '가게명 없음'}</div>
-              <div class="store-subtitle">${currentStore.subtitle || '전화·앱 한 번으로 바로 주문하세요'}</div>
+              ${subtitleHtml}
             </div>
             
             <div class="phone-section">
@@ -1041,22 +1540,12 @@
             <div id="businessHoursSection"></div>
           </div>
 
+          ${quickActionsHtml ? `
           <div class="quick-actions">
-            <button class="action-btn" onclick="showMenu()">
-              <span class="action-icon">📋</span>
-              <span class="action-text">메뉴 보기</span>
-            </button>
-            <button class="action-btn" onclick="showLocation()">
-              <span class="action-icon">📍</span>
-              <span class="action-text">위치 보기</span>
-            </button>
-            ${settings?.pickup?.enabled ? `
-            <button class="action-btn pickup-action" onclick="showPickupInfo()">
-              <span class="action-icon">📦</span>
-              <span class="action-text">픽업 안내</span>
-            </button>
-            ` : ''}
-          </div>
+            ${quickActionsHtml}
+          </div>` : ''}
+
+          ${promoVideoHtml}
 
           <!-- 동적 섹션 렌더링 -->
           <div id="dynamicSections">
@@ -1064,11 +1553,19 @@
           </div>
         `;
 
-        // 배달앱 렌더링
-        renderDeliveryApps();
-        
+        applySeoMetaSettings();
+        applyAbTestExperiments();
+        attachAbConversionTracking();
+
         // 동적 섹션 렌더링
         renderDynamicSections();
+        
+        // DOM이 완전히 렌더링된 후 배달앱 렌더링
+        setTimeout(() => {
+          if (getActiveDeliveryApps().length > 0) {
+            renderDeliveryApps();
+          }
+        }, 500);
         
         // 영업시간 렌더링
         const businessHoursSection = document.getElementById('businessHoursSection');
@@ -1099,16 +1596,18 @@
 
       // 영업시간 렌더링
       function renderBusinessHours(settings) {
-        // 영업시간 설정이 없으면 기본값 사용
-        const businessHours = settings?.businessHours || {
-          mon: { enabled: true, open: '09:00', close: '22:00' },
-          tue: { enabled: true, open: '09:00', close: '22:00' },
-          wed: { enabled: true, open: '09:00', close: '22:00' },
-          thu: { enabled: true, open: '09:00', close: '22:00' },
-          fri: { enabled: true, open: '09:00', close: '22:00' },
-          sat: { enabled: true, open: '09:00', close: '22:00' },
-          sun: { enabled: true, open: '09:00', close: '22:00' }
-        };
+        // 영업시간 설정이 없거나 빈 객체이면 기본값 사용
+        const businessHours = (settings?.businessHours && Object.keys(settings.businessHours).length > 0) 
+          ? settings.businessHours 
+          : {
+              mon: { enabled: true, open: '09:00', close: '22:00' },
+              tue: { enabled: true, open: '09:00', close: '22:00' },
+              wed: { enabled: true, open: '09:00', close: '22:00' },
+              thu: { enabled: true, open: '09:00', close: '22:00' },
+              fri: { enabled: true, open: '09:00', close: '22:00' },
+              sat: { enabled: true, open: '09:00', close: '22:00' },
+              sun: { enabled: true, open: '09:00', close: '22:00' }
+            };
         
         const dayNames = {
           mon: '월요일',
@@ -1135,21 +1634,65 @@
           `;
         }
         
+        // 현재 시간과 영업시간 비교
+        const now = new Date();
+        const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+        const openTime = todayHours.open;
+        const closeTime = todayHours.close;
+        
+        // 시간 비교 함수
+        function timeToMinutes(time) {
+          const [hours, minutes] = time.split(':').map(Number);
+          return hours * 60 + minutes;
+        }
+        
+        const currentMinutes = timeToMinutes(currentTime);
+        const openMinutes = timeToMinutes(openTime);
+        const closeMinutes = timeToMinutes(closeTime);
+        
+        let statusText = '';
+        let statusColor = '';
+        let bgColor = '';
+        let borderColor = '';
+        
+        if (currentMinutes < openMinutes) {
+          // 영업시간 전
+          statusText = '영업준비중';
+          statusColor = '#f59e0b';
+          bgColor = 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)';
+          borderColor = '#f59e0b';
+        } else if (currentMinutes >= openMinutes && currentMinutes < closeMinutes) {
+          // 영업중
+          statusText = '영업중';
+          statusColor = '#10b981';
+          bgColor = 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)';
+          borderColor = '#10b981';
+        } else {
+          // 영업종료
+          statusText = '영업종료';
+          statusColor = '#ef4444';
+          bgColor = 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)';
+          borderColor = '#ef4444';
+        }
+        
         return `
-          <div style="margin-top: 12px; padding: 12px 16px; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
+          <div style="margin-top: 12px; padding: 12px 16px; background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
             <div style="display: flex; align-items: center; gap: 12px;">
               <span style="font-size: 14px;">⏰</span>
               <div>
-                <div style="font-size: 18px; font-weight: 700; color: #1e3a8a;">
-                  ${todayHours.open} - ${todayHours.close}
+                <div style="font-size: 16px; font-weight: 700; color: ${statusColor}; margin-bottom: 2px;">
+                  ${statusText}
+                </div>
+                <div style="font-size: 14px; font-weight: 600; color: #374151;">
+                  ${openTime} - ${closeTime}
                 </div>
               </div>
             </div>
-            <button onclick="showAllBusinessHours()" style="padding: 4px 12px; background: white; border: 1px solid #3b82f6; border-radius: 6px; color: #3b82f6; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">전체보기</button>
+            <button onclick="showAllBusinessHours()" style="padding: 4px 12px; background: white; border: 1px solid ${borderColor}; border-radius: 6px; color: ${statusColor}; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">전체보기</button>
           </div>
           <script>
             window.businessHoursData = ${JSON.stringify({ dayNames, businessHours, today })};
-          </script>
+          <\/script>
         `;
       }
       
@@ -1169,7 +1712,7 @@
             { id: 'address', title: '주소 정보', icon: '📍', description: '가게 주소 및 지도' }
           ];
 
-          const sectionOrder = settings?.sectionOrder || defaultOrder;
+          const sectionOrder = Array.isArray(settings?.sectionOrder) && settings.sectionOrder.length > 0 ? settings.sectionOrder : defaultOrder;
           console.log('✅ 섹션 순서 로드:', sectionOrder);
           console.log('📊 settings 객체:', settings);
           
@@ -1195,8 +1738,13 @@
                 break;
 
               case 'delivery':
+                if (getActiveDeliveryApps().length === 0) {
+                  console.log('⚠️ 배달 섹션을 숨깁니다 - 활성 배달앱 없음');
+                  break;
+                }
+
                 sectionHTML = `
-                  <div class="delivery-section">
+                  <div class="delivery-section" id="deliverySection">
                     <div class="section-title">🚚 배달 주문</div>
                     <div class="delivery-grid" id="deliveryGrid">
                       <!-- 동적으로 생성됩니다 -->
@@ -1214,10 +1762,12 @@
                     </div>
                     <div class="map-buttons">
                       <button class="map-btn" onclick="openNaverMap()">
-                        🗺️ 네이버지도로 길찾기
+                        <img src="/assets/images/icons/navermap.svg" alt="네이버 지도" style="width: 22px; height: 22px;" />
+                        네이버지도로 길찾기
                       </button>
-                      <button class="map-btn" onclick="openTmap()">
-                        🚗 T맵으로 길찾기
+                      <button class="map-btn" onclick="openKakaoMap()">
+                        <img src="/assets/images/icons/kakaomap.svg" alt="카카오맵" style="width: 22px; height: 22px;" />
+                        카카오맵으로 길찾기
                       </button>
                     </div>
                   </div>
@@ -1231,7 +1781,7 @@
           });
 
           // 배달앱 렌더링 (delivery 섹션이 렌더링된 후)
-          if (sectionOrder.some(s => s.id === 'delivery')) {
+          if (sectionOrder.some(s => s.id === 'delivery') && getActiveDeliveryApps().length > 0) {
             renderDeliveryApps();
           }
 
@@ -1478,6 +2028,9 @@
       }
 
       function showMenuModal(imageSrc) {
+        if (imageSrc) {
+          logEvent('menu_view', { image: imageSrc });
+        }
         // 기존 모달이 있으면 제거
         const existingModal = document.getElementById('menuModal');
         if (existingModal) {
@@ -1609,6 +2162,151 @@
         document.addEventListener('keydown', handleKeydown);
       }
 
+      /**
+       * 매장 소개 영상을 전체 화면 모달로 재생합니다.
+       * 작은 영상 영역을 탭했을 때 고객이 보다 몰입감 있게 영상을 볼 수 있도록 구성했습니다.
+       */
+      function showPromoVideo() {
+        const promoVideoSrc = getPromoVideoSource();
+        if (!promoVideoSrc) {
+          alert('등록된 영상이 없습니다. 관리자 페이지에서 영상을 추가해주세요.');
+          return;
+        }
+
+        const existingModal = document.getElementById('promoVideoModal');
+        if (existingModal) {
+          existingModal.remove();
+        }
+
+        const modal = document.createElement('div');
+        modal.id = 'promoVideoModal';
+        modal.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(15, 23, 42, 0.92);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+          box-sizing: border-box;
+          z-index: 1200;
+        `;
+
+        const modalContent = document.createElement('div');
+        modalContent.style.cssText = `
+          width: 100%;
+          max-width: 440px;
+          background: #0f172a;
+          border-radius: 18px;
+          padding: 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          box-shadow: 0 32px 48px rgba(15, 23, 42, 0.4);
+          position: relative;
+        `;
+
+        const header = document.createElement('div');
+        header.style.cssText = `
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          color: white;
+        `;
+
+        const title = document.createElement('h3');
+        title.textContent = '매장 소개 영상';
+        title.style.cssText = `
+          margin: 0;
+          font-size: 18px;
+          font-weight: 700;
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '닫기';
+        closeBtn.style.cssText = `
+          background: rgba(148, 163, 184, 0.25);
+          color: white;
+          border: none;
+          border-radius: 999px;
+          padding: 6px 14px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        `;
+
+        closeBtn.onmouseover = () => {
+          closeBtn.style.background = 'rgba(148, 163, 184, 0.4)';
+        };
+        closeBtn.onmouseout = () => {
+          closeBtn.style.background = 'rgba(148, 163, 184, 0.25)';
+        };
+
+        const videoWrapper = document.createElement('div');
+        videoWrapper.style.cssText = `
+          width: 100%;
+          border-radius: 14px;
+          overflow: hidden;
+          background: black;
+        `;
+
+        const videoElement = document.createElement('video');
+        videoElement.src = promoVideoSrc;
+        videoElement.controls = true;
+        videoElement.playsInline = true;
+        videoElement.preload = 'metadata';
+        videoElement.style.cssText = `
+          width: 100%;
+          height: auto;
+          max-height: 60vh;
+          display: block;
+          background: black;
+        `;
+
+        const description = document.createElement('p');
+        description.textContent = '영상 길이는 10초 이내이며, 모바일에서도 매끄럽게 재생됩니다.';
+        description.style.cssText = `
+          margin: 0;
+          font-size: 13px;
+          color: rgba(226, 232, 240, 0.75);
+          line-height: 1.5;
+        `;
+
+        const closeModal = () => {
+          videoElement.pause();
+          modal.remove();
+          document.removeEventListener('keydown', handleEsc);
+        };
+
+        const handleEsc = (event) => {
+          if (event.key === 'Escape') {
+            closeModal();
+          }
+        };
+
+        closeBtn.onclick = closeModal;
+        modal.onclick = (event) => {
+          if (event.target === modal) {
+            closeModal();
+          }
+        };
+        document.addEventListener('keydown', handleEsc);
+
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+        videoWrapper.appendChild(videoElement);
+        modalContent.appendChild(header);
+        modalContent.appendChild(videoWrapper);
+        modalContent.appendChild(description);
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+      }
+
       function showLocation() {
         if (currentStore && currentStore.address) {
           openNaverMap();
@@ -1618,16 +2316,16 @@
       }
 
       function openDeliveryApp(app) {
-        const appUrls = {
-          baemin: 'https://baemin.me/',
-          yogiyo: 'https://www.yogiyo.co.kr/',
-          coupang: 'https://www.coupangeats.com/',
-          ddangyo: 'https://www.ddangyo.com/'
-        };
+        // 설정에서 실제 URL 가져오기
+        const url = settings?.delivery?.[`${app}Url`] || '';
         
-        if (appUrls[app]) {
-          log('INFO', '배달 앱 열기', { app });
-          window.open(appUrls[app], '_blank');
+        if (url && url.trim() !== '') {
+          log('INFO', '배달 앱 열기', { app, url });
+          window.open(url, '_blank');
+          logEvent('delivery_click', { app, url });
+        } else {
+          log('WARN', '배달앱 URL이 설정되지 않음', { app });
+          alert(`${app} 앱의 URL이 설정되지 않았습니다.`);
         }
       }
 
@@ -1637,15 +2335,22 @@
           const naverMapUrl = `https://map.naver.com/v5/search/${encodedAddress}`;
           log('INFO', '네이버지도 열기', { address: currentStore.address });
           window.open(naverMapUrl, '_blank');
+          logEvent('map_click', { map: 'naver', address: currentStore.address });
         }
       }
 
-      function openTmap() {
+      /**
+       * 카카오맵 길찾기를 새 창으로 엽니다.
+       */
+      function openKakaoMap() {
         if (currentStore && currentStore.address) {
           const encodedAddress = encodeURIComponent(currentStore.address);
-          const tmapUrl = `https://tmapapi.sktelecom.com/main/search?query=${encodedAddress}`;
-          log('INFO', 'T맵 열기', { address: currentStore.address });
-          window.open(tmapUrl, '_blank');
+          const kakaoUrl = `https://map.kakao.com/?q=${encodedAddress}`;
+          log('INFO', '카카오맵 열기', { address: currentStore.address });
+          window.open(kakaoUrl, '_blank');
+          logEvent('map_click', { map: 'kakao', address: currentStore.address });
+        } else {
+          alert('주소가 등록되지 않았습니다.');
         }
       }
 
@@ -1669,11 +2374,21 @@
             loadStoreInfo(storeId),
             loadSettings(storeId)
           ]);
+
+          if (currentStore?.id) {
+            currentStoreId = currentStore.id;
+          }
           
           isLoading = false;
           
           // 렌더링
           renderStorePage();
+
+          // 페이지 방문 이벤트 기록
+          logEvent('page_view', {
+            path: window.location.pathname,
+            referrer: document.referrer || ''
+          });
           
           // 로딩 오버레이 숨기기
           hideLoadingOverlay();
@@ -1757,23 +2472,10 @@
         document.body.appendChild(modal);
       }
 
-      // 설정 변경 감지 및 페이지 자동 새로고침
+      // 설정 변경 감지 및 페이지 자동 새로고침 (비활성화)
       function startSettingsPolling() {
-        setInterval(async () => {
-          if (currentStoreId && !isLoading) {
-            try {
-              const newSettings = await loadSettings(currentStoreId);
-              // 설정이 변경된 경우 페이지 다시 렌더링
-              if (JSON.stringify(newSettings) !== JSON.stringify(settings)) {
-                log('INFO', '설정 변경 감지, 페이지 다시 렌더링');
-                settings = newSettings;
-                renderStorePage();
-              }
-            } catch (error) {
-              log('ERROR', '설정 폴링 실패', error);
-            }
-          }
-        }, 2000); // 2초마다 확인
+        // 무한 루프 방지를 위해 폴링 비활성화
+        log('INFO', '설정 폴링 비활성화됨 (무한 루프 방지)');
       }
 
       // 페이지 로드 시 초기화
@@ -1817,6 +2519,7 @@
       // 전화하기 함수
       function callStore() {
         if (currentStore && currentStore.phone) {
+          logEvent('call_click', { phone: currentStore.phone });
           window.location.href = `tel:${currentStore.phone}`;
         } else {
           alert('전화번호가 등록되지 않았습니다.');

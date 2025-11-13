@@ -1,180 +1,326 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>서비스 중지 - 픽업</title>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=480, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <meta name="theme-color" content="#ef4444" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>가게 일시정지 - 픽업</title>
+    <meta name="description" content="현재 가게가 일시정지 상태입니다." />
+    
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+      :root {
+        --bg: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+        --card: #ffffff;
+        --fg: #1a1a1a;
+        --muted: #6b7280;
+        --primary: #ef4444;
+        --secondary: #f59e0b;
+        --accent: #f59e0b;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --error: #ef4444;
+        --border: rgba(0, 0, 0, 0.05);
+        --focus: 2px solid #ef444444;
+        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        --radius: 12px;
+        --radius-lg: 16px;
+      }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Apple SD Gothic Neo, "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+        line-height: 1.6;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+        min-height: 100vh;
+      }
 
+      .container {
+        max-width: 480px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 20px 16px 32px;
+        min-height: 100vh;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .paused-card {
+        background: var(--card);
+        border-radius: var(--radius-lg);
+        padding: 40px 24px;
+        margin-bottom: 24px;
+        box-shadow: var(--shadow-lg);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        position: relative;
+        overflow: hidden;
+        text-align: center;
+        max-width: 400px;
+        width: 100%;
+      }
+      
+      .paused-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #ef4444, #f59e0b);
+      }
+
+      .paused-icon {
+        font-size: 80px;
+        margin-bottom: 24px;
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+      }
+
+      .paused-title {
+        font-size: 28px;
+        font-weight: 800;
+        margin-bottom: 16px;
+        color: #dc2626;
+        text-shadow: 0 2px 4px rgba(220, 38, 38, 0.1);
+      }
+
+      .paused-subtitle {
+        font-size: 18px;
+        color: var(--muted);
+        margin-bottom: 24px;
+        font-weight: 500;
+        line-height: 1.5;
+      }
+
+      .paused-description {
+        font-size: 16px;
+        color: #6b7280;
+        margin-bottom: 32px;
+        line-height: 1.6;
+        background: #f8fafc;
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+      }
+
+      .contact-info {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border: 2px solid #f59e0b;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
+        position: relative;
+        overflow: hidden;
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      .contact-info::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        animation: shine 3s ease-in-out infinite;
+        pointer-events: none;
+      }
+
+      @keyframes shine {
+        0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+        50% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+      }
+
+      .contact-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #92400e;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      .contact-text {
+        color: #a16207;
+        line-height: 1.6;
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      .footer {
+        text-align: center;
+        padding: 20px 0;
+        color: var(--muted);
+        font-size: 12px;
+        border-top: 1px solid var(--border);
+        margin-top: auto;
+        width: 100%;
+      }
+
+      .retry-btn {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: white;
+        border: none;
+        border-radius: var(--radius);
+        padding: 16px 32px;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        width: 100%;
+        margin-top: 16px;
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        position: relative;
+        overflow: hidden;
+      }
+      
+      .retry-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s ease;
+      }
+      
+      .retry-btn:hover::before {
+        left: 100%;
+      }
+
+      .retry-btn:hover {
+        background: linear-gradient(135deg, #dc2626, #b91c1c);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
+      }
+
+      .retry-btn:active {
+        transform: translateY(0);
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+      }
+
+      @media (max-width: 480px) {
         .container {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-            text-align: center;
-            max-width: 500px;
-            width: 100%;
+          padding: 16px 12px 24px;
         }
-
-        .icon {
-            font-size: 80px;
-            margin-bottom: 20px;
-            opacity: 0.8;
+        
+        .paused-card {
+          padding: 32px 20px;
         }
-
-        h1 {
-            color: #2d3748;
-            font-size: 28px;
-            margin-bottom: 16px;
-            font-weight: 600;
+        
+        .paused-title {
+          font-size: 24px;
         }
-
-        .subtitle {
-            color: #718096;
-            font-size: 16px;
-            margin-bottom: 30px;
-            line-height: 1.5;
+        
+        .paused-subtitle {
+          font-size: 16px;
         }
-
-        .message {
-            background: #f7fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 30px;
+        
+        .paused-description {
+          font-size: 14px;
+          padding: 16px;
         }
-
-        .message-title {
-            color: #2d3748;
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 12px;
-        }
-
-        .message-text {
-            color: #4a5568;
-            font-size: 14px;
-            line-height: 1.6;
-        }
-
-        .contact-info {
-            background: linear-gradient(135deg, #4299e1, #3182ce);
-            color: white;
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 30px;
-        }
-
-        .contact-title {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 12px;
-        }
-
-        .contact-text {
-            font-size: 14px;
-            opacity: 0.9;
-            line-height: 1.6;
-        }
-
-        .back-button {
-            background: #4299e1;
-            color: white;
-            border: none;
-            border-radius: 12px;
-            padding: 14px 28px;
-            font-size: 16px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-block;
-        }
-
-        .back-button:hover {
-            background: #3182ce;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(66, 153, 225, 0.3);
-        }
-
-        .footer {
-            margin-top: 30px;
-            color: #a0aec0;
-            font-size: 12px;
-        }
-
-        @media (max-width: 480px) {
-            .container {
-                padding: 30px 20px;
-            }
-            
-            h1 {
-                font-size: 24px;
-            }
-            
-            .icon {
-                font-size: 60px;
-            }
-        }
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <div class="icon">⏸️</div>
-        <h1>서비스 일시 중지</h1>
-        <p class="subtitle">현재 이 가게의 서비스가 일시적으로 중지되었습니다.</p>
-        
-        <div class="message">
-            <div class="message-title">서비스 중지 안내</div>
-            <div class="message-text">
-                죄송합니다. 현재 이 가게의 픽업 서비스가 일시적으로 중지되었습니다.<br>
-                빠른 시일 내에 서비스를 재개할 예정입니다.
-            </div>
+      <div class="paused-card">
+        <div class="paused-icon">⏸️</div>
+        <div class="paused-title">가게 일시정지</div>
+        <div class="paused-subtitle">현재 가게가 일시정지 상태입니다</div>
+        <div class="paused-description">
+          죄송합니다. 현재 가게가 일시정지 상태로 운영을 중단하고 있습니다.<br>
+          빠른 시일 내에 다시 운영을 재개할 예정입니다.
         </div>
-
+        
         <div class="contact-info">
-            <div class="contact-title">📞 픽업 운영팀 문의</div>
-            <div class="contact-text">
-                서비스 재개 일정이나 문의사항이 있으시면<br>
-                픽업 운영팀으로 연락해 주세요.
-            </div>
+          <div class="contact-title">
+            <span>📞</span>
+            문의사항이 있으시면
+          </div>
+          <div class="contact-text">
+            관리자에게 직접 문의하시거나<br>
+            나중에 다시 방문해 주세요.
+          </div>
         </div>
-
-        <a href="/" class="back-button">메인으로 돌아가기</a>
         
-        <div class="footer">
-            © 디스크밤 컴퍼니. All rights reserved.
-        </div>
+        <button class="retry-btn" onclick="retryAccess()">
+          🔄 다시 시도하기
+        </button>
+      </div>
+
+      <div class="footer">
+        © 디스크밤 컴퍼니. All rights reserved.
+      </div>
     </div>
 
     <script>
-        // 페이지 로드 시 애니메이션
-        document.addEventListener('DOMContentLoaded', function() {
-            const container = document.querySelector('.container');
-            container.style.opacity = '0';
-            container.style.transform = 'translateY(20px)';
-            
-            setTimeout(() => {
-                container.style.transition = 'all 0.6s ease';
-                container.style.opacity = '1';
-                container.style.transform = 'translateY(0)';
-            }, 100);
+      function retryAccess() {
+        // 현재 URL에서 서브도메인 부분을 다시 시도
+        const currentPath = window.location.pathname;
+        if (currentPath && currentPath !== '/') {
+          // 서브도메인으로 다시 접근 시도
+          window.location.reload();
+        } else {
+          // 루트 경로인 경우 홈으로 이동
+          window.location.href = '/';
+        }
+      }
+
+      // 모바일 확대/축소 방지
+      function preventZoom() {
+        let lastTouchEnd = 0;
+        
+        // 더블탭 확대 방지
+        document.addEventListener('touchend', function (event) {
+          const now = (new Date()).getTime();
+          if (now - lastTouchEnd <= 300) {
+            event.preventDefault();
+          }
+          lastTouchEnd = now;
+        }, false);
+        
+        // 핀치 줌 방지
+        document.addEventListener('touchmove', function (event) {
+          if (event.scale !== 1) {
+            event.preventDefault();
+          }
+        }, { passive: false });
+        
+        // 키보드 확대 방지 (Ctrl + +, Ctrl + -)
+        document.addEventListener('keydown', function (event) {
+          if ((event.ctrlKey || event.metaKey) && (event.keyCode === 61 || event.keyCode === 107 || event.keyCode === 173 || event.keyCode === 109 || event.keyCode === 187 || event.keyCode === 189)) {
+            event.preventDefault();
+          }
         });
+      }
+
+      // 모바일 확대/축소 방지 적용
+      preventZoom();
     </script>
-</body>
+  </body>
 </html>

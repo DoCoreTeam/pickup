@@ -277,6 +277,22 @@
             color: #991b1b;
         }
 
+        .bulk-date-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .bulk-date {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .bulk-time {
+            font-size: 11px;
+            color: #666;
+        }
+
         .bulk-pagination {
             padding: 20px 40px;
             display: flex;
@@ -497,7 +513,7 @@
         <!-- 헤더 -->
         <div class="bulk-header">
             <h1>🚀 슈퍼어드민 - 대량 가게 관리</h1>
-            <button class="bulk-back-btn" onclick="window.location.href='/admin/dashboard.html'">
+            <button class="bulk-back-btn" onclick="window.location.href='/admin'">
                 ← 대시보드로 돌아가기
             </button>
         </div>
@@ -737,7 +753,12 @@
                 const isSelected = bulkState.selectedIds.has(store.id);
                 const statusClass = store.status === 'active' ? 'bulk-status-active' : 'bulk-status-paused';
                 const statusText = store.status === 'active' ? '활성' : '일시정지';
-                const createdDate = new Date(store.createdAt).toLocaleDateString('ko-KR');
+                const createdDate = new Date(store.createdAt);
+                const createdDateStr = createdDate.toLocaleDateString('ko-KR');
+                const createdTimeStr = createdDate.toLocaleTimeString('ko-KR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
 
                 return `
                     <tr class="${isSelected ? 'selected' : ''}" data-id="${store.id}">
@@ -750,7 +771,12 @@
                         <td>${bulkEscapeHtml(store.phone || '-')}</td>
                         <td>${bulkEscapeHtml(store.address || '-')}</td>
                         <td><span class="bulk-status-badge ${statusClass}">${statusText}</span></td>
-                        <td>${createdDate}</td>
+                        <td>
+                            <div class="bulk-date-info">
+                                <div class="bulk-date">${createdDateStr}</div>
+                                <div class="bulk-time">${createdTimeStr}</div>
+                            </div>
+                        </td>
                     </tr>
                 `;
             }).join('');

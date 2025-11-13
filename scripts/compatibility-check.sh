@@ -14,6 +14,9 @@ NC='\033[0m'
 PASSED=0
 FAILED=0
 
+SUPERADMIN_COMPAT_USERNAME=${SUPERADMIN_COMPAT_USERNAME:-pickupsuperadmin}
+SUPERADMIN_COMPAT_PASSWORD=${SUPERADMIN_COMPAT_PASSWORD:-test}
+
 # 테스트 함수
 test_check() {
     local test_name="$1"
@@ -37,13 +40,13 @@ test_check "API 서버 (포트 8081)" "curl -s http://localhost:8081/api/data | 
 # API 엔드포인트 테스트
 echo -e "\n${BLUE}🔌 API 엔드포인트 테스트${NC}"
 test_check "GET /api/data" "curl -s http://localhost:8081/api/data | jq '.stores' > /dev/null"
-test_check "GET /api/stores" "curl -s http://localhost:8081/api/stores | jq '.[0].id' > /dev/null"
+test_check "GET /api/stores" "curl -s http://localhost:8081/api/stores | jq '.data[0].id // .[0].id' > /dev/null"
 test_check "GET /api/current-store" "curl -s http://localhost:8081/api/current-store | jq . > /dev/null"
 
 # CORS 테스트
 echo -e "\n${BLUE}🌐 CORS 테스트${NC}"
 test_check "OPTIONS preflight" "curl -s -X OPTIONS http://localhost:8081/api/stores -H 'Origin: http://localhost:8080' -H 'Access-Control-Request-Method: GET' -D - | grep -q 'Access-Control-Allow-Origin'"
-test_check "CORS 헤더" "curl -s http://localhost:8081/api/stores | jq '.[0].id' > /dev/null"
+test_check "CORS 헤더" "curl -s http://localhost:8081/api/stores | jq '.data[0].id // .[0].id' > /dev/null"
 
 # 데이터 스키마 검증
 echo -e "\n${BLUE}📊 데이터 스키마 검증${NC}"
@@ -65,7 +68,7 @@ test_check "가게 페이지 접근" "curl -s http://localhost:8081/store/test |
 echo -e "\n${BLUE}🔐 인증 테스트${NC}"
 LOGIN_RESPONSE=$(curl -s -X POST http://localhost:8081/api/superadmin/check \
   -H "Content-Type: application/json" \
-  -d '{"username":"pickupsuperadmin","password":"test"}')
+  -d "{\"username\":\"${SUPERADMIN_COMPAT_USERNAME}\",\"password\":\"${SUPERADMIN_COMPAT_PASSWORD}\"}")
 test_check "슈퍼어드민 로그인" "echo '$LOGIN_RESPONSE' | jq '.success' | grep -q 'true'"
 
 # 결과 요약
