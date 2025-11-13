@@ -24,13 +24,15 @@ try {
 // DATABASE_URL이 있으면 파싱하여 사용, 없으면 개별 환경 변수 사용
 let dbConfig;
 
-// 디버깅: DATABASE_URL 확인
-if (process.env.DATABASE_URL) {
-  console.log('[DB] DATABASE_URL 발견:', process.env.DATABASE_URL.substring(0, 30) + '...');
-} else {
-  console.log('[DB] DATABASE_URL 없음, 개별 환경 변수 사용');
-  console.log('[DB] DB_HOST:', process.env.DB_HOST || 'localhost');
-}
+// 디버깅: 모든 환경 변수 확인 (Railway 디버깅용)
+console.log('[DB] 환경 변수 확인:');
+console.log('[DB] DATABASE_URL:', process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 50) + '...' : '없음');
+console.log('[DB] DB_HOST:', process.env.DB_HOST || '없음');
+console.log('[DB] DB_PORT:', process.env.DB_PORT || '없음');
+console.log('[DB] DB_NAME:', process.env.DB_NAME || '없음');
+console.log('[DB] DB_USER:', process.env.DB_USER || '없음');
+console.log('[DB] NODE_ENV:', process.env.NODE_ENV || '없음');
+console.log('[DB] DATA_BACKEND:', process.env.DATA_BACKEND || '없음');
 
 if (process.env.DATABASE_URL) {
   // DATABASE_URL 파싱 (NEON 등 클라우드 DB용)
