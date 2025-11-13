@@ -4302,12 +4302,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     <span>2</span>
                     연락처 · 주소
                 </div>
-                <div class="wizard-step-indicator" data-step-key="domain">
-                    <span>3</span>
-                    도메인
-                </div>
                 <div class="wizard-step-indicator" data-step-key="review">
-                    <span>4</span>
+                    <span>3</span>
                     확인
                 </div>
             </div>
@@ -4344,24 +4340,6 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         </div>
                     </div>
                 </div>
-                <div class="wizard-step" data-step-key="domain">
-                    <div class="form-group">
-                        <label for="wizardSubdomain">서브도메인</label>
-                        <div style="display:flex; gap:8px; align-items:center;">
-                            <input type="text" id="wizardSubdomain" class="form-input" placeholder="예: mystore" style="flex:1;">
-                            <button type="button" class="btn btn-secondary" id="wizardGenerateQrBtn" onclick="handleWizardGenerateDomainQR()" style="display:none;">
-                                QR 생성
-                            </button>
-                        </div>
-                        <small class="form-helper" id="wizardDomainHelper">
-                            도메인은 최초 1회만 설정할 수 있으며 QR 생성 후에는 수정할 수 없습니다.
-                        </small>
-                    </div>
-                    <div class="form-group">
-                        <label>도메인 미리보기</label>
-                        <div class="wizard-domain-preview" id="wizardDomainPreview">-</div>
-                    </div>
-                </div>
                 <div class="wizard-step" data-step-key="review">
                     <div class="wizard-review-card">
                         <div class="wizard-review-item">
@@ -4379,10 +4357,6 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         <div class="wizard-review-item">
                             <span class="wizard-review-label">주소</span>
                             <span class="wizard-review-value" id="wizardReviewStoreAddress">-</span>
-                        </div>
-                        <div class="wizard-review-item">
-                            <span class="wizard-review-label">도메인</span>
-                            <span class="wizard-review-value" id="wizardReviewDomain">-</span>
                         </div>
                     </div>
                     <div class="wizard-secondary-info">
@@ -7937,24 +7911,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             domainPermissionState.hasSubdomain = hasSubdomain;
             domainPermissionState.qrLocked = qrLockedEffective;
 
-            const canOwnerEditDomain = IS_STORE_OWNER && !hasSubdomain && !qrLockedEffective;
-            const canSuperadminEditDomain = IS_SUPERADMIN && !qrLockedEffective;
-            const canEditDomain = canOwnerEditDomain || canSuperadminEditDomain;
-
-            shouldShowDomainStep = canEditDomain;
-            basicWizardSteps = shouldShowDomainStep
-                ? ['basic', 'contact', 'domain', 'review']
-                : ['basic', 'contact', 'review'];
-
-            const domainIndicator = modal.querySelector('.wizard-step-indicator[data-step-key="domain"]');
-            if (domainIndicator) {
-                domainIndicator.style.display = shouldShowDomainStep ? 'flex' : 'none';
-            }
-
-            const domainStep = modal.querySelector('.wizard-step[data-step-key="domain"]');
-            if (domainStep) {
-                domainStep.style.display = shouldShowDomainStep ? 'block' : 'none';
-            }
+            // 도메인 단계는 별도 섹션으로 분리되어 제거됨
+            basicWizardSteps = ['basic', 'contact', 'review'];
 
             document.getElementById('wizardStoreName').value = storeName;
             document.getElementById('wizardStoreSubtitle').value = storeSubtitle;
@@ -7969,35 +7927,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 extraAddress,
                 addressDetail
             });
-            const wizardSubdomainInput = document.getElementById('wizardSubdomain');
-            if (wizardSubdomainInput) {
-                if (canEditDomain) {
-                    const initialValue = IS_SUPERADMIN && hasSubdomain ? existingSubdomain : '';
-                    wizardSubdomainInput.value = initialValue;
-                } else {
-                    wizardSubdomainInput.value = existingSubdomain;
-                }
-                wizardSubdomainInput.disabled = !canEditDomain;
-            }
-            const wizardDomainHelper = document.getElementById('wizardDomainHelper');
-            if (wizardDomainHelper) {
-                if (!canEditDomain) {
-                    wizardDomainHelper.textContent = qrLockedEffective
-                        ? 'QR 코드가 이미 생성되어 서브도메인을 변경할 수 없습니다. 변경이 필요하면 슈퍼어드민에게 문의하세요.'
-                        : '이미 서브도메인이 설정되어 있어 수정할 수 없습니다. 변경이 필요하면 슈퍼어드민에게 문의하세요.';
-                } else if (!IS_SUPERADMIN) {
-                    wizardDomainHelper.textContent = '서브도메인은 최초 1회만 설정할 수 있습니다. QR 생성은 슈퍼어드민에게 요청해주세요.';
-                } else {
-                    wizardDomainHelper.textContent = '서브도메인은 최초 1회만 설정할 수 있으며 QR 생성 후에는 수정할 수 없습니다.';
-                }
-            }
-            const wizardGenerateQrBtn = document.getElementById('wizardGenerateQrBtn');
-            if (wizardGenerateQrBtn) {
-                const showQrButton = canEditDomain && IS_SUPERADMIN;
-                wizardGenerateQrBtn.style.display = showQrButton ? 'inline-flex' : 'none';
-                wizardGenerateQrBtn.disabled = !showQrButton;
-            }
-            updateWizardDomainPreview(canEditDomain ? (IS_SUPERADMIN && hasSubdomain ? existingSubdomain : '') : existingSubdomain);
+            // 도메인 단계는 별도 섹션으로 분리되어 제거됨
 
             basicWizardStepIndex = 0;
             setBasicWizardStep(0);
@@ -8054,7 +7984,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             if (nextBtn) nextBtn.style.display = basicWizardStepIndex === basicWizardSteps.length - 1 ? 'none' : 'inline-flex';
             if (saveBtn) saveBtn.style.display = basicWizardStepIndex === basicWizardSteps.length - 1 ? 'inline-flex' : 'none';
 
-            updateWizardDomainPreview(basicWizardState.subdomain || '');
+            // 도메인은 별도 섹션으로 분리되어 제거됨
             updateBasicWizardReview(basicWizardState);
         }
 
@@ -8066,8 +7996,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 postalCode: document.getElementById('wizardPostalCode')?.value.trim() || '',
                 roadAddress: document.getElementById('wizardRoadAddress')?.value.trim() || '',
                 extraAddress: document.getElementById('wizardExtraAddress')?.value.trim() || '',
-                addressDetail: document.getElementById('wizardAddressDetail')?.value.trim() || '',
-                subdomain: document.getElementById('wizardSubdomain')?.value.trim() || basicWizardState.subdomain || ''
+                addressDetail: document.getElementById('wizardAddressDetail')?.value.trim() || ''
+                // 도메인은 별도 섹션으로 분리되어 제거됨
             };
         }
 
@@ -8116,9 +8046,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             document.getElementById('wizardReviewStoreSubtitle').textContent = state.storeSubtitle || '-';
             document.getElementById('wizardReviewStorePhone').textContent = state.storePhone || '-';
             document.getElementById('wizardReviewStoreAddress').textContent = buildWizardFullAddress(state) || '-';
-            document.getElementById('wizardReviewDomain').textContent = state.subdomain
-                ? `/${state.subdomain}`
-                : (document.getElementById('subdomain')?.value ? `/${document.getElementById('subdomain').value}` : '미설정');
+            // 도메인은 별도 섹션으로 분리되어 제거됨
         }
 
         function validateBasicWizardStep(stepKey) {
@@ -8138,22 +8066,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     return false;
                 }
             }
-            if (stepKey === 'domain' && shouldShowDomainStep) {
-                const subdomainInput = document.getElementById('wizardSubdomain');
-                const subdomainValue = subdomainInput?.value.trim() || '';
-                if (!subdomainValue) {
-                    showToast('서브도메인을 입력해주세요.', 'error', '입력 필요');
-                    subdomainInput?.focus();
-                    return false;
-                }
-                if (!/^[a-zA-Z0-9_-]+$/.test(subdomainValue)) {
-                    showToast('서브도메인은 영문, 숫자, 하이픈(-), 언더스코어(_)만 사용할 수 있습니다.', 'error', '입력 필요');
-                    subdomainInput?.focus();
-                    return false;
-                }
-                basicWizardState.subdomain = subdomainValue;
-                updateWizardDomainPreview(subdomainValue);
-            }
+            // 도메인 단계는 별도 섹션으로 분리되어 제거됨
             return true;
         }
 
