@@ -10217,6 +10217,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             // QR 생성 버튼 표시/숨김 (슈퍼어드민만, QR이 없고 서브도메인이 있을 때)
             if (domainQrGenerateBtn) {
                 const canGenerate = IS_SUPERADMIN && !hasQr && hasSubdomain && !qrLocked;
+                console.log('QR 생성 버튼 표시 조건:', { 
+                    IS_SUPERADMIN, 
+                    hasQr, 
+                    hasSubdomain, 
+                    qrLocked, 
+                    canGenerate 
+                });
                 domainQrGenerateBtn.style.display = canGenerate ? 'inline-flex' : 'none';
             }
         }
