@@ -2232,8 +2232,9 @@
           position: fixed;
           top: 0;
           left: 0;
-          width: 100%;
-          height: 100%;
+          width: 100vw;
+          height: 100vh;
+          max-width: 100vw;
           background: rgba(15, 23, 42, 0.92);
           display: flex;
           align-items: center;
@@ -2241,12 +2242,14 @@
           padding: 24px;
           box-sizing: border-box;
           z-index: 1200;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
         `;
 
         const modalContent = document.createElement('div');
         modalContent.style.cssText = `
           width: 100%;
-          max-width: 440px;
+          max-width: min(440px, 90vw);
           background: #0f172a;
           border-radius: 18px;
           padding: 18px;
@@ -2255,6 +2258,7 @@
           gap: 16px;
           box-shadow: 0 32px 48px rgba(15, 23, 42, 0.4);
           position: relative;
+          box-sizing: border-box;
         `;
 
         const header = document.createElement('div');
