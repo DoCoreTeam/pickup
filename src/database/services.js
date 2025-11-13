@@ -136,7 +136,6 @@ async function getStoresByOwner(ownerId) {
 }
 
 async function getOwnersByStore(storeId) {
-  await ensureSingleOwnerConstraint();
   const result = await db.query(
     `SELECT 
         o.id,
@@ -170,12 +169,18 @@ async function getOwnersByStore(storeId) {
   }));
 }
 
-async function linkOwnerToStore(ownerId, storeId) {
+async function linkOwnerToStore(ownerId, storeId, options = {}) {
   if (!ownerId || !storeId) {
     throw new Error('ownerId와 storeId는 필수입니다.');
   }
 
   await ensureSingleOwnerConstraint();
+
+  const normalizedRole = typeof options.role === 'string' && options.role.trim()
+    ? options.role.trim().toLowerCase()
+    : 'manager';
+  const makePrimary = Boolean(options.makePrimary);
+  const resolvedRole = makePrimary ? 'primary' : normalizedRole;
 
   await db.transaction(async client => {
     const ownerResult = await client.query(
@@ -190,50 +195,49 @@ async function linkOwnerToStore(ownerId, storeId) {
     }
 
     const ownerRecord = ownerResult.rows[0];
-    if (ownerRecord.status !== 'approved') {
-      throw new Error('승인된 점주 계정만 연결할 수 있습니다.');
+    if (!['active', 'suspended'].includes(ownerRecord.status)) {
+      throw new Error('운영 중이거나 일시 중지된 점주 계정만 연결할 수 있습니다.');
     }
 
     await client.query(
-      `DELETE FROM store_owner_links
-        WHERE owner_id = $1`,
-      [ownerId]
-    );
-
-    await client.query(
-      `UPDATE store_owners
-          SET store_id = NULL
-        WHERE id = $1`,
-      [ownerId]
-    );
-
-    await client.query(
-      `DELETE FROM store_owner_links
-        WHERE store_id = $1`,
-      [storeId]
-    );
-
-    await client.query(
-      `UPDATE store_owners
-          SET store_id = NULL
-        WHERE store_id = $1`,
-      [storeId]
-    );
-
-    await client.query(
       `INSERT INTO store_owner_links (owner_id, store_id, role)
-       VALUES ($1, $2, 'primary')
+       VALUES ($1, $2, $3)
        ON CONFLICT (owner_id, store_id)
-       DO UPDATE SET role = 'primary'`,
-      [ownerId, storeId]
+       DO UPDATE SET role = EXCLUDED.role`,
+      [ownerId, storeId, resolvedRole]
     );
 
-    await client.query(
-      `UPDATE store_owners
-          SET store_id = $2
-        WHERE id = $1`,
-      [ownerId, storeId]
-    );
+    if (makePrimary) {
+      await client.query(
+        `UPDATE store_owner_links
+            SET role = CASE WHEN owner_id = $1 THEN 'primary' ELSE 'manager' END
+          WHERE store_id = $2`,
+        [ownerId, storeId]
+      );
+
+      await client.query(
+        `UPDATE store_owners
+            SET store_id = $2
+          WHERE id = $1`,
+        [ownerId, storeId]
+      );
+    } else {
+      const currentPrimary = await client.query(
+        `SELECT store_id
+           FROM store_owners
+          WHERE id = $1`,
+        [ownerId]
+      );
+
+      if (!currentPrimary.rows.length || !currentPrimary.rows[0].store_id) {
+        await client.query(
+          `UPDATE store_owners
+              SET store_id = $2
+            WHERE id = $1`,
+          [ownerId, storeId]
+        );
+      }
+    }
 
     await client.query(
       `UPDATE stores
@@ -243,7 +247,7 @@ async function linkOwnerToStore(ownerId, storeId) {
     );
   });
 
-  return { ownerId, storeId, role: 'primary' };
+  return { ownerId, storeId, role: resolvedRole, primary: makePrimary };
 }
 
 async function unlinkOwnerFromStore(ownerId, storeId) {
@@ -285,7 +289,7 @@ async function unlinkOwnerFromStore(ownerId, storeId) {
 }
 
 async function setPrimaryOwnerForStore(ownerId, storeId) {
-  return linkOwnerToStore(ownerId, storeId);
+  return linkOwnerToStore(ownerId, storeId, { role: 'primary', makePrimary: true });
 }
 
 // 슈퍼어드민 조회
@@ -608,7 +612,6 @@ async function getStores(options = {}) {
         ss.business_hours,
         ss.section_order,
         ss.qr_code,
-        ss.domain_settings,
         COALESCE(owner_list.owners, '[]'::json) AS owners,
         p.row_number
       FROM page p
@@ -656,11 +659,18 @@ async function getStores(options = {}) {
       address: row.address,
       status: row.status,
       subdomain: row.subdomain,
+      subdomainStatus: row.subdomain_status,
+      subdomain_status: row.subdomain_status,
+      subdomainCreatedAt: row.subdomain_created_at,
+      subdomain_created_at: row.subdomain_created_at,
+      subdomainLastModified: row.subdomain_last_modified,
+      subdomain_last_modified: row.subdomain_last_modified,
       basic: {
-        storeName: basic.storeName || row.name || '',
-        storeSubtitle: basic.storeSubtitle || row.subtitle || '',
-        storePhone: basic.storePhone || row.phone || '',
-        storeAddress: basic.storeAddress || row.address || ''
+        // 가게 기본 정보는 항상 최신 DB 값을 우선 사용하도록 정렬
+        storeName: row.name || basic.storeName || '',
+        storeSubtitle: row.subtitle || basic.storeSubtitle || '',
+        storePhone: row.phone || basic.storePhone || '',
+        storeAddress: row.address || basic.storeAddress || ''
       },
       discount: {
         title: discount.title || '',
@@ -747,6 +757,9 @@ async function getStoreById(storeId) {
     phone: row.phone, // 기존 호환성을 위해 추가
     address: row.address, // 기존 호환성을 위해 추가
     subdomain: row.subdomain, // 서브도메인 추가
+    subdomainStatus: row.subdomain_status,
+    subdomainCreatedAt: row.subdomain_created_at,
+    subdomainLastModified: row.subdomain_last_modified,
     basic: {
       storeName: row.name,
       storeSubtitle: row.subtitle,
@@ -790,7 +803,7 @@ async function getStoreById(storeId) {
 // 가게 설정 조회
 async function getStoreSettings(storeId) {
   const result = await db.query(`
-    SELECT basic, discount, delivery, pickup, images, business_hours, section_order, qr_code, domain_settings, seo_settings, ab_test_settings
+    SELECT basic, discount, delivery, pickup, images, business_hours, section_order, qr_code, seo_settings, ab_test_settings
     FROM store_settings
     WHERE store_id = $1
   `, [storeId]);
@@ -807,9 +820,9 @@ async function getStoreSettings(storeId) {
     pickup: settings.pickup || {},
     images: settings.images || {},
     businessHours: settings.business_hours || {},
-    sectionOrder: settings.section_order || {},
+    sectionOrder: settings.section_order || [],
     qrCode: settings.qr_code || {},
-    domainSettings: settings.domain_settings || {},
+    domainSettings: {},
     seoSettings: settings.seo_settings || {},
     abTestSettings: settings.ab_test_settings || {}
   };
@@ -1042,6 +1055,9 @@ async function getOwnerAccounts(status = null) {
     whereClause = 'WHERE o.status = $1';
   }
 
+  // 재발 방지: 쿼리 실행 전 로그
+  console.log('[DB] getOwnerAccounts 호출:', { status, whereClause, params });
+
   const result = await db.query(
     `SELECT 
         o.id,
@@ -1070,6 +1086,35 @@ async function getOwnerAccounts(status = null) {
      ORDER BY o.created_at DESC, ls.name ASC NULLS LAST`,
     params
   );
+
+  // 재발 방지: 쿼리 결과 로그
+  const uniqueStatuses = [...new Set(result.rows.map(r => r.status))];
+  console.log('[DB] getOwnerAccounts 결과:', {
+    status,
+    statusType: typeof status,
+    rowCount: result.rows.length,
+    statuses: uniqueStatuses,
+    statusCounts: result.rows.reduce((acc, r) => {
+      const s = r.status || 'null';
+      acc[s] = (acc[s] || 0) + 1;
+      return acc;
+    }, {}),
+    sampleRows: result.rows.slice(0, 5).map(r => ({
+      id: r.id,
+      email: r.email,
+      status: r.status,
+      statusType: typeof r.status,
+      statusLength: r.status ? r.status.length : 0
+    })),
+    // 재발 방지: 요청한 status와 실제 결과 비교
+    statusMatch: status ? {
+      requested: status,
+      requestedType: typeof status,
+      foundStatuses: uniqueStatuses,
+      exactMatch: uniqueStatuses.includes(status),
+      caseInsensitiveMatch: uniqueStatuses.some(s => (s || '').toString().trim().toLowerCase() === (status || '').toString().trim().toLowerCase())
+    } : null
+  });
 
   const ownersMap = new Map();
 
@@ -1148,11 +1193,22 @@ async function getOwnerAccounts(status = null) {
     );
   }
 
-  return Array.from(ownersMap.values()).map(owner => {
+  const finalOwners = Array.from(ownersMap.values()).map(owner => {
     owner.stores = Array.from(owner._storeMap.values());
     delete owner._storeMap;
     return owner;
   });
+
+  // 재발 방지: 최종 반환 데이터 검증 로그
+  console.log('[DB] getOwnerAccounts 최종 반환:', {
+    status,
+    finalCount: finalOwners.length,
+    finalStatuses: finalOwners.map(o => o.status),
+    finalOwnerIds: finalOwners.map(o => o.id),
+    finalOwnerEmails: finalOwners.map(o => o.email)
+  });
+
+  return finalOwners;
 }
 
 // 단일 점주 계정 조회
@@ -1199,7 +1255,7 @@ async function getOwnerAccountDetail(ownerId) {
 async function approveOwnerAccount(ownerId, { storeId, passwordHash }) {
   const result = await db.query(
     `UPDATE store_owners
-        SET status = 'approved',
+        SET status = 'active',
             store_id = $2,
             password_hash = $3,
             approved_at = CURRENT_TIMESTAMP
@@ -1280,7 +1336,7 @@ async function rejectOwnerAccount(ownerId, reason = '') {
 async function pauseOwnerAccount(ownerId) {
   const result = await db.query(
     `UPDATE store_owners
-        SET status = 'paused'
+        SET status = 'suspended'
       WHERE id = $1
       RETURNING id, owner_name, email, phone, store_id, status, approved_at`,
     [ownerId]
@@ -1322,7 +1378,7 @@ async function pauseOwnerAccount(ownerId) {
 async function resumeOwnerAccount(ownerId) {
   const result = await db.query(
     `UPDATE store_owners
-        SET status = 'approved'
+        SET status = 'active'
       WHERE id = $1
       RETURNING id, owner_name, email, phone, store_id, status, approved_at`,
     [ownerId]
@@ -1588,10 +1644,11 @@ async function authenticateStoreOwner(email, password) {
       WHERE email = $1
       ORDER BY 
         CASE 
-          WHEN status = 'approved' THEN 0
+          WHEN status = 'active' THEN 0
           WHEN status = 'pending' THEN 1
           WHEN status = 'rejected' THEN 2
-          ELSE 3
+          WHEN status = 'suspended' THEN 3
+          ELSE 4
         END,
         created_at DESC
       LIMIT 1`,
@@ -1604,8 +1661,16 @@ async function authenticateStoreOwner(email, password) {
 
   const owner = result.rows[0];
 
-  if (owner.status !== 'approved') {
-    return { success: false, error: '아직 승인되지 않은 계정입니다.' };
+  if (owner.status !== 'active') {
+    if (owner.status === 'pending') {
+      return { success: false, error: '아직 승인되지 않은 계정입니다.' };
+    } else if (owner.status === 'suspended') {
+      return { success: false, error: '일시 중지된 계정입니다.' };
+    } else if (owner.status === 'rejected') {
+      return { success: false, error: '거절된 계정입니다.' };
+    } else {
+      return { success: false, error: '로그인할 수 없는 계정 상태입니다.' };
+    }
   }
 
   if (!owner.password_hash) {
@@ -1661,6 +1726,7 @@ async function recordOwnerLogin(ownerId) {
 // 가게 설정 업데이트
 async function updateStoreSettings(storeId, settings) {
   try {
+    await ensureStoreSettingsColumns();
     console.log(`가게 설정 업데이트 시도: ${storeId}`, settings);
     
     // store_settings 테이블에서 해당 가게의 설정을 찾거나 생성
@@ -1694,48 +1760,48 @@ async function updateStoreSettings(storeId, settings) {
       await db.query(`
         UPDATE store_settings 
         SET 
-          delivery = $2,
-          discount = $3,
-          pickup = $4,
-          images = $5,
-          business_hours = $6,
-          section_order = $7,
-          qr_code = $8,
-          domain_settings = $9,
+          basic = $2,
+          delivery = $3,
+          discount = $4,
+          pickup = $5,
+          images = $6,
+          business_hours = $7,
+          section_order = $8,
+          qr_code = $9,
           updated_at = CURRENT_TIMESTAMP
         WHERE store_id = $1
       `, [
         storeId,
+        JSON.stringify(settings.basic || {}),
         JSON.stringify(settings.delivery || {}),
         JSON.stringify(settings.discount || {}),
         JSON.stringify(settings.pickup || {}),
         JSON.stringify(settings.images || {}),
         JSON.stringify(settings.businessHours || {}),
         JSON.stringify(settings.sectionOrder || []),
-        JSON.stringify(settings.qrCode || {}),
-        JSON.stringify(settings.domainSettings || {})
+        JSON.stringify(settings.qrCode || {})
       ]);
     } else {
       // 새 설정 생성
-      await db.query(`
-        INSERT INTO store_settings (
-          store_id, delivery, discount, pickup, images, 
-          business_hours, section_order, qr_code, domain_settings, seo_settings, ab_test_settings,
-          created_at, updated_at
+    await db.query(`
+      INSERT INTO store_settings (
+          store_id, basic, delivery, discount, pickup, images, 
+          business_hours, section_order, qr_code,
+          seo_settings, ab_test_settings, created_at, updated_at
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      `, [
-        storeId,
-        JSON.stringify(settings.delivery || {}),
-        JSON.stringify(settings.discount || {}),
-        JSON.stringify(settings.pickup || {}),
-        JSON.stringify(settings.images || {}),
-        JSON.stringify(settings.businessHours || {}),
-        JSON.stringify(settings.sectionOrder || []),
-        JSON.stringify(settings.qrCode || {}),
-        JSON.stringify(settings.domainSettings || {}),
-        JSON.stringify(settings.seoSettings || {}),
-        JSON.stringify(settings.abTestSettings || {})
-      ]);
+    `, [
+      storeId,
+      JSON.stringify(settings.basic || {}),
+      JSON.stringify(settings.delivery || {}),
+      JSON.stringify(settings.discount || {}),
+      JSON.stringify(settings.pickup || {}),
+      JSON.stringify(settings.images || {}),
+      JSON.stringify(settings.businessHours || {}),
+      JSON.stringify(settings.sectionOrder || []),
+      JSON.stringify(settings.qrCode || {}),
+      JSON.stringify(settings.seoSettings || {}),
+      JSON.stringify(settings.abTestSettings || {})
+    ]);
     }
     
     console.log(`가게 설정 업데이트 완료: ${storeId}`);
@@ -1916,6 +1982,10 @@ async function ensureStoreSettingsColumns() {
     await db.transaction(async client => {
       await client.query(`
         ALTER TABLE store_settings
+        ADD COLUMN IF NOT EXISTS basic JSONB
+      `);
+      await client.query(`
+        ALTER TABLE store_settings
         ADD COLUMN IF NOT EXISTS seo_settings JSONB
       `);
       await client.query(`
@@ -1924,11 +1994,20 @@ async function ensureStoreSettingsColumns() {
       `);
       await client.query(`
         ALTER TABLE store_settings
+          ALTER COLUMN basic SET DEFAULT '{}'::jsonb
+      `);
+      await client.query(`
+        ALTER TABLE store_settings
           ALTER COLUMN seo_settings SET DEFAULT '{}'::jsonb
       `);
       await client.query(`
         ALTER TABLE store_settings
           ALTER COLUMN ab_test_settings SET DEFAULT '{}'::jsonb
+      `);
+      await client.query(`
+        UPDATE store_settings
+           SET basic = '{}'::jsonb
+         WHERE basic IS NULL
       `);
       await client.query(`
         UPDATE store_settings
@@ -1957,155 +2036,11 @@ async function ensureStoreSettingsColumns() {
 async function ensureSingleOwnerConstraint() {
   if (singleOwnerConstraintEnsured) return;
   try {
-    await db.transaction(async client => {
-      await client.query(`
-        DELETE FROM store_owner_links sol
-        WHERE NOT EXISTS (
-          SELECT 1 FROM store_owners so
-           WHERE so.id = sol.owner_id
-        )
-      `);
-
-      const duplicateStores = await client.query(`
-        SELECT store_id
-          FROM store_owner_links
-         GROUP BY store_id
-        HAVING COUNT(*) > 1
-      `);
-
-      for (const row of duplicateStores.rows) {
-        const ownerRows = await client.query(
-          `SELECT sol.owner_id, COALESCE(so.status, '') AS status
-             FROM store_owner_links sol
-             LEFT JOIN store_owners so ON so.id = sol.owner_id
-            WHERE sol.store_id = $1`,
-          [row.store_id]
-        );
-
-        if (!ownerRows.rows.length) {
-          await client.query(`DELETE FROM store_owner_links WHERE store_id = $1`, [row.store_id]);
-          continue;
-        }
-
-        const approvedOwner = ownerRows.rows.find(owner => owner.status === 'approved');
-        const keeperId = approvedOwner ? approvedOwner.owner_id : ownerRows.rows[0].owner_id;
-        const removeIds = ownerRows.rows
-          .map(owner => owner.owner_id)
-          .filter(ownerId => ownerId !== keeperId);
-
-        if (removeIds.length) {
-          await client.query(
-            `DELETE FROM store_owner_links
-              WHERE store_id = $1
-                AND owner_id = ANY($2::text[])`,
-            [row.store_id, removeIds]
-          );
-
-          await client.query(
-            `UPDATE store_owners
-                SET store_id = NULL
-              WHERE id = ANY($1::text[])`,
-            [removeIds]
-          );
-        }
-
-        await client.query(
-          `UPDATE store_owner_links
-              SET role = 'primary'
-            WHERE store_id = $1`,
-          [row.store_id]
-        );
-
-        await client.query(
-          `UPDATE store_owners
-              SET store_id = $2
-            WHERE id = $1`,
-          [keeperId, row.store_id]
-        );
-      }
-
-      await client.query(`
-        UPDATE store_owners so
-           SET store_id = NULL
-         WHERE so.store_id IS NOT NULL
-           AND NOT EXISTS (
-             SELECT 1
-               FROM store_owner_links sol
-              WHERE sol.owner_id = so.id
-                AND sol.store_id = so.store_id
-           )
-      `);
-
-      await client.query(`
-        DELETE FROM store_owner_links sol
-        USING store_owners so
-        WHERE sol.owner_id = so.id
-          AND COALESCE(so.status, '') NOT IN ('approved', 'paused')
-      `);
-
-      await client.query(`
-        UPDATE store_owners
-           SET store_id = NULL
-         WHERE COALESCE(status, '') NOT IN ('approved', 'paused')
-      `);
-    });
-
-    let canAlterConstraints = false;
-    try {
-      const privilegeResult = await db.query(`
-        SELECT tableowner = current_user AS is_owner
-          FROM pg_tables
-         WHERE schemaname = 'public'
-           AND tablename = 'store_owner_links'
-         LIMIT 1
-      `);
-      canAlterConstraints = Boolean(privilegeResult.rows?.[0]?.is_owner);
-    } catch (privilegeError) {
-      console.warn('store_owner_links 테이블 권한 확인 중 오류가 발생했습니다:', privilegeError.message);
-    }
-
-    if (canAlterConstraints) {
-      await db.query(`
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1
-          FROM pg_constraint
-         WHERE conname = 'store_owner_links_unique_store'
-           AND conrelid = 'store_owner_links'::regclass
-    ) THEN
-        ALTER TABLE store_owner_links
-          ADD CONSTRAINT store_owner_links_unique_store UNIQUE (store_id);
-    END IF;
-END$$;
-      `);
-
-      await db.query(`
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1
-          FROM pg_constraint
-         WHERE conname = 'store_owner_links_unique_owner'
-           AND conrelid = 'store_owner_links'::regclass
-    ) THEN
-        ALTER TABLE store_owner_links
-          ADD CONSTRAINT store_owner_links_unique_owner UNIQUE (owner_id);
-    END IF;
-END$$;
-      `);
-    } else {
-      console.warn('store_owner_links 테이블 소유 권한이 없어 제약 추가를 건너뜁니다.');
-    }
-
+    await db.query(`ALTER TABLE store_owner_links DROP CONSTRAINT IF EXISTS store_owner_links_unique_owner`);
+    await db.query(`ALTER TABLE store_owner_links DROP CONSTRAINT IF EXISTS store_owner_links_unique_store`);
     singleOwnerConstraintEnsured = true;
   } catch (error) {
-    if (error?.code === '42501') {
-      console.warn('점주 단일 연결 제약 정리를 위한 권한이 없어 초기화 단계를 건너뜁니다.');
-      singleOwnerConstraintEnsured = true;
-      return;
-    }
-    console.error('점주 단일 연결 제약 준비 실패:', error);
+    console.error('점주-가게 연결 제약 해제 실패:', error);
     throw error;
   }
 }
@@ -2583,8 +2518,7 @@ async function setCurrentStoreId(storeId) {
 // 서브도메인으로 가게 조회
 async function getStoreBySubdomain(subdomain) {
   try {
-    // 먼저 stores 테이블에서 서브도메인으로 조회
-    let result = await db.query(`
+    const result = await db.query(`
       SELECT 
         s.id, s.name, s.subtitle, s.phone, s.address, s.status, s.subdomain,
         s.subdomain_status, s.subdomain_created_at, s.subdomain_last_modified,
@@ -2593,21 +2527,6 @@ async function getStoreBySubdomain(subdomain) {
       WHERE s.subdomain = $1
       LIMIT 1
     `, [subdomain]);
-    
-    // stores 테이블에서 찾지 못한 경우 store_settings 테이블에서 조회
-    if (result.rows.length === 0) {
-      result = await db.query(`
-        SELECT 
-          s.id, s.name, s.subtitle, s.phone, s.address, s.status, s.subdomain,
-          s.subdomain_status, s.subdomain_created_at, s.subdomain_last_modified,
-          s."order", s.created_at, s.last_modified, s.paused_at
-        FROM stores s
-        JOIN store_settings ss ON s.id = ss.store_id
-        WHERE ss.domain_settings->>'subdomain' = $1
-        LIMIT 1
-      `, [subdomain]);
-    }
-    
     if (result.rows.length === 0) {
       return null;
     }
@@ -2683,8 +2602,10 @@ async function createStore(storeData = {}) {
     
     // 기본 설정 생성
     await db.query(`
-      INSERT INTO store_settings (store_id, basic, discount, delivery, pickup, images, business_hours, section_order, qr_code)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      INSERT INTO store_settings (
+        store_id, basic, discount, delivery, pickup, images,
+        business_hours, section_order, qr_code
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     `, [
       storeId,
       JSON.stringify(basicInfo),
@@ -2726,7 +2647,7 @@ async function createStoreForOwner(ownerId, storeData = {}, memo = '') {
   }
 
   const owner = ownerResult.rows[0];
-  if (owner.status !== 'approved') {
+  if (owner.status !== 'active') {
     throw new Error('승인된 점주 계정만 입점 신청이 가능합니다.');
   }
 
@@ -2735,8 +2656,7 @@ async function createStoreForOwner(ownerId, storeData = {}, memo = '') {
     status: storeData.status || 'pending'
   });
 
-  await linkOwnerToStore(ownerId, storeRecord.id);
-  await setPrimaryOwnerForStore(ownerId, storeRecord.id);
+  await linkOwnerToStore(ownerId, storeRecord.id, { role: 'primary', makePrimary: true });
 
   const logId = `log_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
   const description = `'${owner.owner_name || owner.email || '점주'}' 님이 '${storeRecord.name || '새 가게'}' 입점 신청을 제출했습니다.`;
@@ -2771,14 +2691,56 @@ async function createStoreForOwner(ownerId, storeData = {}, memo = '') {
   };
 }
 
+async function updateStoreSubdomain(storeId, options = {}) {
+  try {
+    const now = new Date().toISOString();
+    const normalizedSubdomain = options.subdomain && options.subdomain.trim() !== ''
+      ? options.subdomain.trim()
+      : null;
+    const nextStatus = options.status
+      || (normalizedSubdomain ? 'active' : 'inactive');
+
+    const result = await db.query(`
+      UPDATE stores
+         SET subdomain = $2::text,
+             subdomain_status = $3::text,
+             subdomain_created_at = CASE
+               WHEN subdomain_created_at IS NULL AND $2 IS NOT NULL THEN $4::timestamptz
+               ELSE subdomain_created_at
+             END,
+             subdomain_last_modified = CASE
+               WHEN $2 IS NOT NULL THEN $4::timestamptz
+               ELSE subdomain_last_modified
+             END,
+             last_modified = $4::timestamptz
+       WHERE id = $1
+       RETURNING subdomain, subdomain_status, subdomain_created_at, subdomain_last_modified
+    `, [storeId, normalizedSubdomain, nextStatus, now]);
+
+    if (result.rows.length === 0) {
+      throw new Error('가게를 찾을 수 없습니다.');
+    }
+
+    return result.rows[0];
+  } catch (error) {
+    if (error?.code === '23505') {
+      const conflictError = new Error('이미 사용 중인 서브도메인입니다.');
+      conflictError.isSubdomainConflict = true;
+      throw conflictError;
+    }
+    console.error('서브도메인 업데이트 실패:', error);
+    throw error;
+  }
+}
+
 // 가게 수정
 async function updateStore(storeId, storeData) {
   try {
     const now = new Date().toISOString();
-    
+
     const result = await db.query(`
       UPDATE stores 
-      SET name = $2, subtitle = $3, phone = $4, address = $5, subdomain = $6, last_modified = $7
+      SET name = $2, subtitle = $3, phone = $4, address = $5, last_modified = $6
       WHERE id = $1
       RETURNING *
     `, [
@@ -2787,15 +2749,36 @@ async function updateStore(storeId, storeData) {
       storeData.subtitle || '',
       storeData.phone || '',
       storeData.address || '',
-      storeData.subdomain && storeData.subdomain.trim() !== '' ? storeData.subdomain : null,
       now
     ]);
-    
+
     if (result.rows.length === 0) {
       throw new Error('가게를 찾을 수 없습니다.');
     }
-    
-    return result.rows[0];
+
+    // 서브도메인 관련 입력이 존재하면 전용 로직으로 상태와 타임스탬프를 동기화한다.
+    if (Object.prototype.hasOwnProperty.call(storeData, 'subdomain') || Object.prototype.hasOwnProperty.call(storeData, 'subdomainStatus')) {
+      const normalizedSubdomain = storeData.subdomain && storeData.subdomain.trim() !== '' ? storeData.subdomain.trim() : null;
+      const currentSubdomain = result.rows[0].subdomain;
+      const statusProvided = Object.prototype.hasOwnProperty.call(storeData, 'subdomainStatus');
+
+      if (currentSubdomain !== normalizedSubdomain || statusProvided) {
+        await updateStoreSubdomain(storeId, {
+          subdomain: normalizedSubdomain,
+          status: statusProvided ? storeData.subdomainStatus : undefined
+        });
+      }
+    }
+
+    const refreshed = await db.query(
+      `SELECT *
+         FROM stores
+        WHERE id = $1
+        LIMIT 1`,
+      [storeId]
+    );
+
+    return refreshed.rows[0];
   } catch (error) {
     console.error('가게 수정 실패:', error);
     throw error;
@@ -2867,6 +2850,189 @@ async function resumeStore(storeId) {
   }
 }
 
+// 가게 승인
+async function approveStore(storeId) {
+  try {
+    const now = new Date().toISOString();
+    const result = await db.query(`
+      UPDATE stores
+      SET status = 'active',
+          paused_at = NULL,
+          last_modified = $2
+      WHERE id = $1
+      RETURNING *
+    `, [storeId, now]);
+
+    if (result.rows.length === 0) {
+      throw new Error('가게를 찾을 수 없습니다.');
+    }
+
+    const store = result.rows[0];
+    try {
+      await createActivityLog({
+        id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        logType: 'store',
+        action: '가게 승인',
+        description: `'${store.name || store.id}' 가게 입점 요청이 승인되었습니다.`,
+        user: 'system',
+        storeId,
+        details: {
+          status: 'active'
+        },
+        timestamp: now
+      });
+    } catch (logError) {
+      console.error('가게 승인 로그 기록 실패:', logError);
+    }
+
+    return store;
+  } catch (error) {
+    console.error('가게 승인 실패:', error);
+    throw error;
+  }
+}
+
+// 가게 거절
+async function rejectStore(storeId, reason = '') {
+  try {
+    const now = new Date().toISOString();
+    const result = await db.query(`
+      UPDATE stores
+      SET status = 'rejected',
+          paused_at = NULL,
+          last_modified = $2
+      WHERE id = $1
+      RETURNING *
+    `, [storeId, now]);
+
+    if (result.rows.length === 0) {
+      throw new Error('가게를 찾을 수 없습니다.');
+    }
+
+    const store = result.rows[0];
+    try {
+      await createActivityLog({
+        id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        logType: 'store',
+        action: '가게 거절',
+        description: `'${store.name || store.id}' 가게 입점 요청이 거절되었습니다.`,
+        user: 'system',
+        storeId,
+        details: {
+          status: 'rejected',
+          reason: reason || ''
+        },
+        timestamp: now
+      });
+    } catch (logError) {
+      console.error('가게 거절 로그 기록 실패:', logError);
+    }
+
+    return store;
+  } catch (error) {
+    console.error('가게 거절 실패:', error);
+    throw error;
+  }
+}
+
+function parseJsonColumn(rawValue, fallback) {
+  if (!rawValue && rawValue !== 0) {
+    return fallback;
+  }
+  if (typeof rawValue === 'object') {
+    return rawValue;
+  }
+  if (typeof rawValue === 'string') {
+    try {
+      return JSON.parse(rawValue);
+    } catch (error) {
+      return fallback;
+    }
+  }
+  return fallback;
+}
+
+async function getStoresForExport() {
+  const result = await db.query(`
+    SELECT 
+      s.id,
+      s.name,
+      s.subtitle,
+      s.phone,
+      s.address,
+      s.status,
+      s.subdomain,
+      s.created_at,
+      s.last_modified,
+      ss.basic,
+      ss.discount,
+      ss.delivery,
+      ss.pickup,
+      ss.business_hours
+    FROM stores s
+    LEFT JOIN store_settings ss ON ss.store_id = s.id
+    ORDER BY s.created_at DESC
+  `);
+
+  return result.rows.map(row => ({
+    id: row.id,
+    name: row.name || '',
+    subtitle: row.subtitle || '',
+    phone: row.phone || '',
+    address: row.address || '',
+    status: row.status || 'pending',
+    subdomain: row.subdomain || '',
+    createdAt: row.created_at ? row.created_at.toISOString() : null,
+    lastModified: row.last_modified ? row.last_modified.toISOString() : null,
+    settings: {
+      basic: parseJsonColumn(row.basic, {}),
+      discount: parseJsonColumn(row.discount, {}),
+      delivery: parseJsonColumn(row.delivery, {}),
+      pickup: parseJsonColumn(row.pickup, {}),
+      businessHours: parseJsonColumn(row.business_hours, {})
+    }
+  }));
+}
+
+async function bulkUpdateStoreStatus(storeIds = [], nextStatus = 'paused') {
+  const ids = Array.isArray(storeIds) ? storeIds.map(id => String(id).trim()).filter(Boolean) : [];
+  if (!ids.length) {
+    return { updatedCount: 0 };
+  }
+  const now = new Date().toISOString();
+  const status = nextStatus === 'active' ? 'active' : 'paused';
+  const result = await db.query(
+    `UPDATE stores
+        SET status = $2,
+            paused_at = CASE WHEN $2 = 'paused' THEN $3 ELSE NULL END,
+            last_modified = $3
+      WHERE id = ANY($1::text[])
+      RETURNING id`,
+    [ids, status, now]
+  );
+  return {
+    updatedCount: result.rowCount,
+    affectedIds: result.rows.map(row => row.id)
+  };
+}
+
+async function bulkDeleteStores(storeIds = []) {
+  const ids = Array.isArray(storeIds) ? storeIds.map(id => String(id).trim()).filter(Boolean) : [];
+  if (!ids.length) {
+    return { deletedCount: 0 };
+  }
+  const result = await db.query(
+    `DELETE FROM stores
+      WHERE id = ANY($1::text[])
+      RETURNING id`,
+    [ids]
+  );
+  return {
+    deletedCount: result.rowCount,
+    deletedIds: result.rows.map(row => row.id)
+  };
+}
+
 module.exports = {
   getSuperAdmin,
   getStores,
@@ -2874,6 +3040,7 @@ module.exports = {
   getStoreBySubdomain,
   getStoreSettings,
   updateStoreSettings,
+  updateStoreSubdomain,
   getCurrentStoreId,
   setCurrentStoreId,
   getActivityLogs,
@@ -2884,6 +3051,11 @@ module.exports = {
   deleteStore,
   pauseStore,
   resumeStore,
+  approveStore,
+  rejectStore,
+  getStoresForExport,
+  bulkUpdateStoreStatus,
+  bulkDeleteStores,
   getReleaseNotes,
   getAllData,
   authenticateSuperAdmin,

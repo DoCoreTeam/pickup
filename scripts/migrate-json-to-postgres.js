@@ -168,12 +168,12 @@ async function migrateStoreSettings(settings) {
       JSON.stringify(setting.pickup || {}),
       JSON.stringify(setting.images || {}),
       JSON.stringify(setting.businessHours || {}),
-      JSON.stringify(setting.sectionOrder || {}),
+      JSON.stringify(setting.sectionOrder || []),
       JSON.stringify(setting.qrCode || {}),
       JSON.stringify(setting.seoSettings || {}),
       JSON.stringify(setting.abTestSettings || {}),
-      new Date(),
-      new Date()
+      new Date(setting.createdAt || Date.now()),
+      new Date(setting.updatedAt || Date.now())
     ]);
   }
   

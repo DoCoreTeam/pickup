@@ -36,7 +36,7 @@ body.owner-mode #stores .button-group {
 }
 
 body.owner-mode .owner-only {
-    display: block !important;
+    display: block;
 }
 
 body.owner-mode .owner-store-actions {
@@ -3460,7 +3460,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge">v1.4.5</div>
+                    <div class="version-badge">v1.5.0</div>
                 </div>
                 <a href="/admin/release-notes" class="release-notes-btn">
                     릴리즈 노트
@@ -3588,6 +3588,10 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">활성 가게</div>
                         <div style="font-size: 32px; font-weight: 700;" id="activeStoresCount">0</div>
                     </div>
+                    <div onclick="filterByStatCard('pending')" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'">
+                        <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">승인 대기</div>
+                        <div style="font-size: 32px; font-weight: 700;" id="pendingStoresCount">0</div>
+                    </div>
                     <div onclick="filterByStatCard('paused')" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'">
                         <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">일시정지</div>
                         <div style="font-size: 32px; font-weight: 700;" id="pausedStoresCount">0</div>
@@ -3606,6 +3610,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         <select id="storeStatusFilter" onchange="handleStoreStatusFilterChange()">
                             <option value="">전체 상태</option>
                             <option value="active">활성</option>
+                            <option value="pending">승인 대기</option>
                             <option value="paused">일시정지</option>
                         </select>
                         <select id="storeOwnerFilter" onchange="handleStoreOwnerFilterChange()">
@@ -3846,7 +3851,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 <div class="owner-toolbar">
                     <div class="owner-tabs">
                         <button type="button" class="owner-tab active" data-status="pending">승인 대기</button>
-                        <button type="button" class="owner-tab" data-status="approved">운영 중</button>
+                        <button type="button" class="owner-tab" data-status="active">운영 중</button>
+                        <button type="button" class="owner-tab" data-status="suspended">일시 중지</button>
                         <button type="button" class="owner-tab" data-status="rejected">거절됨</button>
                     </div>
                     <button type="button" class="btn" style="background: #e2e8f0; color: #1f2937; padding: 8px 16px; border-radius: 8px;" onclick="reloadOwnerAccounts()">새로고침</button>
@@ -4541,7 +4547,16 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             document.body.classList.add('owner-mode');
         }
         let ownerAccounts = [];
-        let ownerStatusFilter = 'pending';
+        
+        // 점주 계정 상태 상수 정의 (Single Source of Truth)
+        const OWNER_STATUS = {
+            PENDING: 'pending',
+            ACTIVE: 'active',
+            SUSPENDED: 'suspended',
+            REJECTED: 'rejected',
+            DELETED: 'deleted'
+        };
+        let ownerStatusFilter = OWNER_STATUS.PENDING; // 상수 사용
         let currentOwnerApprovalId = null;
         let currentOwnerRejectId = null;
         let dashboardScope = 'store';
@@ -4799,19 +4814,46 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         // 현재 가게 ID 가져오기
         async function getCurrentStoreId() {
             try {
-                if (IS_STORE_OWNER) {
-                    return window.currentStoreId || sessionStorage.getItem('owner_store_id') || null;
+                // 1순위: window.currentStoreId (현재 세션)
+                if (window.currentStoreId) {
+                    return window.currentStoreId;
                 }
 
-                // 먼저 /api/current-store에서 직접 조회
-                const currentStore = await apiRequest(`${API_BASE}/current-store`);
-                if (currentStore && currentStore.id) {
-                    return currentStore.id;
+                // 2순위: localStorage에 저장된 선택 가게 (새로고침 후 복원용)
+                const savedStoreId = localStorage.getItem('currentStoreId');
+                if (savedStoreId) {
+                    return savedStoreId;
+                }
+
+                // 3순위: 점주 모드의 경우 sessionStorage
+                if (IS_STORE_OWNER) {
+                    const ownerStoreId = sessionStorage.getItem('owner_store_id');
+                    if (ownerStoreId) {
+                        return ownerStoreId;
+                    }
+                }
+
+                // 4순위: API에서 현재 가게 조회
+                try {
+                    const currentStore = await apiRequest(`${API_BASE}/current-store`);
+                    if (currentStore && currentStore.id) {
+                        return currentStore.id;
+                    }
+                } catch (apiError) {
+                    console.warn('API에서 현재 가게 조회 실패:', apiError);
                 }
                 
-                // fallback으로 /api/data에서 조회
-                const data = await apiRequest(`${API_BASE}/data`);
-                return data.currentStoreId || null;
+                // 5순위: fallback으로 /api/data에서 조회
+                try {
+                    const data = await apiRequest(`${API_BASE}/data`);
+                    if (data && data.currentStoreId) {
+                        return data.currentStoreId;
+                    }
+                } catch (dataError) {
+                    console.warn('API에서 data 조회 실패:', dataError);
+                }
+
+                return null;
             } catch (error) {
                 console.error('현재 가게 ID 조회 실패:', error);
                 return null;
@@ -4820,28 +4862,65 @@ body:not(.owner-mode) .menu-section-title.owner-only {
 
         // 가게 목록 로드
         // 통계 업데이트
-        function updateStoreStats(summary = null) {
-            if (summary && typeof summary === 'object') {
-                document.getElementById('totalStoresCount').textContent = summary.total ?? 0;
-                document.getElementById('activeStoresCount').textContent = summary.active ?? 0;
-                document.getElementById('pausedStoresCount').textContent = summary.paused ?? 0;
-                document.getElementById('todayStoresCount').textContent = summary.today ?? 0;
-                return;
+        // 통계 카드 재계산 함수 (불변 조건: 항상 allStores만 사용)
+        function recalculateStoreStatsFrom(storesArray) {
+            if (!Array.isArray(storesArray)) {
+                console.warn('⚠️ [통계] storesArray가 배열이 아닙니다:', storesArray);
+                storesArray = [];
             }
 
-            const total = allStores.length;
-            const active = allStores.filter(s => s.status === 'active').length;
-            const paused = allStores.filter(s => s.status === 'paused').length;
+            const total = storesArray.length;
+            const active = storesArray.filter(s => (s.status || '').toLowerCase() === 'active').length;
+            const paused = storesArray.filter(s => (s.status || '').toLowerCase() === 'paused').length;
+            const pending = storesArray.filter(s => (s.status || '').toLowerCase() === 'pending').length;
             const today = new Date().toISOString().split('T')[0];
-            const todayStores = allStores.filter(s => {
-                const createdDate = s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : '';
+            const todayStores = storesArray.filter(s => {
+                if (!s.createdAt) return false;
+                const createdDate = new Date(s.createdAt).toISOString().split('T')[0];
                 return createdDate === today;
             }).length;
 
-            document.getElementById('totalStoresCount').textContent = total;
-            document.getElementById('activeStoresCount').textContent = active;
-            document.getElementById('pausedStoresCount').textContent = paused;
-            document.getElementById('todayStoresCount').textContent = todayStores;
+            // DOM 업데이트
+            const totalEl = document.getElementById('totalStoresCount');
+            const activeEl = document.getElementById('activeStoresCount');
+            const pausedEl = document.getElementById('pausedStoresCount');
+            const pendingEl = document.getElementById('pendingStoresCount');
+            const todayEl = document.getElementById('todayStoresCount');
+
+            if (totalEl) totalEl.textContent = total;
+            if (activeEl) activeEl.textContent = active;
+            if (pausedEl) pausedEl.textContent = paused;
+            if (pendingEl) pendingEl.textContent = pending;
+            if (todayEl) todayEl.textContent = todayStores;
+
+            // 개발용 체크 (불변 조건 검증)
+            if (typeof console !== 'undefined' && console.assert) {
+                const totalCard = totalEl ? parseInt(totalEl.textContent) || 0 : 0;
+                console.assert(totalCard === storesArray.length, 
+                    `❌ [통계 불변 조건 위반] 전체 가게 카드(${totalCard})와 storesArray 길이(${storesArray.length})가 다릅니다`);
+                console.assert(active <= total, 
+                    `❌ [통계 불변 조건 위반] 활성 가게 수(${active})가 전체 가게 수(${total})를 초과합니다`);
+                console.assert(paused <= total, 
+                    `❌ [통계 불변 조건 위반] 일시정지 가게 수(${paused})가 전체 가게 수(${total})를 초과합니다`);
+                console.assert(pending <= total, 
+                    `❌ [통계 불변 조건 위반] 승인 대기 가게 수(${pending})가 전체 가게 수(${total})를 초과합니다`);
+            }
+
+            console.log('✅ [통계 재계산]', {
+                total,
+                active,
+                paused,
+                pending,
+                todayStores,
+                allStoresLength: allStores.length
+            });
+        }
+
+        // 하위 호환성을 위한 별칭 (기존 코드에서 사용 중인 경우)
+        function updateStoreStats(summary = null) {
+            // summary 파라미터는 더 이상 사용하지 않음 (불변 조건 위반)
+            console.warn('⚠️ [통계] updateStoreStats는 deprecated입니다. recalculateStoreStatsFrom(allStores)를 사용하세요.');
+            recalculateStoreStatsFrom(allStores);
         }
 
         // 가게 목록 API 응답을 배열 형태로 변환하는 헬퍼
@@ -4882,14 +4961,96 @@ body:not(.owner-mode) .menu-section-title.owner-only {
 
         async function reloadOwnerAccounts() {
             if (!IS_SUPERADMIN) return;
-            await loadOwnerAccounts();
+            // 현재 선택된 탭 상태로 다시 로드
+            await loadOwnerAccounts(ownerStatusFilter);
         }
 
-        async function loadOwnerAccounts() {
+        async function loadOwnerAccounts(statusFilter = null) {
             try {
-                const response = await apiRequest(`${API_BASE}/owners`, 'GET');
-                ownerAccounts = response?.data || response || [];
+                // statusFilter가 없으면 현재 선택된 탭의 상태 사용
+                const statusToLoad = statusFilter || ownerStatusFilter;
+                
+                // API 요청 URL 구성 (status 파라미터 명시적 전달)
+                const url = statusToLoad && statusToLoad !== ''
+                    ? `${API_BASE}/owners?status=${encodeURIComponent(statusToLoad)}`
+                    : `${API_BASE}/owners`;
+                
+                console.log('🔍 [점주 계정 관리] API 요청:', url);
+                
+                const response = await apiRequest(url, 'GET');
+                const receivedAccounts = response?.data || response || [];
+                
+                console.log(`✅ [점주 계정 관리] API 응답: ${receivedAccounts.length}개 계정 수신`, {
+                    requestedStatus: statusToLoad,
+                    receivedCount: receivedAccounts.length,
+                    receivedStatuses: receivedAccounts.map(o => o.status),
+                    // 재발 방지: 각 계정의 상세 정보 로그
+                    accounts: receivedAccounts.map(o => ({
+                        id: o.id,
+                        email: o.email,
+                        status: o.status,
+                        statusType: typeof o.status,
+                        statusLength: o.status ? o.status.length : 0
+                    }))
+                });
+                
+                // 재발 방지: status 값 불일치 상세 분석
+                if (statusToLoad && statusToLoad !== '') {
+                    const statusMismatch = receivedAccounts.filter(o => {
+                        const ownerStatus = (o.status || '').toString().trim().toLowerCase();
+                        const expectedStatus = statusToLoad.toString().trim().toLowerCase();
+                        return ownerStatus !== expectedStatus;
+                    });
+                    
+                    if (statusMismatch.length > 0) {
+                        console.error('❌ [점주 계정 관리] 상태 불일치 상세:', {
+                            requestedStatus: statusToLoad,
+                            requestedStatusType: typeof statusToLoad,
+                            requestedStatusLength: statusToLoad.length,
+                            mismatchedAccounts: statusMismatch.map(o => ({
+                                id: o.id,
+                                email: o.email,
+                                actualStatus: o.status,
+                                actualStatusType: typeof o.status,
+                                actualStatusLength: o.status ? o.status.length : 0,
+                                comparison: {
+                                    actual: (o.status || '').toString().trim().toLowerCase(),
+                                    expected: statusToLoad.toString().trim().toLowerCase(),
+                                    exactMatch: o.status === statusToLoad,
+                                    caseInsensitiveMatch: (o.status || '').toString().trim().toLowerCase() === statusToLoad.toString().trim().toLowerCase()
+                                }
+                            }))
+                        });
+                    }
+                }
+                
+                // 재발 방지: API 응답 데이터 검증
+                if (statusToLoad && statusToLoad !== '') {
+                    const mismatched = receivedAccounts.filter(o => o.status !== statusToLoad);
+                    if (mismatched.length > 0) {
+                        console.error('❌ [점주 계정 관리] 상태 불일치 발견:', {
+                            requestedStatus: statusToLoad,
+                            mismatchedCount: mismatched.length,
+                            mismatched: mismatched.map(o => ({ id: o.id, email: o.email, status: o.status }))
+                        });
+                    }
+                }
+                
+                ownerAccounts = receivedAccounts;
                 renderOwnerAccounts();
+                
+                // 재발 방지: 렌더링 후 검증
+                const container = document.getElementById('ownerList');
+                if (container) {
+                    const renderedCount = container.querySelectorAll('.owner-card').length;
+                    if (receivedAccounts.length > 0 && renderedCount === 0) {
+                        console.error('❌ [점주 계정 관리] 렌더링 불일치:', {
+                            apiCount: receivedAccounts.length,
+                            renderedCount: renderedCount,
+                            statusFilter: statusToLoad
+                        });
+                    }
+                }
             } catch (error) {
                 console.error('점주 계정 목록 로드 실패:', error);
                 const container = document.getElementById('ownerList');
@@ -4902,12 +5063,21 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         function setupOwnerTabs() {
             const tabs = document.querySelectorAll('.owner-tab');
             tabs.forEach(tab => {
-                tab.addEventListener('click', () => {
+                tab.addEventListener('click', async () => {
                     const status = tab.getAttribute('data-status');
-                    ownerStatusFilter = status;
-                    tabs.forEach(t => t.classList.remove('active'));
-                    tab.classList.add('active');
-                    renderOwnerAccounts();
+                    // 상태 검증 (상수 사용)
+                    const validStatuses = [OWNER_STATUS.PENDING, OWNER_STATUS.ACTIVE, OWNER_STATUS.SUSPENDED, OWNER_STATUS.REJECTED];
+                    if (validStatuses.includes(status)) {
+                        ownerStatusFilter = status;
+                        tabs.forEach(t => t.classList.remove('active'));
+                        tab.classList.add('active');
+                        
+                        // 탭 클릭 시 해당 상태로 API 재요청 (서버 사이드 필터링)
+                        console.log(`🔄 [점주 계정 관리] 탭 변경: ${status}`);
+                        await loadOwnerAccounts(status);
+                    } else {
+                        console.warn('⚠️ [점주 계정 관리] 유효하지 않은 상태 필터:', status);
+                    }
                 });
             });
         }
@@ -4916,14 +5086,51 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             const container = document.getElementById('ownerList');
             if (!container) return;
 
-            const filtered = ownerAccounts.filter(owner => owner.status === ownerStatusFilter);
+            // 재발 방지: API에서 이미 필터링된 데이터를 받았으므로, 클라이언트 사이드 필터링은 최소화
+            // 다만, ownerStatusFilter와 일치하지 않는 데이터가 있다면 경고
+            const filtered = ownerAccounts.filter(owner => {
+                const matches = owner.status === ownerStatusFilter;
+                if (!matches && ownerAccounts.length > 0) {
+                    console.warn('⚠️ [점주 계정 관리] 상태 불일치 계정 발견:', {
+                        ownerId: owner.id,
+                        ownerEmail: owner.email,
+                        ownerStatus: owner.status,
+                        expectedStatus: ownerStatusFilter
+                    });
+                }
+                return matches;
+            });
+            
+            // 재발 방지: 디버그 로그
+            console.log(`🎨 [점주 계정 관리] 렌더링:`, {
+                totalAccounts: ownerAccounts.length,
+                filterStatus: ownerStatusFilter,
+                filterStatusType: typeof ownerStatusFilter,
+                filteredCount: filtered.length,
+                accountStatuses: ownerAccounts.map(o => o.status),
+                // 재발 방지: 각 계정의 status와 필터 비교
+                statusComparison: ownerAccounts.map(o => ({
+                    id: o.id,
+                    email: o.email,
+                    ownerStatus: o.status,
+                    filterStatus: ownerStatusFilter,
+                    matches: o.status === ownerStatusFilter,
+                    caseInsensitiveMatch: (o.status || '').toString().trim().toLowerCase() === (ownerStatusFilter || '').toString().trim().toLowerCase()
+                }))
+            });
 
             if (filtered.length === 0) {
-                const guideText = ownerStatusFilter === 'pending'
-                    ? '새로운 입점 요청이 도착하면 이곳에서 확인할 수 있습니다.'
-                    : ownerStatusFilter === 'approved'
-                        ? '승인된 가게 사장님 계정이 없습니다.'
-                        : '거절된 요청이 없습니다.';
+                // 상태별 안내 메시지 (상수 사용)
+                let guideText = '계정이 없습니다.';
+                if (ownerStatusFilter === OWNER_STATUS.PENDING) {
+                    guideText = '새로운 입점 요청이 도착하면 이곳에서 확인할 수 있습니다.';
+                } else if (ownerStatusFilter === OWNER_STATUS.ACTIVE) {
+                    guideText = '운영 중인 가게 사장님 계정이 없습니다.';
+                } else if (ownerStatusFilter === OWNER_STATUS.SUSPENDED) {
+                    guideText = '일시 중지된 계정이 없습니다.';
+                } else if (ownerStatusFilter === OWNER_STATUS.REJECTED) {
+                    guideText = '거절된 요청이 없습니다.';
+                }
                 container.innerHTML = `<div class="owner-empty">${guideText}</div>`;
                 return;
             }
@@ -4942,18 +5149,38 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 const approvedAt = owner.approvedAt ? new Date(owner.approvedAt).toLocaleString('ko-KR') : null;
                 const lastLogin = owner.lastLogin ? new Date(owner.lastLogin).toLocaleString('ko-KR') : null;
                 const displayStoreName = owner.requestData?.storeName || owner.storeName || '';
-                const storeLabelTitle = owner.status === 'approved' ? '운영 가게' : '요청 가게';
+                const storeLabelTitle = owner.status === OWNER_STATUS.ACTIVE ? '운영 가게' : '요청 가게';
                 const storeLabel = displayStoreName
                     ? `${escapeHtml(displayStoreName)}`
                     : '<span style="color:#9ca3af;">가게 정보 없음</span>';
-                const statusLabel = owner.status === 'pending'
-                    ? '승인 대기'
-                    : owner.status === 'approved'
-                        ? '운영 중'
-                        : owner.status === 'paused'
-                            ? '중지됨'
-                            : '거절됨';
+                
+                // 상태 라벨 매핑 (상수 사용)
+                let statusLabel = '알 수 없음';
+                if (owner.status === OWNER_STATUS.PENDING) {
+                    statusLabel = '승인 대기';
+                } else if (owner.status === OWNER_STATUS.ACTIVE) {
+                    statusLabel = '운영 중';
+                } else if (owner.status === OWNER_STATUS.SUSPENDED) {
+                    statusLabel = '일시 중지';
+                } else if (owner.status === OWNER_STATUS.REJECTED) {
+                    statusLabel = '거절됨';
+                }
+                
                 const statusBadge = `<span class="owner-badge ${owner.status}">${statusLabel}</span>`;
+                
+                // 연결된 가게 수 표시
+                const stores = Array.isArray(owner.stores) ? owner.stores : [];
+                const activeStores = stores.filter(s => s.status === 'active').length;
+                const pausedStores = stores.filter(s => s.status === 'paused').length;
+                const pendingStores = stores.filter(s => s.status === 'pending').length;
+                const storesInfo = stores.length > 0 
+                    ? `<div style="margin-top:8px; font-size:12px; color:#64748b;">
+                        연결된 가게: 총 ${stores.length}개
+                        ${activeStores > 0 ? ` (운영 중 ${activeStores}개)` : ''}
+                        ${pausedStores > 0 ? ` (일시정지 ${pausedStores}개)` : ''}
+                        ${pendingStores > 0 ? ` (승인 대기 ${pendingStores}개)` : ''}
+                       </div>`
+                    : '';
                 const safeEmail = escapeForAttribute(owner.email || '');
                 const safeStoreName = escapeForAttribute(owner.requestData?.storeName || owner.storeName || '');
                 const passwordSourceAttr = escapeForAttribute(owner.passwordSource || 'request');
@@ -4972,20 +5199,26 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     : '';
 
                 let actionButtons = '';
-                if (owner.status === 'pending') {
+                // 상태별 버튼 표시 (상수 사용)
+                if (owner.status === OWNER_STATUS.PENDING) {
                     actionButtons = `
                         <button class="btn-approve" onclick="openOwnerApprovalModal('${owner.id}')">승인</button>
                         <button class="btn-reject" onclick="openOwnerRejectModal('${owner.id}')">거절</button>
+                        <button class="btn-danger" onclick="openOwnerDeleteModal('${owner.id}')">삭제</button>
                     `;
-                } else if (owner.status === 'approved') {
+                } else if (owner.status === OWNER_STATUS.ACTIVE) {
                     actionButtons = `
                         <button class="btn-copy" onclick="copyOwnerGuide('${safeEmail}', '${safeStoreName}', '${passwordSourceAttr}')">안내 복사</button>
                         <button class="btn-secondary" onclick="openOwnerPauseModal('${owner.id}')">운영 중지</button>
                         <button class="btn-danger" onclick="openOwnerDeleteModal('${owner.id}')">삭제</button>
                     `;
-                } else if (owner.status === 'paused') {
+                } else if (owner.status === OWNER_STATUS.SUSPENDED) {
                     actionButtons = `
-                        <button class="btn-approve" onclick="openOwnerResumeModal('${owner.id}')">재개</button>
+                        <button class="btn-approve" onclick="openOwnerResumeModal('${owner.id}')">운영 재개</button>
+                        <button class="btn-danger" onclick="openOwnerDeleteModal('${owner.id}')">삭제</button>
+                    `;
+                } else if (owner.status === OWNER_STATUS.REJECTED) {
+                    actionButtons = `
                         <button class="btn-danger" onclick="openOwnerDeleteModal('${owner.id}')">삭제</button>
                     `;
                 }
@@ -5013,6 +5246,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                                 </div>
                             </div>
                         ` : ''}
+                        ${storesInfo}
                         <div class="owner-actions">
                             ${actionButtons}
                         </div>
@@ -5099,12 +5333,23 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 const response = await apiRequest(`${API_BASE}/owners/${currentOwnerApprovalId}/approve`, 'POST', {});
                 const owner = ownerAccounts.find(item => item.id === currentOwnerApprovalId);
                 if (owner) {
-                    owner.status = 'approved';
+                    owner.status = OWNER_STATUS.ACTIVE; // 상수 사용
                     owner.storeId = response.store?.id || owner.storeId;
                     owner.approvedAt = response.owner?.approved_at || new Date().toISOString();
                     owner.storeName = response.store?.name || owner.requestData?.storeName || owner.storeName || '';
                 }
-                renderOwnerAccounts();
+                // 승인된 계정은 '운영 중' 탭으로 이동하므로 탭 변경
+                ownerStatusFilter = OWNER_STATUS.ACTIVE;
+                const activeTab = document.querySelector(`.owner-tab[data-status="${OWNER_STATUS.ACTIVE}"]`);
+                const tabs = document.querySelectorAll('.owner-tab');
+                if (activeTab) {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    activeTab.classList.add('active');
+                    // 탭 변경 후 해당 상태로 API 재요청
+                    await loadOwnerAccounts(OWNER_STATUS.ACTIVE);
+                } else {
+                    renderOwnerAccounts();
+                }
 
                 const passwordSource = response.passwordSource || 'generated';
                 const tempPassword = response.tempPassword;
@@ -5202,7 +5447,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 await apiRequest(`${API_BASE}/owners/${currentOwnerRejectId}/reject`, 'POST', { reason: reason });
                 const owner = ownerAccounts.find(item => item.id === currentOwnerRejectId);
                 if (owner) {
-                    owner.status = 'rejected';
+                    owner.status = OWNER_STATUS.REJECTED; // 상수 사용
                     if (owner.requestData && typeof owner.requestData === 'string') {
                         try {
                             owner.requestData = JSON.parse(owner.requestData);
@@ -5214,8 +5459,19 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     owner.requestData.rejectReason = reason;
                 }
                 closeOwnerRejectModal();
-                renderOwnerAccounts();
-                showToast('요청을 거절했습니다.', 'warning');
+                // 거절된 계정은 '거절됨' 탭으로 이동하므로 탭 변경
+                ownerStatusFilter = OWNER_STATUS.REJECTED;
+                const rejectedTab = document.querySelector(`.owner-tab[data-status="${OWNER_STATUS.REJECTED}"]`);
+                const tabs = document.querySelectorAll('.owner-tab');
+                if (rejectedTab) {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    rejectedTab.classList.add('active');
+                    // 탭 변경 후 해당 상태로 API 재요청
+                    await loadOwnerAccounts(OWNER_STATUS.REJECTED);
+                } else {
+                    renderOwnerAccounts();
+                }
+                showToast('요청을 거절했습니다.', 'warning', '거절 완료');
             } catch (error) {
                 console.error('계정 거절 실패:', error);
                 showToast(error.message || '요청 거절에 실패했습니다.', 'error');
@@ -5337,10 +5593,26 @@ body:not(.owner-mode) .menu-section-title.owner-only {
 
         async function pauseOwnerAccount(ownerId) {
             try {
-                await apiRequest(`${API_BASE}/owners/${ownerId}/pause`, 'POST', {});
-                await loadOwnerAccounts();
+                const response = await apiRequest(`${API_BASE}/owners/${ownerId}/pause`, 'POST', {});
+                // 상태 변경 후 즉시 로컬 데이터 업데이트
+                const owner = ownerAccounts.find(item => item.id === ownerId);
+                if (owner) {
+                    owner.status = OWNER_STATUS.SUSPENDED; // 상수 사용
+                }
+                // 일시 중지된 계정은 '일시 중지' 탭으로 이동하므로 탭 변경
+                ownerStatusFilter = OWNER_STATUS.SUSPENDED;
+                const suspendedTab = document.querySelector(`.owner-tab[data-status="${OWNER_STATUS.SUSPENDED}"]`);
+                const tabs = document.querySelectorAll('.owner-tab');
+                if (suspendedTab) {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    suspendedTab.classList.add('active');
+                    // 탭 변경 후 해당 상태로 API 재요청
+                    await loadOwnerAccounts(OWNER_STATUS.SUSPENDED);
+                } else {
+                    await loadOwnerAccounts(OWNER_STATUS.SUSPENDED);
+                }
                 await loadStoreList();
-                showToast('계정을 일시 중지했습니다.', 'warning');
+                showToast('계정을 일시 중지했습니다.', 'warning', '운영 중지 완료');
             } catch (error) {
                 console.error('계정 중지 실패:', error);
                 showToast(error.message || '계정을 중지하지 못했습니다.', 'error');
@@ -5350,10 +5622,26 @@ body:not(.owner-mode) .menu-section-title.owner-only {
 
         async function resumeOwnerAccount(ownerId) {
             try {
-                await apiRequest(`${API_BASE}/owners/${ownerId}/resume`, 'POST', {});
-                await loadOwnerAccounts();
-                await loadStoreList();
-                showToast('계정을 다시 활성화했습니다.', 'success');
+                const response = await apiRequest(`${API_BASE}/owners/${ownerId}/resume`, 'POST', {});
+                // 상태 변경 후 즉시 로컬 데이터 업데이트
+                const owner = ownerAccounts.find(item => item.id === ownerId);
+                if (owner) {
+                    owner.status = OWNER_STATUS.ACTIVE; // 상수 사용
+                }
+                // 재개된 계정은 '운영 중' 탭으로 이동하므로 탭 변경
+                ownerStatusFilter = OWNER_STATUS.ACTIVE;
+                const activeTab = document.querySelector(`.owner-tab[data-status="${OWNER_STATUS.ACTIVE}"]`);
+                const tabs = document.querySelectorAll('.owner-tab');
+                if (activeTab) {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    activeTab.classList.add('active');
+                    // 탭 변경 후 해당 상태로 API 재요청
+                    await loadOwnerAccounts(OWNER_STATUS.ACTIVE);
+                } else {
+                    await loadOwnerAccounts(OWNER_STATUS.ACTIVE);
+                }
+                await loadStoreList(); // 가게 관리 화면의 "연결된 점주" 표시도 업데이트됨
+                showToast('계정 운영을 재개했습니다.', 'success', '운영 재개 완료');
             } catch (error) {
                 console.error('계정 재개 실패:', error);
                 showToast(error.message || '계정을 재개하지 못했습니다.', 'error');
@@ -5364,7 +5652,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         async function deleteOwnerAccount(ownerId) {
             try {
                 await apiRequest(`${API_BASE}/owners/${ownerId}`, 'DELETE');
-                await loadOwnerAccounts();
+                // 삭제 후 현재 선택된 탭 상태로 다시 로드
+                await loadOwnerAccounts(ownerStatusFilter);
                 await loadStoreList();
                 showToast('계정을 삭제했습니다.', 'warning');
             } catch (error) {
@@ -5579,7 +5868,21 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             return owners.map(owner => {
                 const ownerName = owner?.ownerName || '이름 미상';
                 const ownerEmail = owner?.email ? `<span style="display:block; font-weight:400; color:#1d4ed8; font-size:11px;">${owner.email}</span>` : '';
-                return `<span class="owner-tag">${ownerName}${ownerEmail}</span>`;
+                
+                // Owner 상태에 따른 표시
+                let statusBadge = '';
+                const ownerStatus = owner?.status || '';
+                if (ownerStatus === OWNER_STATUS.ACTIVE) {
+                    statusBadge = '<span style="display:block; font-size:10px; color:#10b981; margin-top:2px;">✓ 운영 중</span>';
+                } else if (ownerStatus === OWNER_STATUS.SUSPENDED) {
+                    statusBadge = '<span style="display:block; font-size:10px; color:#f59e0b; margin-top:2px;">⚠ 일시 중지</span>';
+                } else if (ownerStatus === OWNER_STATUS.PENDING) {
+                    statusBadge = '<span style="display:block; font-size:10px; color:#3b82f6; margin-top:2px;">⏳ 승인 대기</span>';
+                } else if (ownerStatus === OWNER_STATUS.REJECTED) {
+                    statusBadge = '<span style="display:block; font-size:10px; color:#ef4444; margin-top:2px;">✗ 거절됨</span>';
+                }
+                
+                return `<span class="owner-tag">${ownerName}${ownerEmail}${statusBadge}</span>`;
             }).join('');
         }
 
@@ -5664,7 +5967,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
             storeOwnerManageState = { storeId };
             if (ownerAccounts.length === 0) {
-                await loadOwnerAccounts();
+                await loadOwnerAccounts(ownerStatusFilter);
             }
             const store = getStoreById(storeId);
             if (!store) {
@@ -5732,8 +6035,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 }).join('');
             }
 
+            // active 또는 suspended 상태의 점주만 연결 가능 (Single Source of Truth)
             const availableOwners = ownerAccounts
-                .filter(owner => owner.status === 'approved')
+                .filter(owner => owner.status === OWNER_STATUS.ACTIVE || owner.status === OWNER_STATUS.SUSPENDED)
                 .filter(owner => !owners.some(linked => linked?.id === owner.id));
 
             const optionsHtml = ['<option value="">연결할 점주를 선택하세요</option>']
@@ -5775,7 +6079,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             try {
                 await apiRequest(`${API_BASE}/stores/${storeId}/owners`, 'POST', { ownerId });
                 showToast('점주를 연결했습니다.', 'success');
-                await loadOwnerAccounts();
+                await loadOwnerAccounts(ownerStatusFilter);
                 await loadStoreList();
                 const updatedStore = getStoreById(storeId);
                 if (updatedStore) {
@@ -5806,7 +6110,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             try {
                 await apiRequest(`${API_BASE}/stores/${storeId}/owners/${ownerId}`, 'DELETE');
                 showToast('점주 연결이 해제되었습니다.', 'warning');
-                await loadOwnerAccounts();
+                await loadOwnerAccounts(ownerStatusFilter);
                 await loadStoreList();
                 const updatedStore = getStoreById(storeId);
                 if (updatedStore) {
@@ -5981,34 +6285,63 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         }
         
         // CSV 내보내기
-        // 통계 카드 클릭 필터
-        function filterByStatCard(type) {
+        // 통계 카드 클릭 필터 (단일 진실: storeQueryState.status)
+        window.filterByStatCard = function filterByStatCard(type) {
             const statusFilter = document.getElementById('storeStatusFilter');
             const searchInput = document.getElementById('storeSearchInput');
             
             // 검색 초기화
             searchInput.value = '';
+            storeQueryState.keyword = '';
             
+            // storeQueryState.status 업데이트 (단일 진실)
             if (type === 'all') {
-                statusFilter.value = '';
+                storeQueryState.status = '';
+                storeQueryState.createdDate = '';
             } else if (type === 'active') {
-                statusFilter.value = 'active';
+                storeQueryState.status = 'active';
+                storeQueryState.createdDate = '';
+            } else if (type === 'pending') {
+                storeQueryState.status = 'pending';
+                storeQueryState.createdDate = '';
             } else if (type === 'paused') {
-                statusFilter.value = 'paused';
+                storeQueryState.status = 'paused';
+                storeQueryState.createdDate = '';
             } else if (type === 'today') {
-                statusFilter.value = '';
+                storeQueryState.status = '';
                 const today = new Date().toISOString().split('T')[0];
-                filteredStores = allStores.filter(store => {
-                    const storeDate = store.createdAt ? store.createdAt.split('T')[0] : '';
-                    return storeDate === today;
-                });
-                document.getElementById('filteredStoresCount').textContent = filteredStores.length;
-                renderStoreView();
-                return;
+                storeQueryState.createdDate = today;
             }
             
-            filterStoreList();
-        }
+            // 페이지 초기화
+            storeQueryState.page = 1;
+            
+            // 드롭다운 UI 동기화
+            if (statusFilter) {
+                if (type === 'all') {
+                    statusFilter.value = '';
+                } else if (type === 'today') {
+                    statusFilter.value = '';
+                    // 오늘 추가는 createdDate 필터로 처리되므로 status는 빈 값
+                } else {
+                    statusFilter.value = storeQueryState.status;
+                }
+            }
+            
+            // createdDate 필터 UI도 동기화
+            const createdFilter = document.getElementById('storeCreatedFilter');
+            if (createdFilter) {
+                if (type === 'today') {
+                    createdFilter.value = 'today';
+                } else {
+                    createdFilter.value = '';
+                }
+            }
+            
+            // 목록 재조회 (storeQueryState.status 기준으로 필터링)
+            loadStoreList();
+        };
+        
         // URL 복사
         async function copyStoreUrl(url) {
             try {
@@ -6075,12 +6408,35 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         await renderStoreView();
                         initializeSidebarStoreInfo();
                         updateOwnerStoreActions(0);
+                        recalculateStoreStatsFrom(allStores); // 통계 재계산
                         return;
                     }
 
                     allStores = normalizedStores;
-                    filteredStores = [...normalizedStores];
+                    
+                    // 점주 모드에서도 storeQueryState.status 필터 적용 (단일 진실)
+                    filteredStores = normalizedStores.filter(store => {
+                        if (!storeQueryState.status || storeQueryState.status === '') {
+                            return true; // 전체 상태
+                        }
+                        const storeStatus = (store.status || '').toLowerCase();
+                        return storeStatus === storeQueryState.status.toLowerCase();
+                    });
+                    
+                    // createdDate 필터도 적용
+                    if (storeQueryState.createdDate) {
+                        const filterDate = storeQueryState.createdDate === 'today' 
+                            ? new Date().toISOString().split('T')[0]
+                            : storeQueryState.createdDate;
+                        filteredStores = filteredStores.filter(store => {
+                            if (!store.createdAt) return false;
+                            const createdDate = new Date(store.createdAt).toISOString().split('T')[0];
+                            return createdDate === filterDate;
+                        });
+                    }
+                    
                     updateOwnerStoreActions(normalizedStores.length);
+                    recalculateStoreStatsFrom(allStores); // 통계 재계산
 
                     try {
                         const serializedStores = normalizedStores
@@ -6091,12 +6447,41 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         console.warn('owner_store_list 저장 실패:', error);
                     }
 
-                    const activeStoreId = ownerStoreId && normalizedStores.some(store => store.id === ownerStoreId)
-                        ? ownerStoreId
-                        : normalizedStores[0]?.id;
+                    // 선택 가게 복원 로직 (localStorage 우선)
+                    let activeStoreId = null;
+                    
+                    // 1순위: localStorage에 저장된 선택 가게 확인
+                    const savedStoreId = localStorage.getItem('currentStoreId');
+                    if (savedStoreId && normalizedStores.some(store => store.id === savedStoreId)) {
+                        activeStoreId = savedStoreId;
+                        console.log('✅ [선택 가게 복원] localStorage에서 복원:', activeStoreId);
+                    }
+                    // 2순위: sessionStorage의 owner_store_id 확인
+                    else if (ownerStoreId && normalizedStores.some(store => store.id === ownerStoreId)) {
+                        activeStoreId = ownerStoreId;
+                        console.log('✅ [선택 가게 복원] sessionStorage에서 복원:', activeStoreId);
+                    }
+                    // 3순위: window.currentStoreId 확인
+                    else if (window.currentStoreId && normalizedStores.some(store => store.id === window.currentStoreId)) {
+                        activeStoreId = window.currentStoreId;
+                        console.log('✅ [선택 가게 복원] window.currentStoreId에서 복원:', activeStoreId);
+                    }
+                    // 4순위: 최초 진입 시에만 첫 번째 가게 자동 선택
+                    else if (normalizedStores.length > 0 && !savedStoreId && !ownerStoreId && !window.currentStoreId) {
+                        activeStoreId = normalizedStores[0]?.id;
+                        console.log('✅ [선택 가게 복원] 최초 진입 - 첫 번째 가게 자동 선택:', activeStoreId);
+                        // 최초 진입 시 localStorage에도 저장
+                        if (activeStoreId) {
+                            localStorage.setItem('currentStoreId', activeStoreId);
+                        }
+                    }
 
                     if (activeStoreId) {
+                        // sessionStorage 동기화 (점주 모드)
                         sessionStorage.setItem('owner_store_id', activeStoreId);
+                        // window.currentStoreId 동기화
+                        window.currentStoreId = activeStoreId;
+                        // API 동기화
                         try {
                             await apiRequest(`${API_BASE}/current-store`, 'POST', { storeId: activeStoreId });
                         } catch (error) {
@@ -6104,12 +6489,11 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         }
                     }
 
-                    document.getElementById('filteredStoresCount').textContent = normalizedStores.length;
+                    document.getElementById('filteredStoresCount').textContent = filteredStores.length;
                     populateOwnerFilterOptions(normalizedStores);
                     await renderStoreView();
 
                     if (activeStoreId) {
-                        window.currentStoreId = activeStoreId;
                         await updateSelectedStoreCard(activeStoreId);
                         updateSelectedStoreVisual(activeStoreId);
                     } else {
@@ -6120,7 +6504,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 }
 
                 if (IS_SUPERADMIN && ownerAccounts.length === 0) {
-                    await loadOwnerAccounts();
+                    await loadOwnerAccounts(ownerStatusFilter);
                 }
 
                 const query = new URLSearchParams({
@@ -6142,11 +6526,40 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     query.set('createdDate', storeQueryState.createdDate);
                 }
 
+                // 필터가 적용된 목록 가져오기 (테이블 표시용)
                 const storesResponse = await apiRequest(`${API_BASE}/stores?${query.toString()}`);
                 const stores = normalizeStoreListResponse(storesResponse);
-                allStores = stores;
                 filteredStores = [...stores];
-                populateOwnerFilterOptions(allStores);
+                populateOwnerFilterOptions(stores);
+
+                // allStores는 항상 전체 가게 목록만 저장 (불변 조건)
+                // 슈퍼어드민 모드에서만 전체 목록을 별도로 가져옴
+                if (IS_SUPERADMIN) {
+                    // allStores가 비어있거나, 가게 추가/삭제/상태 변경 후에는 전체 목록을 다시 가져옴
+                    if (!allStores || allStores.length === 0 || window.shouldReloadAllStores) {
+                        try {
+                            const allStoresQuery = new URLSearchParams({
+                                page: '1',
+                                pageSize: '10000', // 충분히 큰 수로 전체 가져오기
+                                sortBy: 'createdAt',
+                                sortOrder: 'desc'
+                            });
+                            const allStoresResponse = await apiRequest(`${API_BASE}/stores?${allStoresQuery.toString()}`);
+                            allStores = normalizeStoreListResponse(allStoresResponse);
+                            window.shouldReloadAllStores = false; // 플래그 리셋
+                            console.log('✅ [통계] 전체 가게 목록 로드 완료:', allStores.length);
+                        } catch (error) {
+                            console.warn('⚠️ [통계] 전체 가게 목록 조회 실패, 필터된 목록 사용:', error);
+                            // 폴백: 필터된 목록을 allStores로 사용 (최선의 노력)
+                            if (!allStores || allStores.length === 0) {
+                                allStores = [...stores];
+                            }
+                        }
+                    }
+                } else {
+                    // 점주 모드에서는 본인 가게만 전체 목록으로 간주
+                    allStores = stores;
+                }
 
                 if (storeQueryState.ownerId === '__unassigned') {
                     filteredStores = filteredStores.filter(store => {
@@ -6184,10 +6597,56 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     }
                 }
 
-                updateStoreStats(storesResponse?.meta?.summary || null);
+                // 통계 재계산 (항상 allStores 기준)
+                recalculateStoreStatsFrom(allStores);
                 document.getElementById('filteredStoresCount').textContent = storePagination.total;
                 await renderStoreView();
                 updateStorePaginationControls();
+                
+                // 슈퍼어드민 모드: 선택 가게 복원 (localStorage 우선)
+                if (IS_SUPERADMIN && filteredStores.length > 0) {
+                    let activeStoreId = null;
+                    
+                    // 1순위: localStorage에 저장된 선택 가게 확인
+                    const savedStoreId = localStorage.getItem('currentStoreId');
+                    if (savedStoreId && filteredStores.some(store => store.id === savedStoreId)) {
+                        activeStoreId = savedStoreId;
+                        console.log('✅ [선택 가게 복원] localStorage에서 복원:', activeStoreId);
+                    }
+                    // 2순위: window.currentStoreId 확인
+                    else if (window.currentStoreId && filteredStores.some(store => store.id === window.currentStoreId)) {
+                        activeStoreId = window.currentStoreId;
+                        console.log('✅ [선택 가게 복원] window.currentStoreId에서 복원:', activeStoreId);
+                    }
+                    // 3순위: getCurrentStoreId()로 복원 시도
+                    else {
+                        const persistedStoreId = await getCurrentStoreId();
+                        if (persistedStoreId && filteredStores.some(store => store.id === persistedStoreId)) {
+                            activeStoreId = persistedStoreId;
+                            console.log('✅ [선택 가게 복원] getCurrentStoreId()에서 복원:', activeStoreId);
+                        }
+                    }
+                    // 4순위: 최초 진입 시에만 첫 번째 가게 자동 선택
+                    if (!activeStoreId && !savedStoreId && !window.currentStoreId) {
+                        activeStoreId = filteredStores[0]?.id;
+                        console.log('✅ [선택 가게 복원] 최초 진입 - 첫 번째 가게 자동 선택:', activeStoreId);
+                        // 최초 진입 시 localStorage에도 저장
+                        if (activeStoreId) {
+                            localStorage.setItem('currentStoreId', activeStoreId);
+                        }
+                    }
+                    
+                    // 선택 가게가 있으면 UI 업데이트
+                    if (activeStoreId) {
+                        window.currentStoreId = activeStoreId;
+                        await updateSelectedStoreCard(activeStoreId);
+                        updateSelectedStoreVisual(activeStoreId);
+                    } else {
+                        // 선택 가게가 없으면 사이드바 초기화
+                        initializeSidebarStoreInfo();
+                        updateSelectedStoreVisual(null);
+                    }
+                }
                 
             } catch (error) {
                 console.error('가게 목록 로드 실패:', error);
@@ -6226,9 +6685,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             try {
                 console.log('🔄 [DEBUG] 가게 선택 시작:', storeId);
                 
-                // window.currentStoreId 설정
+                // window.currentStoreId 설정 (현재 세션)
                 window.currentStoreId = storeId;
                 console.log('✅ [DEBUG] window.currentStoreId 설정:', storeId);
+                
+                // localStorage에 저장 (새로고침 후 복원용)
+                localStorage.setItem('currentStoreId', storeId);
+                console.log('✅ [DEBUG] localStorage에 선택 가게 저장:', storeId);
                 
                 // 현재 가게 설정
                 await apiRequest(`${API_BASE}/current-store`, 'POST', { storeId });
@@ -6593,6 +7056,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     showToast(`"${storeName}" 가게가 추가되었습니다!`, 'success', '성공');
                 }
                 
+                // 전체 목록을 다시 가져와서 통계 재계산
+                window.shouldReloadAllStores = true;
                 await loadStoreList();
             } catch (error) {
                 console.error('가게 추가 실패:', error);
@@ -6661,12 +7126,27 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 await apiRequest(`${API_BASE}/stores/${storeId}`, 'DELETE');
                 showToast('가게가 삭제되었습니다!', 'success', '성공');
+                
+                // 삭제된 가게가 현재 선택된 가게인 경우, localStorage에서 제거
+                if (isCurrentStore) {
+                    localStorage.removeItem('currentStoreId');
+                    window.currentStoreId = null;
+                    console.log('✅ [가게 삭제] 선택된 가게가 삭제되어 선택 해제:', storeId);
+                    try {
+                        await apiRequest(`${API_BASE}/current-store`, 'POST', { storeId: null });
+                    } catch (apiError) {
+                        console.warn('현재 가게 설정 초기화 실패:', apiError);
+                    }
+                }
+                
+                // 전체 목록을 다시 가져와서 통계 재계산
+                window.shouldReloadAllStores = true;
                 await loadStoreList();
                 
-                // 삭제된 가게가 현재 선택된 가게였다면 선택 초기화
+                // 삭제된 가게가 현재 선택된 가게였다면 사이드바 초기화
                 if (isCurrentStore) {
-                    await apiRequest(`${API_BASE}/current-store`, 'POST', { storeId: null });
                     initializeSidebarStoreInfo();
+                    updateSelectedStoreVisual(null);
                 }
             } catch (error) {
                 console.error('가게 삭제 실패:', error);
@@ -6805,6 +7285,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 const message = response?.message || '입점 신청이 접수되었습니다.';
                 showToast(message, 'success', '신청 완료');
                 closeOwnerStoreRequestModal();
+                
+                // 전체 목록을 다시 가져와서 통계 재계산
+                window.shouldReloadAllStores = true;
                 await loadStoreList();
             } catch (error) {
                 console.error('추가 입점 신청 실패:', error);
@@ -6817,6 +7300,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             try {
                 await apiRequest(`${API_BASE}/stores/${storeId}/pause`, 'POST');
                 showToast('가게가 일시정지되었습니다.', 'success', '성공');
+                
+                // 전체 목록을 다시 가져와서 통계 재계산
+                window.shouldReloadAllStores = true;
                 await loadStoreList();
             } catch (error) {
                 console.error('가게 일시정지 실패:', error);
@@ -6829,6 +7315,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             try {
                 await apiRequest(`${API_BASE}/stores/${storeId}/resume`, 'POST');
                 showToast('가게가 재개되었습니다.', 'success', '성공');
+                
+                // 전체 목록을 다시 가져와서 통계 재계산
+                window.shouldReloadAllStores = true;
                 await loadStoreList();
             } catch (error) {
                 console.error('가게 재개 실패:', error);
@@ -8998,9 +9487,11 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
 
             if (sectionId === 'stores' || sectionId === 'domain-settings' || sectionId === 'accounts') {
-                // 모든 섹션 숨기기
+                // 모든 섹션 숨기기 (owner-account 포함)
                 const sections = document.querySelectorAll('.admin-section');
-                sections.forEach(section => section.style.display = 'none');
+                sections.forEach(section => {
+                    section.style.display = 'none';
+                });
                 
                 // 선택된 섹션 표시
                 document.getElementById(sectionId).style.display = 'block';
@@ -9038,16 +9529,30 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             
             // 모든 섹션 숨기기
             const sections = document.querySelectorAll('.admin-section');
-            sections.forEach(section => section.style.display = 'none');
+            sections.forEach(section => {
+                // owner-account 섹션은 owner-account 메뉴를 선택했을 때만 표시
+                if (section.id === 'owner-account' && sectionId !== 'owner-account') {
+                    section.style.display = 'none';
+                } else if (section.id !== 'owner-account') {
+                    section.style.display = 'none';
+                }
+            });
             
             // 선택된 섹션 표시
-            document.getElementById(sectionId).style.display = 'block';
+            const selectedSection = document.getElementById(sectionId);
+            if (selectedSection) {
+                selectedSection.style.display = 'block';
+            }
             
             // 활동 로그 섹션인 경우 로그 다시 로드
             if (sectionId === 'activity-logs') {
                 loadActivityLogs();
             }
             
+            // 내 계정 섹션인 경우 계정 정보 로드
+            if (sectionId === 'owner-account') {
+                populateOwnerAccountSection();
+            }
             
             if (sectionId === 'dashboard') {
                 if (IS_SUPERADMIN) {
@@ -9783,7 +10288,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             try {
                 await apiRequest(`${API_BASE}/owners/${ownerId}/password`, 'POST', {
                     currentPassword,
-                    newPassword
+                    newPassword,
+                    confirmPassword // 백엔드에서도 확인하도록 전송
                 });
 
                 showToast('비밀번호가 변경되었습니다.', 'success', '변경 완료');
@@ -10519,10 +11025,11 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 return section;
             });
 
-            // 중복 및 불필요한 섹션 제거
+            // 중복 및 불필요한 섹션 제거 (owner-account는 UI 순서 변경 대상에서 제외)
             const seen = new Set();
             sectionOrder = sectionOrder.filter(section => {
                 if (section.id === 'basic-info') return false;
+                if (section.id === 'owner-account') return false; // 내 계정 섹션은 순서 변경 대상 아님
                 if (seen.has(section.id)) return false;
                 seen.add(section.id);
                 return true;
@@ -10912,6 +11419,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             if (isLoading) return;
             isLoading = true;
             
+            // 초기 로드 시 전체 목록을 가져오도록 플래그 설정
+            window.shouldReloadAllStores = true;
+            
             // 즉시 모든 섹션 숨기기 (CSS 로드 전에)
             const sections = document.querySelectorAll('.admin-section');
             sections.forEach(section => section.style.display = 'none');
@@ -10941,7 +11451,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 if (IS_SUPERADMIN) {
                     await loadSuperAdminInfo();
                     await loadActivityLogs();
-                    await loadOwnerAccounts();
+                    await loadOwnerAccounts(ownerStatusFilter);
                 }
                 
                 // 현재 선택된 가게의 사용자 정보 로드
