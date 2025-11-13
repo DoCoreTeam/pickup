@@ -11415,6 +11415,90 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         }
         // QR 코드 삭제
 
+        // 전화번호 자동 포맷팅 함수
+        function formatPhoneNumber(value) {
+            // 숫자만 추출
+            const numbers = value.replace(/\D/g, '');
+            
+            // 빈 값이면 그대로 반환
+            if (!numbers) return '';
+            
+            // 한국 전화번호 형식에 맞게 하이픈 추가
+            if (numbers.length <= 2) {
+                return numbers;
+            } else if (numbers.length <= 3) {
+                // 02, 031 등 지역번호
+                return numbers;
+            } else if (numbers.length <= 6) {
+                // 02-1234, 031-123 등
+                if (numbers.startsWith('02')) {
+                    return numbers.substring(0, 2) + '-' + numbers.substring(2);
+                } else {
+                    return numbers.substring(0, 3) + '-' + numbers.substring(3);
+                }
+            } else if (numbers.length <= 10) {
+                // 02-1234-5678, 031-123-4567 등
+                if (numbers.startsWith('02')) {
+                    return numbers.substring(0, 2) + '-' + numbers.substring(2, 6) + '-' + numbers.substring(6);
+                } else if (numbers.startsWith('010') || numbers.startsWith('011') || numbers.startsWith('016') || numbers.startsWith('017') || numbers.startsWith('018') || numbers.startsWith('019')) {
+                    // 휴대폰 번호
+                    return numbers.substring(0, 3) + '-' + numbers.substring(3, 7) + '-' + numbers.substring(7);
+                } else {
+                    // 일반 지역번호 (031, 032 등)
+                    return numbers.substring(0, 3) + '-' + numbers.substring(3, 6) + '-' + numbers.substring(6);
+                }
+            } else if (numbers.length <= 11) {
+                // 010-1234-5678 (휴대폰 11자리)
+                if (numbers.startsWith('010') || numbers.startsWith('011') || numbers.startsWith('016') || numbers.startsWith('017') || numbers.startsWith('018') || numbers.startsWith('019')) {
+                    return numbers.substring(0, 3) + '-' + numbers.substring(3, 7) + '-' + numbers.substring(7);
+                } else {
+                    // 일반 지역번호 11자리
+                    return numbers.substring(0, 3) + '-' + numbers.substring(3, 7) + '-' + numbers.substring(7);
+                }
+            } else {
+                // 11자리 초과는 앞 11자리만 사용
+                const limited = numbers.substring(0, 11);
+                if (limited.startsWith('010') || limited.startsWith('011') || limited.startsWith('016') || limited.startsWith('017') || limited.startsWith('018') || limited.startsWith('019')) {
+                    return limited.substring(0, 3) + '-' + limited.substring(3, 7) + '-' + limited.substring(7);
+                } else {
+                    return limited.substring(0, 3) + '-' + limited.substring(3, 7) + '-' + limited.substring(7);
+                }
+            }
+        }
+
+        // 전화번호 입력 필드에 자동 포맷팅 적용
+        function setupPhoneFormatting() {
+            const phoneInputs = ['storePhone', 'wizardStorePhone', 'ownerRequestPhone'];
+            
+            phoneInputs.forEach(inputId => {
+                const input = document.getElementById(inputId);
+                if (input) {
+                    // 입력 중 포맷팅
+                    input.addEventListener('input', function(e) {
+                        const cursorPosition = e.target.selectionStart;
+                        const oldValue = e.target.value;
+                        const formatted = formatPhoneNumber(e.target.value);
+                        
+                        e.target.value = formatted;
+                        
+                        // 커서 위치 조정 (하이픈 추가로 인한 위치 변경 보정)
+                        let newCursorPosition = cursorPosition;
+                        const addedHyphens = (formatted.match(/-/g) || []).length - (oldValue.match(/-/g) || []).length;
+                        if (addedHyphens > 0) {
+                            newCursorPosition += addedHyphens;
+                        }
+                        
+                        e.target.setSelectionRange(newCursorPosition, newCursorPosition);
+                    });
+                    
+                    // 포커스 아웃 시 최종 포맷팅
+                    input.addEventListener('blur', function(e) {
+                        e.target.value = formatPhoneNumber(e.target.value);
+                    });
+                }
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', async function() {
             if (isLoading) return;
             isLoading = true;
@@ -11481,6 +11565,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 // 배달앱 URL 입력 필드 이벤트 리스너 추가
                 setupDeliveryUrlEventListeners();
+                
+                // 전화번호 자동 포맷팅 설정
+                setupPhoneFormatting();
                 
                 // URL 해시에서 섹션 복원 (새로고침 시 현재 섹션 유지)
                 const hash = window.location.hash.substring(1); // '#' 제거
