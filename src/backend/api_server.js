@@ -3064,7 +3064,10 @@ class APIRouter {
     }
   }
 
-  // 이미지 업로드 핸들러
+  // 이미지 업로드 핸들러 (Base64 데이터베이스 저장 방식)
+  // 참고: 프론트엔드에서 이미 Base64로 변환하여 settings.images에 저장하므로
+  // 이 엔드포인트는 호환성을 위해 유지하되, 파일 시스템 저장은 제거하고
+  // Base64 데이터를 받아서 데이터베이스에 저장하도록 변경
   async uploadImage(storeId, req, res, parsedUrl) {
     try {
       if (!storeId) {
@@ -3081,82 +3084,77 @@ class APIRouter {
         return;
       }
 
-      // multipart/form-data 파싱
-      let fields, files;
+      // 요청 본문 파싱 (JSON 또는 multipart/form-data)
+      let body, imageData, imageType;
+      
       try {
-        const parsed = await parseMultipartFormData(req);
-        fields = parsed.fields;
-        files = parsed.files;
+        const contentType = req.headers['content-type'] || '';
+        
+        if (contentType.includes('application/json')) {
+          // JSON 요청: Base64 데이터 직접 전송
+          body = await parseRequestBody(req);
+          imageData = body.imageData || body.data;
+          imageType = body.imageType || 'mainLogo';
+        } else if (contentType.includes('multipart/form-data')) {
+          // multipart 요청: Base64로 변환
+          const parsed = await parseMultipartFormData(req);
+          const file = parsed.files?.image;
+          
+          if (!file || !file.buffer) {
+            sendErrorResponse(res, 400, '이미지 파일이 필요합니다.');
+            return;
+          }
+          
+          // 파일을 Base64로 변환
+          imageData = `data:${file.mimetype || 'image/png'};base64,${file.buffer.toString('base64')}`;
+          imageType = parsed.fields?.imageType || 'mainLogo';
+        } else {
+          sendErrorResponse(res, 400, '지원하지 않는 Content-Type입니다.');
+          return;
+        }
       } catch (parseError) {
-        log('ERROR', '이미지 업로드 실패: multipart 파싱 오류', { error: parseError.message, storeId });
-        sendErrorResponse(res, 400, `파일 파싱 실패: ${parseError.message}`);
+        log('ERROR', '이미지 업로드 실패: 요청 파싱 오류', { error: parseError.message, storeId });
+        sendErrorResponse(res, 400, `요청 파싱 실패: ${parseError.message}`);
         return;
       }
 
-      if (!files.image || !files.image.buffer) {
-        log('ERROR', '이미지 업로드 실패: 이미지 파일 없음', { storeId, files: Object.keys(files) });
-        sendErrorResponse(res, 400, '이미지 파일이 필요합니다.');
+      if (!imageData) {
+        log('ERROR', '이미지 업로드 실패: 이미지 데이터 없음', { storeId });
+        sendErrorResponse(res, 400, '이미지 데이터가 필요합니다.');
         return;
       }
 
-      const imageType = fields.imageType || 'mainLogo';
-      const file = files.image;
-
-      // 파일 확장자 확인
-      const allowedExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'];
-      const fileExt = path.extname(file.filename).toLowerCase();
-      if (!allowedExtensions.includes(fileExt)) {
-        log('ERROR', '이미지 업로드 실패: 지원하지 않는 형식', { storeId, filename: file.filename, ext: fileExt });
-        sendErrorResponse(res, 400, '지원하지 않는 이미지 형식입니다. (png, jpg, jpeg, gif, svg, webp만 가능)');
-        return;
-      }
-
-      // 파일 크기 확인 (10MB 제한)
-      if (file.size > 10 * 1024 * 1024) {
-        log('ERROR', '이미지 업로드 실패: 파일 크기 초과', { storeId, size: file.size });
+      // Base64 데이터 크기 확인 (10MB 제한, Base64는 원본보다 약 33% 큼)
+      const base64Size = imageData.length;
+      const estimatedSize = (base64Size * 3) / 4;
+      if (estimatedSize > 10 * 1024 * 1024) {
+        log('ERROR', '이미지 업로드 실패: 파일 크기 초과', { storeId, estimatedSize });
         sendErrorResponse(res, 400, '이미지 파일 크기는 10MB 이하여야 합니다.');
         return;
       }
 
-      // 업로드 디렉토리 생성
-      const uploadDir = path.join(__dirname, '../../assets/images/uploads', storeId);
-      try {
-        if (!fs.existsSync(uploadDir)) {
-          fs.mkdirSync(uploadDir, { recursive: true });
-        }
-      } catch (dirError) {
-        log('ERROR', '이미지 업로드 실패: 디렉토리 생성 실패', { storeId, uploadDir, error: dirError.message });
-        sendErrorResponse(res, 500, '업로드 디렉토리 생성에 실패했습니다.');
-        return;
-      }
+      // 현재 설정 가져오기
+      const currentSettings = await dbServices.getStoreSettings(storeId);
+      const settings = currentSettings || {};
+      settings.images = settings.images || {};
+      
+      // Base64 데이터를 settings.images에 저장
+      settings.images[imageType] = imageData;
 
-      // 파일명 생성 (타임스탬프 포함)
-      const timestamp = Date.now();
-      const sanitizedFilename = file.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const filename = `${imageType}_${timestamp}_${sanitizedFilename}`;
-      const filePath = path.join(uploadDir, filename);
-      const fileUrl = `/assets/images/uploads/${storeId}/${filename}`;
+      // 데이터베이스에 저장
+      await dbServices.updateStoreSettings(storeId, settings);
 
-      // 파일 저장
-      try {
-        fs.writeFileSync(filePath, file.buffer);
-        log('INFO', '이미지 업로드 완료', { storeId, imageType, filename, size: file.size, filePath });
-      } catch (writeError) {
-        log('ERROR', '이미지 업로드 실패: 파일 저장 실패', { storeId, filePath, error: writeError.message });
-        sendErrorResponse(res, 500, '파일 저장에 실패했습니다.');
-        return;
-      }
+      log('INFO', '이미지 업로드 완료 (DB 저장)', { storeId, imageType, dataSize: base64Size });
 
       // 응답 반환
       sendJsonResponse(res, 200, {
         success: true,
         data: {
-          url: fileUrl,
-          filename: filename,
-          size: file.size,
-          imageType: imageType
+          imageType: imageType,
+          size: estimatedSize,
+          stored: true
         },
-        message: '이미지가 업로드되었습니다.'
+        message: '이미지가 데이터베이스에 저장되었습니다.'
       });
     } catch (error) {
       log('ERROR', '이미지 업로드 실패: 예상치 못한 오류', { storeId, error: error.message, stack: error.stack });
@@ -3164,7 +3162,10 @@ class APIRouter {
     }
   }
 
-  // 동영상 업로드 핸들러
+  // 동영상 업로드 핸들러 (Base64 데이터베이스 저장 방식)
+  // 참고: 프론트엔드에서 이미 Base64로 변환하여 settings.images에 저장하므로
+  // 이 엔드포인트는 호환성을 위해 유지하되, 파일 시스템 저장은 제거하고
+  // Base64 데이터를 받아서 데이터베이스에 저장하도록 변경
   async uploadVideo(storeId, req, res, parsedUrl) {
     try {
       if (!storeId) {
@@ -3179,62 +3180,104 @@ class APIRouter {
         return;
       }
 
-      // multipart/form-data 파싱
-      const { fields, files } = await parseMultipartFormData(req);
+      // 요청 본문 파싱 (JSON 또는 multipart/form-data)
+      let body, videoData, videoType, videoInfo;
+      
+      try {
+        const contentType = req.headers['content-type'] || '';
+        
+        if (contentType.includes('application/json')) {
+          // JSON 요청: Base64 데이터 직접 전송
+          body = await parseRequestBody(req);
+          videoData = body.videoData || body.data;
+          videoType = body.videoType || 'promoVideo';
+          videoInfo = body.videoInfo || {};
+        } else if (contentType.includes('multipart/form-data')) {
+          // multipart 요청: Base64로 변환
+          const parsed = await parseMultipartFormData(req);
+          const file = parsed.files?.video;
+          
+          if (!file || !file.buffer) {
+            sendErrorResponse(res, 400, '동영상 파일이 필요합니다.');
+            return;
+          }
 
-      if (!files.video || !files.video.buffer) {
-        sendErrorResponse(res, 400, '동영상 파일이 필요합니다.');
+          // 파일 확장자 확인
+          const allowedExtensions = ['.mp4', '.webm', '.ogg'];
+          const fileExt = path.extname(file.filename).toLowerCase();
+          if (!allowedExtensions.includes(fileExt)) {
+            sendErrorResponse(res, 400, '지원하지 않는 동영상 형식입니다. (mp4, webm, ogg만 가능)');
+            return;
+          }
+
+          // 파일 크기 확인 (20MB 제한)
+          if (file.size > 20 * 1024 * 1024) {
+            sendErrorResponse(res, 400, '동영상 파일 크기는 20MB 이하여야 합니다.');
+            return;
+          }
+          
+          // 파일을 Base64로 변환
+          videoData = `data:${file.mimetype || 'video/mp4'};base64,${file.buffer.toString('base64')}`;
+          videoType = parsed.fields?.videoType || 'promoVideo';
+          videoInfo = {
+            type: file.mimetype || 'video/mp4',
+            filename: file.filename,
+            size: file.size,
+            uploadedAt: new Date().toISOString()
+          };
+        } else {
+          sendErrorResponse(res, 400, '지원하지 않는 Content-Type입니다.');
+          return;
+        }
+      } catch (parseError) {
+        log('ERROR', '동영상 업로드 실패: 요청 파싱 오류', { error: parseError.message, storeId });
+        sendErrorResponse(res, 400, `요청 파싱 실패: ${parseError.message}`);
         return;
       }
 
-      const videoType = fields.videoType || 'promoVideo';
-      const file = files.video;
-
-      // 파일 확장자 확인
-      const allowedExtensions = ['.mp4', '.webm', '.ogg'];
-      const fileExt = path.extname(file.filename).toLowerCase();
-      if (!allowedExtensions.includes(fileExt)) {
-        sendErrorResponse(res, 400, '지원하지 않는 동영상 형식입니다. (mp4, webm, ogg만 가능)');
+      if (!videoData) {
+        log('ERROR', '동영상 업로드 실패: 동영상 데이터 없음', { storeId });
+        sendErrorResponse(res, 400, '동영상 데이터가 필요합니다.');
         return;
       }
 
-      // 파일 크기 확인 (20MB 제한)
-      if (file.size > 20 * 1024 * 1024) {
+      // Base64 데이터 크기 확인 (20MB 제한, Base64는 원본보다 약 33% 큼)
+      const base64Size = videoData.length;
+      const estimatedSize = (base64Size * 3) / 4;
+      if (estimatedSize > 20 * 1024 * 1024) {
+        log('ERROR', '동영상 업로드 실패: 파일 크기 초과', { storeId, estimatedSize });
         sendErrorResponse(res, 400, '동영상 파일 크기는 20MB 이하여야 합니다.');
         return;
       }
 
-      // 업로드 디렉토리 생성
-      const uploadDir = path.join(__dirname, '../../assets/images/uploads', storeId);
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
+      // 현재 설정 가져오기
+      const currentSettings = await dbServices.getStoreSettings(storeId);
+      const settings = currentSettings || {};
+      settings.images = settings.images || {};
+      
+      // Base64 데이터를 settings.images에 저장 (프론트엔드 형식과 동일하게)
+      settings.images[videoType] = {
+        src: videoData,
+        ...videoInfo
+      };
 
-      // 파일명 생성 (타임스탬프 포함)
-      const timestamp = Date.now();
-      const sanitizedFilename = file.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const filename = `${videoType}_${timestamp}_${sanitizedFilename}`;
-      const filePath = path.join(uploadDir, filename);
-      const fileUrl = `/assets/images/uploads/${storeId}/${filename}`;
+      // 데이터베이스에 저장
+      await dbServices.updateStoreSettings(storeId, settings);
 
-      // 파일 저장
-      fs.writeFileSync(filePath, file.buffer);
-
-      log('INFO', '동영상 업로드 완료', { storeId, videoType, filename, size: file.size });
+      log('INFO', '동영상 업로드 완료 (DB 저장)', { storeId, videoType, dataSize: base64Size });
 
       // 응답 반환
       sendJsonResponse(res, 200, {
         success: true,
         data: {
-          url: fileUrl,
-          filename: filename,
-          size: file.size,
-          videoType: videoType
+          videoType: videoType,
+          size: estimatedSize,
+          stored: true
         },
-        message: '동영상이 업로드되었습니다.'
+        message: '동영상이 데이터베이스에 저장되었습니다.'
       });
     } catch (error) {
-      log('ERROR', '동영상 업로드 실패', error);
+      log('ERROR', '동영상 업로드 실패', { storeId, error: error.message, stack: error.stack });
       sendErrorResponse(res, 500, error.message || '동영상 업로드에 실패했습니다.');
     }
   }
