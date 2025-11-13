@@ -10166,8 +10166,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             // 도메인 미리보기 업데이트
             if (domainPreview) {
                 const currentDomain = window.location.host;
+                const protocol = window.location.protocol;
                 domainPreview.textContent = resolvedSubdomain 
-                    ? `${currentDomain}/${resolvedSubdomain}` 
+                    ? `${protocol}//${currentDomain}/${resolvedSubdomain}` 
                     : '-';
             }
             
@@ -10230,12 +10231,22 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
             
             try {
-                await saveDomainSettings({ subdomain: subdomainValue });
-                await loadDomainSettings();
-                showToast('서브도메인이 저장되었습니다!', 'success', '저장 완료');
+                const result = await saveDomainSettings({ 
+                    subdomain: subdomainValue,
+                    suppressToast: true  // 중복 토스트 방지
+                });
+                
+                if (result && result.success) {
+                    // 저장 성공 후 도메인 설정 다시 로드
+                    await loadDomainSettings();
+                    showToast('서브도메인이 저장되었습니다!', 'success', '저장 완료');
+                } else {
+                    showToast('도메인 저장에 실패했습니다.', 'error', '저장 실패');
+                }
             } catch (error) {
                 console.error('도메인 저장 실패:', error);
-                showToast('도메인 저장에 실패했습니다.', 'error', '저장 실패');
+                const errorMessage = error?.message || '도메인 저장에 실패했습니다.';
+                showToast(errorMessage, 'error', '저장 실패');
             }
         };
         
