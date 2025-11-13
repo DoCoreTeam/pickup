@@ -19,6 +19,20 @@ DATABASE_URL=postgresql://neondb_owner:npg_kaMZfu75ldXK@ep-empty-mountain-adzg7s
 DATA_BACKEND=postgres
 NODE_ENV=production
 
+# AI 기능 설정 (선택사항이지만 AI 기능 사용 시 필수)
+OPENAI_API_KEY=your_openai_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# OpenAI 고급 설정 (선택사항)
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_TIMEOUT=30000
+OPENAI_TEMPERATURE=0.7
+OPENAI_MAX_TOKENS=1000
+
+# Gemini 고급 설정 (선택사항)
+GEMINI_MODEL=gemini-1.5-flash
+GEMINI_API_VERSION=v1beta
+
 # 포트 설정 (Railway가 자동 할당하므로 설정하지 않아도 됨)
 # PORT=8081
 ```
@@ -37,4 +51,6 @@ NODE_ENV=production
 - `sslmode=require`는 필수입니다 (NEON은 SSL 연결을 요구합니다)
 - Railway는 `PORT` 환경 변수를 자동으로 할당하므로 설정하지 않아도 됩니다
 - `NODE_ENV=production`을 설정하면 프로덕션 모드로 실행됩니다
+- **AI 기능 사용 시**: `OPENAI_API_KEY` 또는 `GEMINI_API_KEY` 중 하나 이상이 필요합니다
+  - AI 기능을 사용하지 않으면 API 키 없이도 동작하지만, 콘텐츠 자동 생성 기능은 사용할 수 없습니다
 
