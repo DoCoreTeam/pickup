@@ -3814,6 +3814,53 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
             </div>
 
+            <!-- 도메인/QR 관리 -->
+            <div class="admin-section" id="domain-qr">
+                <h2 class="section-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
+                    도메인/QR 관리
+                </h2>
+                
+                <div class="form-card">
+                    <div class="form-group">
+                        <label for="domainSubdomain">서브도메인</label>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <input type="text" id="domainSubdomain" class="form-input" placeholder="예: mystore" style="flex:1;">
+                            <button type="button" class="btn btn-secondary" id="domainSaveBtn" onclick="saveDomainFromSection()" style="display:none;">
+                                저장
+                            </button>
+                        </div>
+                        <small class="form-helper" id="domainHelper">
+                            도메인은 최초 1회만 설정할 수 있으며 QR 생성 후에는 수정할 수 없습니다.
+                        </small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>도메인 미리보기</label>
+                        <div class="domain-preview" id="domainPreview" style="background: #f8fafc; border-radius: 8px; padding: 12px; font-family: monospace; color: #667eea; font-weight: 600;">
+                            -
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" id="qrSection" style="display:none;">
+                        <label>QR 코드</label>
+                        <div id="qrCodeDisplay" style="background: white; border-radius: 8px; padding: 20px; text-align: center; border: 1px solid #e2e8f0;">
+                            <!-- QR 코드가 여기에 표시됩니다 -->
+                        </div>
+                        <div style="margin-top: 12px; text-align: center;">
+                            <button type="button" class="btn btn-primary" id="domainQrDownloadBtn" onclick="downloadDomainQR()" style="display:none;">
+                                QR 다운로드
+                            </button>
+                            <button type="button" class="btn btn-secondary" id="domainQrGenerateBtn" onclick="generateDomainQRFromSection()" style="display:none;">
+                                QR 생성
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <input type="hidden" id="subdomain" value="">
+            </div>
+
             <!-- 배달앱 설정 -->
             <div class="admin-section" id="delivery">
                 <h2 class="section-title">
@@ -9512,7 +9559,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 return;
             }
 
-            if (sectionId === 'stores' || sectionId === 'domain-settings' || sectionId === 'accounts') {
+            if (sectionId === 'stores' || sectionId === 'domain-settings' || sectionId === 'domain-qr' || sectionId === 'accounts') {
                 // 모든 섹션 숨기기 (owner-account 포함)
                 const sections = document.querySelectorAll('.admin-section');
                 sections.forEach(section => {
@@ -9533,7 +9580,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 }
                 
                 // 도메인 설정 섹션인 경우 도메인 정보 로드
-                if (sectionId === 'domain-settings') {
+                if (sectionId === 'domain-settings' || sectionId === 'domain-qr') {
                     loadDomainSettings().catch(error => {
                         console.error('도메인 설정 로드 실패:', error);
                     });
@@ -10116,6 +10163,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     currentDomainQrInfo = { url: '', domainUrl: '' };
                     updateDomainSummaryView('', null);
                     applyDomainSettingsPermissions({});
+                    updateDomainQrSection('', null);
                     return;
                 }
 
@@ -10130,11 +10178,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     };
                     updateDomainSummaryView(subdomain, currentDomainQrInfo);
                     applyDomainSettingsPermissions(domainSettings);
+                    updateDomainQrSection(subdomain, currentDomainQrInfo);
                 } else {
                     document.getElementById('subdomain').value = '';
                     currentDomainQrInfo = { url: '', domainUrl: '' };
                     updateDomainSummaryView('', null);
                     applyDomainSettingsPermissions({});
+                    updateDomainQrSection('', null);
                 }
             } catch (error) {
                 console.error('도메인 설정 로드 실패:', error);
@@ -10142,7 +10192,109 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 currentDomainQrInfo = { url: '', domainUrl: '' };
                 updateDomainSummaryView('', null);
                 applyDomainSettingsPermissions({});
+                updateDomainQrSection('', null);
             }
+        }
+        
+        // 도메인/QR 섹션 UI 업데이트
+        function updateDomainQrSection(subdomain, qrInfo) {
+            const domainSubdomainInput = document.getElementById('domainSubdomain');
+            const domainPreview = document.getElementById('domainPreview');
+            const domainSaveBtn = document.getElementById('domainSaveBtn');
+            const domainHelper = document.getElementById('domainHelper');
+            const qrSection = document.getElementById('qrSection');
+            const qrCodeDisplay = document.getElementById('qrCodeDisplay');
+            const domainQrDownloadBtn = document.getElementById('domainQrDownloadBtn');
+            const domainQrGenerateBtn = document.getElementById('domainQrGenerateBtn');
+            
+            const resolvedSubdomain = (subdomain || '').trim();
+            const hasSubdomain = Boolean(resolvedSubdomain);
+            const hasQr = qrInfo && qrInfo.url;
+            const qrLocked = domainPermissionState.qrLocked;
+            
+            // 서브도메인 입력 필드 업데이트
+            if (domainSubdomainInput) {
+                domainSubdomainInput.value = resolvedSubdomain;
+                domainSubdomainInput.readOnly = qrLocked || (hasSubdomain && !IS_SUPERADMIN);
+            }
+            
+            // 도메인 미리보기 업데이트
+            if (domainPreview) {
+                const currentDomain = window.location.host;
+                domainPreview.textContent = resolvedSubdomain 
+                    ? `${currentDomain}/${resolvedSubdomain}` 
+                    : '-';
+            }
+            
+            // 저장 버튼 표시/숨김
+            if (domainSaveBtn) {
+                const canEdit = !qrLocked && (!hasSubdomain || IS_SUPERADMIN);
+                domainSaveBtn.style.display = canEdit ? 'inline-flex' : 'none';
+            }
+            
+            // 도메인 안내 문구 업데이트
+            if (domainHelper) {
+                if (qrLocked) {
+                    domainHelper.textContent = 'QR 생성 후에는 서브도메인을 변경할 수 없습니다.';
+                    domainHelper.style.color = '#ef4444';
+                } else if (hasSubdomain && !IS_SUPERADMIN) {
+                    domainHelper.textContent = '서브도메인은 슈퍼어드민만 변경할 수 있습니다.';
+                    domainHelper.style.color = '#64748b';
+                } else {
+                    domainHelper.textContent = '도메인은 최초 1회만 설정할 수 있으며 QR 생성 후에는 수정할 수 없습니다.';
+                    domainHelper.style.color = '#64748b';
+                }
+            }
+            
+            // QR 섹션 표시/숨김
+            if (qrSection) {
+                qrSection.style.display = hasQr ? 'block' : 'none';
+            }
+            
+            // QR 코드 이미지 표시
+            if (qrCodeDisplay && hasQr) {
+                const resolvedUrl = resolveQrUrl(qrInfo.url);
+                qrCodeDisplay.innerHTML = `<img src="${resolvedUrl}" alt="QR Code" style="max-width: 300px; width: 100%; height: auto;">`;
+            }
+            
+            // QR 다운로드 버튼 표시/숨김
+            if (domainQrDownloadBtn) {
+                domainQrDownloadBtn.style.display = hasQr ? 'inline-flex' : 'none';
+            }
+            
+            // QR 생성 버튼 표시/숨김 (슈퍼어드민만, QR이 없고 서브도메인이 있을 때)
+            if (domainQrGenerateBtn) {
+                const canGenerate = IS_SUPERADMIN && !hasQr && hasSubdomain && !qrLocked;
+                domainQrGenerateBtn.style.display = canGenerate ? 'inline-flex' : 'none';
+            }
+        }
+        
+        // 도메인/QR 섹션에서 저장
+        async function saveDomainFromSection() {
+            const domainSubdomainInput = document.getElementById('domainSubdomain');
+            const subdomainValue = domainSubdomainInput?.value.trim() || '';
+            
+            if (!subdomainValue) {
+                showToast('서브도메인을 입력해주세요.', 'error', '입력 필요');
+                return;
+            }
+            
+            if (!/^[a-zA-Z0-9_-]+$/.test(subdomainValue)) {
+                showToast('서브도메인은 영문, 숫자, 하이픈(-), 언더스코어(_)만 사용할 수 있습니다.', 'error', '입력 오류');
+                return;
+            }
+            
+            try {
+                await saveDomainSettings({ subdomain: subdomainValue });
+                await loadDomainSettings();
+            } catch (error) {
+                console.error('도메인 저장 실패:', error);
+            }
+        }
+        
+        // 도메인/QR 섹션에서 QR 생성
+        function generateDomainQRFromSection() {
+            generateDomainQR();
         }
 
         async function downloadDomainQR() {
@@ -10205,7 +10357,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 return;
             }
 
-            const subdomainValue = document.getElementById('subdomain')?.value.trim();
+            const subdomainValue = document.getElementById('subdomain')?.value.trim() || 
+                                   document.getElementById('domainSubdomain')?.value.trim() || '';
             if (!subdomainValue) {
                 showToast('먼저 서브도메인을 설정해주세요.', 'error', '도메인 필요');
                 return;
@@ -10224,6 +10377,41 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 }
             ]);
         }
+        
+        // QR 생성 확인 함수
+        window.confirmQRGenerate = async function confirmQRGenerate() {
+            closeModal();
+            try {
+                const currentStoreId = await getCurrentStoreId();
+                if (!currentStoreId) {
+                    showToast('가게를 선택해주세요.', 'error', '가게 선택 필요');
+                    return;
+                }
+
+                const subdomainValue = document.getElementById('subdomain')?.value.trim() || 
+                                       document.getElementById('domainSubdomain')?.value.trim() || '';
+                if (!subdomainValue) {
+                    showToast('서브도메인을 먼저 설정해주세요.', 'error', '도메인 필요');
+                    return;
+                }
+
+                showToast('QR 코드 생성 중...', 'info', '처리 중');
+                
+                const response = await apiRequest(`${API_BASE}/store/${currentStoreId}/qr-code`, 'POST', {
+                    subdomain: subdomainValue
+                });
+
+                if (response && response.success) {
+                    showToast('QR 코드가 생성되었습니다!', 'success', '생성 완료');
+                    await loadDomainSettings();
+                } else {
+                    throw new Error(response?.message || 'QR 코드 생성 실패');
+                }
+            } catch (error) {
+                console.error('QR 코드 생성 실패:', error);
+                showToast(error.message || 'QR 코드 생성에 실패했습니다.', 'error', '생성 실패');
+            }
+        };
         // 현재 도메인 업데이트
         function updateCurrentDomain() {
             const currentDomain = window.location.host;
