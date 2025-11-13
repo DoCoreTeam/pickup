@@ -2394,6 +2394,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         .table-container {
             overflow-x: auto;
             margin-bottom: 20px;
+            max-width: 100%;
+            box-sizing: border-box;
         }
 
         .store-table {
@@ -3659,7 +3661,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 <div class="form-group">
                     <label>가게 목록 (<span id="filteredStoresCount">0</span>개)</label>
-                    <div id="storeTableWrapper" style="overflow-x: auto;">
+                    <div id="storeTableWrapper" style="overflow-x: auto; max-width: 100%; box-sizing: border-box;">
                         <table id="storeTable" style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden;">
                             <thead style="background: #f8fafc;">
                                 <tr>
