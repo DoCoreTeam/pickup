@@ -10255,14 +10255,22 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             generateDomainQR();
         };
 
-        async function downloadDomainQR() {
+        window.downloadDomainQR = async function downloadDomainQR() {
             try {
-                if (!currentDomainQrInfo.url) {
-                    showToast('다운로드할 QR 코드가 없습니다.', 'error', '오류');
+                // currentDomainQrInfo가 없거나 URL이 없으면 최신 정보 로드
+                if (!currentDomainQrInfo || !currentDomainQrInfo.url) {
+                    await loadDomainSettings();
+                }
+                
+                const qrUrl = currentDomainQrInfo?.url;
+                if (!qrUrl) {
+                    showToast('다운로드할 QR 코드가 없습니다. 먼저 QR 코드를 생성해주세요.', 'error', '오류');
                     return;
                 }
 
-                const resolvedUrl = resolveQrUrl(currentDomainQrInfo.url);
+                // QR 코드 URL 해결 (상대 경로인 경우 절대 경로로 변환)
+                const resolvedUrl = resolveQrUrl(qrUrl);
+                console.log('QR 코드 다운로드 시도:', resolvedUrl);
                 const response = await fetch(resolvedUrl);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -10292,18 +10300,23 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 showToast('QR 코드가 PNG 파일로 다운로드되었습니다.', 'success', '다운로드 완료');
 
                 if (currentStoreId) {
-                    await logActivity('qr', 'QR 코드 다운로드', 'QR 코드를 다운로드했습니다.', {
-                        storeId: currentStoreId,
-                        filename,
-                        fileSize: blob.size,
-                        mimeType: blob.type
-                    });
+                    try {
+                        await logActivity('qr', 'QR 코드 다운로드', 'QR 코드를 다운로드했습니다.', {
+                            storeId: currentStoreId,
+                            filename,
+                            fileSize: blob.size,
+                            mimeType: blob.type
+                        });
+                    } catch (logError) {
+                        console.warn('활동 로그 기록 실패:', logError);
+                    }
                 }
             } catch (error) {
                 console.error('❌ [DEBUG] QR 코드 다운로드 실패:', error);
-                showToast('QR 코드 다운로드에 실패했습니다.', 'error', '다운로드 실패');
+                const errorMessage = error?.message || 'QR 코드 다운로드에 실패했습니다.';
+                showToast(errorMessage, 'error', '다운로드 실패');
             }
-        }
+        };
 
         function generateDomainQR() {
             if (!IS_SUPERADMIN) {
