@@ -3846,15 +3846,19 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         </div>
                     </div>
                     
-                    <div class="form-group" id="qrSection" style="display:none;">
+                    <div class="form-group">
                         <label>QR 코드</label>
-                        <div id="qrCodeDisplay" style="background: white; border-radius: 8px; padding: 20px; text-align: center; border: 1px solid #e2e8f0;">
-                            <!-- QR 코드가 여기에 표시됩니다 -->
+                        <div id="qrSection" style="display:none;">
+                            <div id="qrCodeDisplay" style="background: white; border-radius: 8px; padding: 20px; text-align: center; border: 1px solid #e2e8f0;">
+                                <!-- QR 코드가 여기에 표시됩니다 -->
+                            </div>
+                            <div style="margin-top: 12px; text-align: center;">
+                                <button type="button" class="btn btn-primary" id="domainQrDownloadBtn" onclick="downloadDomainQR()" style="display:none;">
+                                    QR 다운로드
+                                </button>
+                            </div>
                         </div>
                         <div style="margin-top: 12px; text-align: center;">
-                            <button type="button" class="btn btn-primary" id="domainQrDownloadBtn" onclick="downloadDomainQR()" style="display:none;">
-                                QR 다운로드
-                            </button>
                             <button type="button" class="btn btn-secondary" id="domainQrGenerateBtn" onclick="generateDomainQRFromSection()" style="display:none;">
                                 QR 생성
                             </button>
@@ -10192,7 +10196,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 }
             }
             
-            // QR 섹션 표시/숨김
+            // QR 섹션 표시/숨김 (QR 코드 이미지가 있을 때만 표시)
             if (qrSection) {
                 qrSection.style.display = hasQr ? 'block' : 'none';
             }
@@ -10201,6 +10205,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             if (qrCodeDisplay && hasQr) {
                 const resolvedUrl = resolveQrUrl(qrInfo.url);
                 qrCodeDisplay.innerHTML = `<img src="${resolvedUrl}" alt="QR Code" style="max-width: 300px; width: 100%; height: auto;">`;
+            } else if (qrCodeDisplay && !hasQr) {
+                qrCodeDisplay.innerHTML = '';
             }
             
             // QR 다운로드 버튼 표시/숨김
