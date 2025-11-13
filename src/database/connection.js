@@ -8,12 +8,29 @@
 const { Client } = require('pg');
 const path = require('path');
 
-// 환경 변수 로드
-require('dotenv').config({ path: path.resolve(__dirname, '../../env.database') });
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+// 환경 변수 로드 (파일이 없어도 에러 없이 계속 진행)
+try {
+  require('dotenv').config({ path: path.resolve(__dirname, '../../env.database') });
+} catch (e) {
+  // 파일이 없어도 계속 진행 (Railway 등 클라우드 환경)
+}
+
+try {
+  require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+} catch (e) {
+  // 파일이 없어도 계속 진행 (Railway 등 클라우드 환경)
+}
 
 // DATABASE_URL이 있으면 파싱하여 사용, 없으면 개별 환경 변수 사용
 let dbConfig;
+
+// 디버깅: DATABASE_URL 확인
+if (process.env.DATABASE_URL) {
+  console.log('[DB] DATABASE_URL 발견:', process.env.DATABASE_URL.substring(0, 30) + '...');
+} else {
+  console.log('[DB] DATABASE_URL 없음, 개별 환경 변수 사용');
+  console.log('[DB] DB_HOST:', process.env.DB_HOST || 'localhost');
+}
 
 if (process.env.DATABASE_URL) {
   // DATABASE_URL 파싱 (NEON 등 클라우드 DB용)
@@ -34,6 +51,14 @@ if (process.env.DATABASE_URL) {
     password: dbUrl.password,
     ssl: needsSSL ? { rejectUnauthorized: false } : false,
   };
+  
+  console.log('[DB] DATABASE_URL 파싱 완료:', {
+    host: dbConfig.host,
+    port: dbConfig.port,
+    database: dbConfig.database,
+    user: dbConfig.user,
+    ssl: !!dbConfig.ssl
+  });
 } else {
   // 개별 환경 변수 사용 (로컬 개발용)
   dbConfig = {

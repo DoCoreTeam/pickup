@@ -20,9 +20,18 @@ const OpenAI = require('openai');
 const dbServices = require('../database/services');
 const db = require('../database/connection');
 
-// 환경변수 로드
-require('dotenv').config({ path: path.join(__dirname, '../../env.database') });
-require('dotenv').config({ path: path.join(__dirname, '../../.env') });
+// 환경변수 로드 (파일이 없어도 에러 없이 계속 진행 - Railway 등 클라우드 환경 대응)
+try {
+  require('dotenv').config({ path: path.join(__dirname, '../../env.database') });
+} catch (e) {
+  // 파일이 없어도 계속 진행
+}
+
+try {
+  require('dotenv').config({ path: path.join(__dirname, '../../.env') });
+} catch (e) {
+  // 파일이 없어도 계속 진행
+}
 
 // AI 오케스트레이터
 const aiOrchestrator = require('../ai/orchestrator');
