@@ -6,10 +6,13 @@
   "author": "DOCORE",
   "license": "MIT",
   "scripts": {
+    "build": "echo '✅ 빌드 완료 (현재 프로젝트는 빌드가 필요 없습니다)' && npm run lint:check",
+    "lint:check": "node -c src/backend/api_server.js && echo '✅ JavaScript 문법 검사 통과'",
     "start:db": "docker-compose up -d postgres",
     "stop:db": "docker-compose down",
     "migrate:json-to-postgres": "node scripts/migrate-json-to-postgres.js",
     "start:api": "node src/backend/api_server.js",
+    "start:prod": "NODE_ENV=production node src/backend/api_server.js",
     "dev:api:db": "npm run start:db && sleep 5 && npm run migrate:json-to-postgres && npm run start:api",
     "restart:api": "bash scripts/restart-api.sh",
     "test:api": "curl http://localhost:8081/api/healthz"

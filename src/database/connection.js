@@ -10,16 +10,41 @@ const path = require('path');
 
 // 환경 변수 로드
 require('dotenv').config({ path: path.resolve(__dirname, '../../env.database') });
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
-// 데이터베이스 연결 설정
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'pickup_db',
-  user: process.env.DB_USER || 'pickup_user',
-  password: process.env.DB_PASSWORD || 'pickup_password',
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-};
+// DATABASE_URL이 있으면 파싱하여 사용, 없으면 개별 환경 변수 사용
+let dbConfig;
+
+if (process.env.DATABASE_URL) {
+  // DATABASE_URL 파싱 (NEON 등 클라우드 DB용)
+  const url = require('url');
+  const dbUrl = new url.URL(process.env.DATABASE_URL);
+  
+  // NEON 등 클라우드 DB는 항상 SSL 필요 (sslmode=require가 URL에 포함되어 있으면 SSL 활성화)
+  const needsSSL = dbUrl.searchParams.get('sslmode') === 'require' || 
+                   process.env.NODE_ENV === 'production' ||
+                   dbUrl.hostname.includes('neon.tech') ||
+                   dbUrl.hostname.includes('aws.neon.tech');
+  
+  dbConfig = {
+    host: dbUrl.hostname,
+    port: parseInt(dbUrl.port) || 5432,
+    database: dbUrl.pathname.slice(1), // 첫 번째 '/' 제거
+    user: dbUrl.username,
+    password: dbUrl.password,
+    ssl: needsSSL ? { rejectUnauthorized: false } : false,
+  };
+} else {
+  // 개별 환경 변수 사용 (로컬 개발용)
+  dbConfig = {
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT) || 5432,
+    database: process.env.DB_NAME || 'pickup_db',
+    user: process.env.DB_USER || 'pickup_user',
+    password: process.env.DB_PASSWORD || 'pickup_password',
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  };
+}
 
 // 연결 풀 설정
 const poolConfig = {
