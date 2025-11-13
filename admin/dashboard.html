@@ -10355,12 +10355,17 @@ body:not(.owner-mode) .menu-section-title.owner-only {
 
                 showToast('QR 코드 생성 중...', 'info', '처리 중');
                 
+                const role = IS_SUPERADMIN ? 'superadmin' : (IS_STORE_OWNER ? 'owner' : 'admin');
+                
                 const response = await apiRequest(`${API_BASE}/store/${currentStoreId}/qr-code`, 'POST', {
-                    subdomain: subdomainValue
+                    storeId: currentStoreId,
+                    subdomain: subdomainValue,
+                    role: role
                 });
 
                 if (response && response.success) {
                     showToast('QR 코드가 생성되었습니다!', 'success', '생성 완료');
+                    // 도메인 설정 다시 로드하여 QR 코드 표시
                     await loadDomainSettings();
                 } else {
                     throw new Error(response?.message || 'QR 코드 생성 실패');

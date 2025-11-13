@@ -612,6 +612,10 @@ class APIRouter {
                 } else if (method === 'POST') {
                   handler = (req, res, parsedUrl) => this.saveDomainSettings(req, res, parsedUrl);
                 }
+              } else if (subPath === 'qr-code' || subPath === 'domain-qr') { // POST /api/store/:id/qr-code 또는 /api/store/:id/domain-qr
+                if (method === 'POST') {
+                  handler = (req, res, parsedUrl) => this.generateDomainQR(req, res, parsedUrl);
+                }
               } else if (subPath === 'seo-settings') { // GET/POST /api/store/:id/seo-settings
                 if (method === 'GET') {
                   log('DEBUG', 'SEO 설정 라우트 매칭', { storeId, method, pathname });
@@ -736,6 +740,18 @@ class APIRouter {
       // 정적 라우트 확인
       if (!handler) {
         handler = this.routes.get(routeKey);
+      }
+
+      // /qr/ 경로로 접근하는 경우 정적 파일 서빙 (QR 코드 이미지)
+      if (!handler && pathname.startsWith('/qr/')) {
+        const fileName = pathname.replace('/qr/', '');
+        const qrDir = path.join(__dirname, '../../qr');
+        const filePath = path.join(qrDir, fileName);
+        if (serveStaticFile(req, res, filePath)) {
+          const responseTime = Date.now() - startTime;
+          logRequest(method, pathname, 200, responseTime);
+          return;
+        }
       }
 
       if (handler) {
@@ -2715,8 +2731,16 @@ class APIRouter {
   // 도메인 QR 생성
   async generateDomainQR(req, res, parsedUrl) {
     try {
+      // URL에서 storeId 추출 시도 (예: /api/store/:storeId/qr-code)
+      let storeId = parsedUrl.pathname.split('/')[3];
       const body = await parseRequestBody(req);
-      const { storeId, subdomain, role } = body || {};
+      
+      // body에서 storeId가 있으면 우선 사용
+      if (body.storeId) {
+        storeId = body.storeId;
+      }
+      
+      const { subdomain, role } = body || {};
       
       if (!storeId || !subdomain) {
         sendErrorResponse(res, 400, '가게 ID와 서브도메인이 필요합니다.');
