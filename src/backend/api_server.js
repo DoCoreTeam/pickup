@@ -30,11 +30,16 @@ const aiOrchestrator = require('../ai/orchestrator');
 const PORT = process.env.PORT || 8081;
 const DATA_BACKEND = process.env.DATA_BACKEND || 'postgres';
 
-// OpenAI 클라이언트 초기화
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  timeout: parseInt(process.env.OPENAI_TIMEOUT) || 30000,
-});
+// OpenAI 클라이언트 초기화 (API 키가 있을 때만)
+let openai = null;
+if (process.env.OPENAI_API_KEY) {
+  openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    timeout: parseInt(process.env.OPENAI_TIMEOUT) || 30000,
+  });
+} else {
+  console.warn('⚠️ OPENAI_API_KEY가 설정되지 않았습니다. OpenAI 기능을 사용할 수 없습니다.');
+}
 
 // 로그 함수
 function log(level, message, data = null) {
@@ -2097,6 +2102,12 @@ class APIRouter {
 
   // OpenAI API를 사용한 콘텐츠 생성 (통합)
   async generateWithOpenAI(type, basicInfo, customUserPrompt = '') {
+    // OpenAI 클라이언트가 없으면 null 반환
+    if (!openai) {
+      log('WARN', 'OpenAI 클라이언트가 초기화되지 않았습니다. API 키를 확인하세요.');
+      return null;
+    }
+
     const systemPrompt = this.getSystemPrompt(type);
     const userPrompt = this.getUserPrompt(type, basicInfo, customUserPrompt);
     
