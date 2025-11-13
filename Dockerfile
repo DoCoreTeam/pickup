@@ -10,41 +10,38 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --only=production
 
-# Rebuild the source code only when needed
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-
-# Build the application
-RUN npm run build
-
 # Production image, copy all the files and run the app
 FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=3001
+ENV PORT=8081
 
 RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nestjs
+RUN adduser --system --uid 1001 nodejs
 
-# Copy the built application
-COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nestjs:nodejs /app/package.json ./package.json
+# Copy dependencies
+COPY --from=deps --chown=nodejs:nodejs /app/node_modules ./node_modules
 
-# Copy static assets
-COPY --from=builder --chown=nestjs:nodejs /app/assets ./assets
+# Copy application files (no build step needed - JavaScript files run directly)
+COPY --chown=nodejs:nodejs package.json ./
+COPY --chown=nodejs:nodejs src ./src
+COPY --chown=nodejs:nodejs admin ./admin
+COPY --chown=nodejs:nodejs assets ./assets
+COPY --chown=nodejs:nodejs qr ./qr
+COPY --chown=nodejs:nodejs index.html ./
+COPY --chown=nodejs:nodejs store.html ./
+COPY --chown=nodejs:nodejs paused.html ./
+COPY --chown=nodejs:nodejs owner ./owner
 
-USER nestjs
+USER nodejs
 
-EXPOSE 3001
+EXPOSE 8081
 
-ENV PORT=3001
+ENV PORT=8081
 
-# Health check
+# Health check (wget is available in alpine)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3001/healthz || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8081/api/healthz || exit 1
 
 CMD ["npm", "run", "start:api"]
