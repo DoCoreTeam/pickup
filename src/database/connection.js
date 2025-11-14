@@ -83,13 +83,110 @@ const poolConfig = {
 
 let client = null;
 let pool = null;
+let isConnecting = false;
+let reconnectTimer = null;
 
 // 단일 연결 클라이언트
 function getClient() {
   if (!client) {
     client = new Client(dbConfig);
+    
+    // 에러 이벤트 핸들러 추가 (크래시 방지)
+    client.on('error', (err) => {
+      console.error('[DB] PostgreSQL 클라이언트 에러:', err.message);
+      // 연결이 끊어진 경우 자동 재연결 시도
+      if (err.code === 'ECONNRESET' || err.code === 'EPIPE' || err.message.includes('terminated')) {
+        console.log('[DB] 연결이 끊어졌습니다. 재연결을 시도합니다...');
+        // 클라이언트 상태를 끊어진 것으로 표시
+        client._connectionError = true;
+        scheduleReconnect();
+      }
+    });
+    
+    // 연결 종료 이벤트 핸들러
+    client.on('end', () => {
+      console.log('[DB] PostgreSQL 연결이 종료되었습니다.');
+      // 연결이 정상적으로 종료된 경우가 아니라면 재연결 시도
+      if (!isConnecting) {
+        client._connectionError = true;
+        scheduleReconnect();
+      }
+    });
+  } else {
+    // 기존 클라이언트가 있지만 연결이 끊어진 경우 재연결 시도
+    if (client._ending || client._connectionError) {
+      if (!isConnecting && !reconnectTimer) {
+        scheduleReconnect();
+      }
+    }
   }
   return client;
+}
+
+// 재연결 스케줄링 (지수 백오프)
+function scheduleReconnect() {
+  // 이미 재연결이 예약되어 있으면 무시
+  if (reconnectTimer) {
+    return;
+  }
+  
+  // 연결 중이면 무시
+  if (isConnecting) {
+    return;
+  }
+  
+  // 클라이언트가 이미 연결되어 있으면 무시
+  if (client && !client._ending && !client._connectionError) {
+    return;
+  }
+  
+  // 5초 후 재연결 시도
+  reconnectTimer = setTimeout(async () => {
+    reconnectTimer = null;
+    await attemptReconnect();
+  }, 5000);
+}
+
+// 재연결 시도
+async function attemptReconnect() {
+  if (isConnecting) {
+    return;
+  }
+  
+  try {
+    isConnecting = true;
+    
+    // 기존 클라이언트 정리
+    if (client) {
+      try {
+        // 에러 핸들러 제거
+        client.removeAllListeners('error');
+        client.removeAllListeners('end');
+        
+        if (!client._ending) {
+          await client.end();
+        }
+      } catch (err) {
+        // 이미 종료된 경우 무시
+      }
+      client = null;
+    }
+    
+    // 새 클라이언트 생성 및 연결
+    const newClient = getClient();
+    await newClient.connect();
+    
+    // 연결 성공 시 에러 플래그 초기화
+    newClient._connectionError = false;
+    
+    console.log('✅ PostgreSQL 데이터베이스 재연결 성공');
+  } catch (error) {
+    console.error('❌ PostgreSQL 데이터베이스 재연결 실패:', error.message);
+    // 재연결 실패 시 다시 시도
+    scheduleReconnect();
+  } finally {
+    isConnecting = false;
+  }
 }
 
 // 연결 풀 (향후 확장용)
@@ -97,6 +194,11 @@ function getPool() {
   if (!pool) {
     const { Pool } = require('pg');
     pool = new Pool(poolConfig);
+    
+    // 연결 풀 에러 핸들러 추가
+    pool.on('error', (err) => {
+      console.error('[DB] PostgreSQL 연결 풀 에러:', err.message);
+    });
   }
   return pool;
 }
@@ -106,6 +208,10 @@ async function connect() {
   try {
     const client = getClient();
     await client.connect();
+    
+    // 연결 성공 시 에러 플래그 초기화
+    client._connectionError = false;
+    
     console.log('✅ PostgreSQL 데이터베이스 연결 성공');
     return client;
   } catch (error) {
@@ -117,8 +223,22 @@ async function connect() {
 // 데이터베이스 연결 해제
 async function disconnect() {
   try {
+    // 재연결 타이머 취소
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    
     if (client) {
-      await client.end();
+      // 에러 핸들러 제거 (정상 종료 시 재연결 방지)
+      client.removeAllListeners('error');
+      client.removeAllListeners('end');
+      
+      try {
+        await client.end();
+      } catch (err) {
+        // 이미 종료된 경우 무시
+      }
       client = null;
     }
     if (pool) {
@@ -133,14 +253,45 @@ async function disconnect() {
 
 // 쿼리 실행 (단일 연결)
 async function query(text, params = []) {
-  const client = getClient();
-  try {
-    const result = await client.query(text, params);
-    return result;
-  } catch (error) {
-    console.error('❌ 쿼리 실행 실패:', error);
-    throw error;
+  let retries = 0;
+  const maxRetries = 3;
+  
+  while (retries < maxRetries) {
+    try {
+      const client = getClient();
+      
+      // 연결 상태 확인 및 재연결
+      if (client._ending || client._connectionError) {
+        console.log('[DB] 연결이 끊어진 것으로 감지되었습니다. 재연결을 시도합니다...');
+        await attemptReconnect();
+        continue;
+      }
+      
+      const result = await client.query(text, params);
+      return result;
+    } catch (error) {
+      // 연결 관련 에러인 경우 재연결 시도
+      if (error.code === 'ECONNRESET' || 
+          error.code === 'EPIPE' || 
+          error.message.includes('terminated') ||
+          error.message.includes('Connection')) {
+        console.error(`❌ 쿼리 실행 실패 (연결 에러, 재시도 ${retries + 1}/${maxRetries}):`, error.message);
+        retries++;
+        
+        if (retries < maxRetries) {
+          await attemptReconnect();
+          // 재연결 후 잠시 대기
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          continue;
+        }
+      }
+      
+      console.error('❌ 쿼리 실행 실패:', error);
+      throw error;
+    }
   }
+  
+  throw new Error('쿼리 실행 실패: 최대 재시도 횟수 초과');
 }
 
 // 트랜잭션 실행
