@@ -178,6 +178,10 @@ CREATE INDEX IF NOT EXISTS idx_release_notes_version ON release_notes(version);
 CREATE INDEX IF NOT EXISTS idx_release_notes_release_date ON release_notes(release_date);
 CREATE INDEX IF NOT EXISTS idx_store_events_store_id ON store_events(store_id);
 CREATE INDEX IF NOT EXISTS idx_store_events_type ON store_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_store_events_created_at ON store_events(created_at);
+-- 복합 인덱스: 날짜 범위 쿼리 성능 최적화 (대시보드 쿼리용)
+CREATE INDEX IF NOT EXISTS idx_store_events_store_created ON store_events(store_id, created_at) WHERE store_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_store_events_created_type ON store_events(created_at, event_type);
 
 -- 초기 데이터 삽입 (기본 슈퍼어드민)
 INSERT INTO superadmin (username, password_hash, created_at, last_modified)

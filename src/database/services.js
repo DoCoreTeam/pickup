@@ -1733,20 +1733,6 @@ async function getEventSummary({ storeId = null, from = null, to = null }) {
     }
   });
 
-  const totals = {};
-  totalsResult.rows.forEach(row => {
-    totals[row.event_type] = row.count;
-  });
-
-  const daily = {};
-  dailyResult.rows.forEach(row => {
-    const dayKey = row.day.toISOString().split('T')[0];
-    if (!daily[dayKey]) {
-      daily[dayKey] = {};
-    }
-    daily[dayKey][row.event_type] = row.count;
-  });
-
   return {
     success: true,
     storeId,
