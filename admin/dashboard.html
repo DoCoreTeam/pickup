@@ -11527,46 +11527,11 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
             
             // ===== UI 즉시 전환 (메뉴 클릭 시 즉시 반응) =====
-            // 1단계: 모든 admin-section 섹션 숨기기 (예외 없이 모두)
-            const allSections = document.querySelectorAll('.admin-section');
-            allSections.forEach(section => {
-                section.style.display = 'none';
-                // 인라인 스타일도 명시적으로 설정 (CSS 우선순위보다 높음)
-                section.setAttribute('style', 'display: none !important;');
-            });
+            // 모든 섹션 숨기기 (슈퍼어드민 전용 섹션 포함, 헬퍼 함수 사용)
+            hideAllSections(sectionId);
             
-            // 2단계: 슈퍼어드민 전용 섹션들도 명시적으로 숨김 (id, class 모두 확인)
-            const superadminSections = document.querySelectorAll('.superadmin-only');
-            superadminSections.forEach(section => {
-                // 현재 선택된 섹션이 아닌 슈퍼어드민 전용 섹션은 반드시 숨김
-                if (section.id && section.id !== sectionId) {
-                    section.style.display = 'none';
-                    section.setAttribute('style', 'display: none !important;');
-                } else if (!section.id || section.id !== sectionId) {
-                    // id가 없거나 다른 슈퍼어드민 전용 요소도 숨김
-                    section.style.display = 'none';
-                    section.setAttribute('style', 'display: none !important;');
-                }
-            });
-            
-            // 3단계: 특정 슈퍼어드민 전용 섹션 ID 목록으로 명시적으로 숨기기 (안전장치)
-            const superadminOnlySectionIds = ['accounts', 'db-stats', 'activity-logs', 'superadmin'];
-            superadminOnlySectionIds.forEach(id => {
-                if (id !== sectionId) {
-                    const section = document.getElementById(id);
-                    if (section) {
-                        section.style.display = 'none';
-                        section.setAttribute('style', 'display: none !important;');
-                    }
-                }
-            });
-            
-            // 4단계: 선택된 섹션만 표시 (명시적으로)
-            const selectedSection = document.getElementById(sectionId);
-            if (selectedSection) {
-                // 인라인 스타일로 강제 표시 (CSS 우선순위보다 높음)
-                selectedSection.setAttribute('style', 'display: block !important;');
-            }
+            // 선택된 섹션만 표시 (헬퍼 함수 사용)
+            showSectionOnly(sectionId);
             
             // 메뉴 활성화 (즉시)
             const menuItems = document.querySelectorAll('.menu-item');
