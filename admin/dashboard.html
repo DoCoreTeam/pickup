@@ -3490,7 +3490,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge">v1.5.0</div>
+                    <div class="version-badge">v1.5.26</div>
                 </div>
                 <a href="/admin/release-notes" class="release-notes-btn">
                     릴리즈 노트
@@ -4814,9 +4814,12 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         // API 요청 함수 (타임아웃 및 재시도 포함)
         async function apiRequest(url, method = 'GET', data = null, retries = 3) {
             for (let attempt = 1; attempt <= retries; attempt++) {
+                let controller = null;
+                let timeoutId = null;
+                
                 try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃
+                    controller = new AbortController();
+                    timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃
                     
                     const options = {
                         method: method,
@@ -4831,7 +4834,12 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     }
                     
                     const response = await fetch(url, options);
-                    clearTimeout(timeoutId);
+                    
+                    // 타임아웃 정리
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                        timeoutId = null;
+                    }
                     
                     const rawText = await response.text();
                     let payload = null;
@@ -4854,6 +4862,25 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     
                     return payload ?? {};
                 } catch (error) {
+                    // 타임아웃 정리
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                        timeoutId = null;
+                    }
+                    
+                    // AbortError는 요청 취소로 인한 에러이므로 재시도하지 않음
+                    if (error.name === 'AbortError' || error.name === 'AbortedError') {
+                        // 타임아웃으로 인한 취소인 경우
+                        if (attempt === retries) {
+                            console.warn('API 요청이 타임아웃되었습니다:', url);
+                            throw new Error('요청 시간이 초과되었습니다. 네트워크 연결을 확인해주세요.');
+                        }
+                        // 중간 시도에서 취소된 경우 (의도적인 취소일 수 있음)
+                        console.debug(`API 요청 취소됨 (시도 ${attempt}/${retries}):`, url);
+                        continue;
+                    }
+                    
+                    // 일반 에러는 로그 출력 및 재시도
                     console.error(`API 요청 실패 (시도 ${attempt}/${retries}):`, error);
                     
                     if (attempt === retries) {
