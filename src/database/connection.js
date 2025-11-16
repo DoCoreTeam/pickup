@@ -94,11 +94,13 @@ const dbStats = {
   totalQueries: 0,
   totalBytes: 0,
   queriesByType: {}, // SELECT, INSERT, UPDATE, DELETE 등
+  recentQueries: [], // 최근 쿼리 목록 (최대 100개)
   startTime: Date.now(),
   reset() {
     this.totalQueries = 0;
     this.totalBytes = 0;
     this.queriesByType = {};
+    this.recentQueries = [];
     this.startTime = Date.now();
   },
   // 쿼리 타입 추출 (대략적)
