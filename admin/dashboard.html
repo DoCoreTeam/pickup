@@ -10183,17 +10183,23 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         return;
                     }
                     
-                    // 올바른 API 엔드포인트 사용
-                    const settingsResponse = await apiRequest(`${API_BASE}/store/${currentStoreId}/settings`);
+                    // 기존 설정 가져오기 (GET /api/settings 사용)
+                    const settingsResponse = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
                     const settings = settingsResponse?.data || settingsResponse || {};
                     console.log('🔍 [DEBUG] 기존 설정 로드됨:', settings);
                     
-                    settings.images = settings.images || {};
-                    settings.images[imageType] = imageData;
+                    // images 객체 병합 (기존 이미지 유지)
+                    const updatedSettings = {
+                        ...settings,
+                        images: {
+                            ...(settings.images || {}),
+                            [imageType]: imageData
+                        }
+                    };
                     
-                    console.log('🔍 [DEBUG] 저장할 설정:', { images: settings.images });
+                    console.log('🔍 [DEBUG] 저장할 설정:', { images: updatedSettings.images });
                     
-                    await apiRequest(`${API_BASE}/store/${currentStoreId}/settings`, 'POST', settings);
+                    await apiRequest(`${API_BASE}/store/${currentStoreId}/settings`, 'POST', updatedSettings);
                     
                     // 캐시 무효화 (최신 데이터 반영)
                     const cacheKey = `settings_${currentStoreId}`;
