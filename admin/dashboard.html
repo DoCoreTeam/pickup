@@ -11983,6 +11983,12 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     if (window.sessionCache) {
                         window.sessionCache.set(cacheKey, domainSettings);
                     }
+                    
+                    // 기본 정보 섹션이 활성화되어 있으면 요약도 업데이트
+                    const basicSection = document.getElementById('basic');
+                    if (basicSection && basicSection.style.display !== 'none') {
+                        renderBasicSummary();
+                    }
                 } else {
                     // 응답이 없거나 실패한 경우에도 QR 정보 확인 (qrCode 필드 직접 확인)
                     const qrInfo = response?.data?.qrCode || response?.qrCode || {};
