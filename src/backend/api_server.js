@@ -963,6 +963,12 @@ class APIRouter {
   }
 
   async getData(req, res, parsedUrl) {
+    // DB 연결 확인
+    if (this.dbConnected && !this.dbConnected()) {
+      sendErrorResponse(res, 503, '데이터베이스 연결이 실패했습니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+    
     try {
       // 데이터 전송량 절감: 최대 20개 가게만 반환
       const storesResult = await dbServices.getStores({ 
@@ -995,6 +1001,12 @@ class APIRouter {
   }
 
   async getStores(req, res, parsedUrl) {
+    // DB 연결 확인
+    if (this.dbConnected && !this.dbConnected()) {
+      sendErrorResponse(res, 503, '데이터베이스 연결이 실패했습니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+    
     try {
       const query = parsedUrl.query || {};
       const {
@@ -1078,18 +1090,33 @@ class APIRouter {
 
   async getHealthCheck(req, res, parsedUrl) {
     try {
-      const health = await db.healthCheck();
+      // DB 연결 상태 확인 (연결 실패 시에도 서버는 실행 중)
+      const dbHealth = await db.healthCheck().catch(() => false);
+      const dbStatus = dbHealth ? 'connected' : 'disconnected';
+      
+      // DB가 연결되지 않은 경우 503 반환 (서비스 일시 중단)
+      if (!dbHealth) {
+        sendJsonResponse(res, 503, {
+          status: 'degraded',
+          database: dbStatus,
+          message: '데이터베이스 연결이 실패했습니다. 일부 기능이 제한될 수 있습니다.',
+          timestamp: new Date().toISOString()
+        });
+        return;
+      }
+      
       sendJsonResponse(res, 200, {
         status: 'ok',
-        timestamp: new Date().toISOString(),
-        database: health
+        database: dbStatus,
+        timestamp: new Date().toISOString()
       });
     } catch (error) {
       log('ERROR', '헬스체크 실패', error);
-      sendJsonResponse(res, 500, {
+      sendJsonResponse(res, 503, {
         status: 'error',
-        timestamp: new Date().toISOString(),
-        error: error.message
+        database: 'error',
+        error: error.message,
+        timestamp: new Date().toISOString()
       });
     }
   }
@@ -1591,6 +1618,12 @@ class APIRouter {
   }
 
   async getSettings(req, res, parsedUrl) {
+    // DB 연결 확인
+    if (this.dbConnected && !this.dbConnected()) {
+      sendErrorResponse(res, 503, '데이터베이스 연결이 실패했습니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+    
     try {
       const storeId = parsedUrl.query.storeId;
       const fields = parsedUrl.query.fields ? parsedUrl.query.fields.split(',') : null;
