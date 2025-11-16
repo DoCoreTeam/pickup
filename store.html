@@ -2803,8 +2803,25 @@
             currentStoreId = initialData.store.id;
             
             // 필수 설정만 먼저 설정 (로고)
-            if (initialData.settings && initialData.settings.images) {
+            const hasLogo = initialData.settings && initialData.settings.images && initialData.settings.images.mainLogo;
+            if (hasLogo) {
               settings = { images: initialData.settings.images };
+            } else {
+              // 초기 데이터에 로고가 없으면 로고만 먼저 가져오기
+              settings = {};
+              if (currentStoreId) {
+                loadEssentialSettings(currentStoreId).then(essentialSettings => {
+                  if (essentialSettings && essentialSettings.images && essentialSettings.images.mainLogo) {
+                    settings = { images: essentialSettings.images };
+                    // 로고만 업데이트 (전체 페이지 재렌더링 없이)
+                    const logoImg = document.querySelector('.store-logo img');
+                    if (logoImg && settings.images.mainLogo) {
+                      logoImg.src = settings.images.mainLogo;
+                      log('INFO', '로고 업데이트 완료 (초기 데이터 로고 없음)');
+                    }
+                  }
+                }).catch(() => {});
+              }
             }
             
             isLoading = false;
@@ -2813,7 +2830,7 @@
             renderStorePage();
             hideLoadingOverlay();
             
-            log('INFO', '초기 데이터로 즉시 렌더링 완료');
+            log('INFO', '초기 데이터로 즉시 렌더링 완료', { hasLogo });
             
             // 나머지 설정은 백그라운드에서 로드
             if (currentStoreId) {
@@ -2822,8 +2839,17 @@
                   settings = {
                     ...settings,
                     ...fullSettings,
-                    images: settings.images || fullSettings.images
+                    images: settings.images || fullSettings.images || {}
                   };
+                  
+                  // 로고가 업데이트되었으면 로고 이미지만 업데이트
+                  if (fullSettings.images && fullSettings.images.mainLogo && !hasLogo) {
+                    const logoImg = document.querySelector('.store-logo img');
+                    if (logoImg && fullSettings.images.mainLogo) {
+                      logoImg.src = fullSettings.images.mainLogo;
+                      log('INFO', '로고 업데이트 완료 (전체 설정 로드 후)');
+                    }
+                  }
                   
                   const businessHoursSection = document.getElementById('businessHoursSection');
                   if (businessHoursSection && settings?.businessHours) {

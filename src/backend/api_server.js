@@ -992,7 +992,11 @@ class APIRouter {
               
               // 서버 사이드에서 초기 데이터 생성 (가게 정보 + 로고만)
               try {
-                const settings = await dbServices.getStoreSettingsOptimized(store.id, ['images']);
+                const settings = await dbServices.getStoreSettingsOptimized(store.id);
+                // images 필드 추출 (mainLogo가 있을 때만 포함)
+                const imagesData = settings?.settings?.images || settings?.images || {};
+                const hasLogo = Boolean(imagesData?.mainLogo && imagesData.mainLogo.trim());
+                
                 const initialData = {
                   store: {
                     id: store.id,
@@ -1003,13 +1007,14 @@ class APIRouter {
                     status: store.status
                   },
                   settings: {
-                    images: settings?.images || null
+                    // mainLogo가 있을 때만 images 포함
+                    images: hasLogo ? imagesData : null
                   }
                 };
                 
                 // HTML에 초기 데이터 주입을 위한 플래그 설정
                 req.initialStoreData = initialData;
-                log('INFO', '초기 데이터 준비 완료', { storeId: store.id, hasLogo: Boolean(settings?.images?.mainLogo) });
+                log('INFO', '초기 데이터 준비 완료', { storeId: store.id, hasLogo });
               } catch (error) {
                 log('WARN', '초기 데이터 로드 실패 (무시)', error);
                 // 초기 데이터 로드 실패해도 계속 진행
