@@ -2798,21 +2798,31 @@ async function createStore(storeData = {}) {
       
       if (existingCheck.rows.length > 0) {
         const existing = existingCheck.rows[0];
-        // 삭제되지 않은 가게면 에러
+        // 삭제되지 않은 가게면 에러 (중복 생성 방지)
         if (existing.status !== 'deleted') {
           throw new Error(`동일한 가게가 이미 존재합니다: ${existing.name} (${existing.id})`);
         }
         // 삭제된 가게면 복구
         console.log(`[가게 생성] 삭제된 가게 복구: ${existing.id}`);
         const now = new Date().toISOString();
-        await db.query(`
+        const updateResult = await db.query(`
           UPDATE stores
           SET status = $1,
-              last_modified = $2,
+              name = COALESCE(NULLIF($2, ''), name),
+              address = COALESCE(NULLIF($3, ''), address),
+              phone = COALESCE(NULLIF($4, ''), phone),
+              last_modified = $5,
               paused_at = NULL
-          WHERE id = $3
+          WHERE id = $6
           RETURNING *
-        `, [storeData.status || 'pending', now, existing.id]);
+        `, [
+          storeData.status || 'pending',
+          storeName || null,
+          storeAddress || null,
+          storePhone || null,
+          now,
+          existing.id
+        ]);
         
         // 기본 설정이 없으면 생성
         const settingsCheck = await db.query(`SELECT store_id FROM store_settings WHERE store_id = $1`, [existing.id]);
