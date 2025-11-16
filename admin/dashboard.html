@@ -11283,17 +11283,10 @@ body:not(.owner-mode) .menu-section-title.owner-only {
 
             // 홈 섹션인 경우 최근 가게만 로드
             if (sectionId === 'home') {
-                // 모든 섹션 숨기기
-            const sections = document.querySelectorAll('.admin-section');
-                sections.forEach(section => {
-                    section.style.display = 'none';
-                });
-                
+                // 모든 섹션 숨기기 (슈퍼어드민 전용 섹션 포함)
+                hideAllSections('home');
                 // 홈 섹션 표시
-                const homeSection = document.getElementById('home');
-                if (homeSection) {
-                    homeSection.style.display = 'block';
-                }
+                showSectionOnly('home');
                 
                 // 최근 가게 로드 (비동기, 로딩 바 없이)
                 loadHomeRecentStores().catch(err => {
@@ -11314,17 +11307,10 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     return;
                 }
                 
-                // 모든 섹션 숨기기
-                const sections = document.querySelectorAll('.admin-section');
-                sections.forEach(section => {
-                    section.style.display = 'none';
-                });
-                
+                // 모든 섹션 숨기기 (슈퍼어드민 전용 섹션 포함)
+                hideAllSections('setup-guide');
                 // 설정 가이드 섹션 표시
-                const setupGuideSection = document.getElementById('setup-guide');
-                if (setupGuideSection) {
-                    setupGuideSection.style.display = 'block';
-                }
+                showSectionOnly('setup-guide');
                 
                 // 메뉴 활성화 제거 (설정 가이드는 메뉴가 아님)
                 const menuItems = document.querySelectorAll('.menu-item');
@@ -11344,17 +11330,10 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     return;
                 }
                 
-                // 모든 섹션 숨기기 (owner-account 포함)
-                const sections = document.querySelectorAll('.admin-section');
-                sections.forEach(section => {
-                    section.style.display = 'none';
-                });
-                
+                // 모든 섹션 숨기기 (owner-account 포함, 슈퍼어드민 전용 섹션 포함)
+                hideAllSections(sectionId);
                 // 선택된 섹션 표시
-                const targetSection = document.getElementById(sectionId);
-                if (targetSection) {
-                    targetSection.style.display = 'block';
-                }
+                showSectionOnly(sectionId);
                 
                 // 메뉴 활성화
                 const menuItems = document.querySelectorAll('.menu-item');
@@ -11458,16 +11437,10 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 showStoreSelectionRequired();
                     return;
                 }
-                // 모든 섹션 숨기기
-                const sections = document.querySelectorAll('.admin-section');
-                sections.forEach(section => {
-                    section.style.display = 'none';
-                });
+                // 모든 섹션 숨기기 (슈퍼어드민 전용 섹션 포함)
+                hideAllSections('domain-qr');
                 // 도메인/QR 관리 섹션 표시
-                const domainQrSection = document.getElementById('domain-qr');
-                if (domainQrSection) {
-                    domainQrSection.style.display = 'block';
-                }
+                showSectionOnly('domain-qr');
                 
                 // 캐시 확인 후 필요할 때만 로딩바 표시
                 const currentStoreId = getCurrentStoreId();
