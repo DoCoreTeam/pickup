@@ -10096,7 +10096,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         async function saveSectionOrder() {
             try {
                 const currentStoreId = await getCurrentStoreId();
-                const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                const settingsResponse = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                // API 응답이 {success: true, data: {...}} 형태일 수도 있고, 직접 설정 객체일 수도 있음
+                const settings = settingsResponse?.data || settingsResponse || {};
                 
                 const orderItems = document.querySelectorAll('.order-item');
                 const sectionOrder = Array.from(orderItems).map(item => {
@@ -10113,7 +10115,11 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 const oldOrderTitles = oldSectionOrder.map(s => s.title).join(' → ');
                 const newOrderTitles = sectionOrder.map(s => s.title).join(' → ');
                 
-                settings.sectionOrder = sectionOrder;
+                // sectionOrder만 업데이트 (기존 설정 유지)
+                const updatedSettings = {
+                    ...settings,
+                    sectionOrder: sectionOrder
+                };
                 
                 await apiRequest(`${API_BASE}/store/${currentStoreId}/settings`, 'POST', settings);
                 
@@ -10130,6 +10136,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 // 현재 설정 업데이트 (즉시 반영)
                 if (window.currentSettings) {
                     window.currentSettings.sectionOrder = sectionOrder;
+                } else {
+                    window.currentSettings = updatedSettings;
                 }
                 
                 showToast('UI 순서가 자동으로 저장되었습니다!', 'success', '저장 완료');
@@ -10201,6 +10209,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     if (window.currentSettings) {
                         window.currentSettings.images = window.currentSettings.images || {};
                         window.currentSettings.images[imageType] = imageData;
+                    } else {
+                        window.currentSettings = updatedSettings;
                     }
                     
                     // 이미지 미리보기 업데이트
