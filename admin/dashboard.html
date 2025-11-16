@@ -11280,6 +11280,46 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     document.getElementById('dbStatsEstimatedCost').textContent = `$${costPerMonth.toFixed(2)}`;
                     document.getElementById('dbStatsTransferOverGB').textContent = `초과 전송량: ${transferOverGB.toFixed(4)} GB`;
                     
+                    // 최근 실행된 쿼리 표시
+                    const recentQueriesEl = document.getElementById('dbStatsRecentQueries');
+                    if (recentQueriesEl) {
+                        const recentQueries = stats.recentQueries || [];
+                        if (recentQueries.length === 0) {
+                            recentQueriesEl.innerHTML = '<div class="db-stats-loading">쿼리 데이터가 없습니다.</div>';
+                        } else {
+                            recentQueriesEl.innerHTML = `
+                                <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="background: #f8fafc;">
+                                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e2e8f0;">시간</th>
+                                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e2e8f0;">타입</th>
+                                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e2e8f0;">쿼리</th>
+                                            <th style="padding: 8px; text-align: right; border-bottom: 1px solid #e2e8f0;">소요시간</th>
+                                            <th style="padding: 8px; text-align: right; border-bottom: 1px solid #e2e8f0;">크기</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${recentQueries.reverse().map(q => {
+                                            const time = new Date(q.timestamp).toLocaleTimeString('ko-KR');
+                                            const duration = q.duration > 1000 ? `<span style="color: #ef4444; font-weight: 600;">${q.duration}ms</span>` : `${q.duration}ms`;
+                                            const size = formatBytes(q.size);
+                                            const queryText = escapeHtml(q.query);
+                                            return `
+                                                <tr style="border-bottom: 1px solid #f1f5f9;">
+                                                    <td style="padding: 8px; color: #64748b; white-space: nowrap;">${time}</td>
+                                                    <td style="padding: 8px;"><strong style="color: #3b82f6;">${q.type}</strong></td>
+                                                    <td style="padding: 8px; font-family: 'Courier New', monospace; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${queryText}">${queryText}</td>
+                                                    <td style="padding: 8px; text-align: right; white-space: nowrap;">${duration}</td>
+                                                    <td style="padding: 8px; text-align: right; color: #64748b; white-space: nowrap;">${size}</td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            `;
+                        }
+                    }
+                    
                     // 쿼리 타입별 통계 테이블
                     const queriesByTypeEl = document.getElementById('dbStatsQueriesByType');
                     if (queriesByTypeEl) {
