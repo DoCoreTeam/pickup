@@ -1439,12 +1439,6 @@ async function approveOwnerAccount(ownerId, { storeId, passwordHash }) {
          RETURNING store_id, owner_id, role, created_at`,
         [storeId, ownerId]
       );
-      
-      // 가게의 기본 점주 설정 (store_id 업데이트)
-      await client.query(
-        `UPDATE stores SET store_id = $1 WHERE id = $1`,
-        [storeId]
-      );
     }
 
     const owner = result.rows[0];
