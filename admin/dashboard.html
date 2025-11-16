@@ -59,8 +59,10 @@
             -webkit-overflow-scrolling: touch;
         }
 
+/* 점주 계정 메뉴 숨김 (초기 로드 시에도 적용되도록 명시적 스타일) */
 body.owner-mode .menu-item[data-role="superadmin-only"],
-body.owner-mode .superadmin-only {
+body.owner-mode .superadmin-only,
+body.owner-mode .menu-section-title[data-role="superadmin-only"] {
     display: none !important;
 }
 
