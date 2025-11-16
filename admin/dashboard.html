@@ -6276,12 +6276,19 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 // 가게 목록 즉시 업데이트 (승인된 점주와 연결된 가게 상태 변경 반영)
                 const storesSection = document.getElementById('stores');
                 if (storesSection && storesSection.style.display !== 'none') {
-                    const cacheKey = 'stores_list';
+                    // 모든 가게 관련 캐시 무효화
+                    const cacheKeys = ['stores_list', 'dashboard_all_stores'];
                     if (window.sessionCache) {
-                        window.sessionCache.clear(cacheKey);
+                        cacheKeys.forEach(key => window.sessionCache.clear(key));
+                    }
+                    // 백엔드 캐시도 무효화 (가게 정보 캐시)
+                    if (dbServices && typeof dbServices.clearCache === 'function') {
+                        // 백엔드 캐시는 API 호출로 무효화할 수 없으므로 프론트엔드에서만 처리
                     }
                     // 비동기로 로드 (UI 블로킹 방지)
-                    loadStoreList().catch(err => console.error('가게 목록 새로고침 실패:', err));
+                    setTimeout(() => {
+                        loadStoreList().catch(err => console.error('가게 목록 새로고침 실패:', err));
+                    }, 500); // 약간의 지연을 두어 DB 트랜잭션이 완료된 후 로드
                 }
                 
                 // 점주 목록 즉시 업데이트
@@ -7486,6 +7493,14 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     await loadOwnerAccounts(ownerStatusFilter);
                 }
 
+                // 점주 계정일 때는 본인 가게만 보이도록 필터링
+                if (IS_STORE_OWNER && !IS_SUPERADMIN) {
+                    const ownerId = sessionStorage.getItem('owner_id');
+                    if (ownerId) {
+                        storeQueryState.ownerId = ownerId; // 점주 ID로 필터링 강제
+                    }
+                }
+                
                 // 초기 로드 시에는 최소한의 데이터만 가져오기 (페이지네이션 기본값 사용)
                 const initialLoad = !allStores || allStores.length === 0;
                 const pageSize = initialLoad ? '20' : storeQueryState.pageSize.toString(); // 초기 로드 시 20개만
@@ -7502,7 +7517,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 if (storeQueryState.status) {
                     query.set('status', storeQueryState.status);
                 }
-                if (storeQueryState.ownerId && storeQueryState.ownerId !== '__unassigned') {
+                // 점주 계정일 때는 본인 가게만 보이도록 필터링 (슈퍼어드민이 아닐 때)
+                if (IS_STORE_OWNER && !IS_SUPERADMIN) {
+                    const ownerId = sessionStorage.getItem('owner_id');
+                    if (ownerId) {
+                        query.set('ownerId', ownerId);
+                    }
+                } else if (storeQueryState.ownerId && storeQueryState.ownerId !== '__unassigned') {
                     query.set('ownerId', storeQueryState.ownerId);
                 }
                 if (storeQueryState.createdDate) {
