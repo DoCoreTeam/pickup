@@ -1567,56 +1567,87 @@ class APIRouter {
 
       if (!resolvedStoreId) {
          const requestData = ownerDetail.requestData || {};
-         // 가게 생성도 재시도 로직 포함 (중복 체크는 createStore 내부에서 처리)
-         retries = 0;
-         while (retries < maxRetries) {
+         const storeName = requestData.storeName || ownerDetail.ownerName || ownerDetail.email;
+         const storeAddress = requestData.storeAddress || '';
+         const storePhone = ownerDetail.phone || '';
+         
+         // 먼저 기존 가게 확인 (중복 생성 방지)
+         if (storeName && storeAddress) {
            try {
-             storeRecord = await dbServices.createStore({
-               name: requestData.storeName || ownerDetail.ownerName || ownerDetail.email,
-               address: requestData.storeAddress || '',
-               phone: ownerDetail.phone || '',
-               status: 'pending' // 점주 승인 전까지는 pending 상태
+             const storeCheck = await dbServices.getStores({ 
+               keyword: storeName, 
+               pageSize: 50 
              });
-             resolvedStoreId = storeRecord.id;
-             break;
+             
+             const matchedStore = storeCheck.stores?.find(s => {
+               const nameMatch = s.name && s.name.trim().toLowerCase() === storeName.trim().toLowerCase();
+               const addressMatch = s.address && s.address.trim().toLowerCase() === storeAddress.trim().toLowerCase();
+               const phoneMatch = !storePhone || (s.phone && s.phone.trim() === storePhone.trim());
+               return nameMatch && addressMatch && phoneMatch;
+             });
+             
+             if (matchedStore) {
+               console.log(`[점주 승인] 기존 가게 발견 및 연결: ${matchedStore.id} (${matchedStore.name})`);
+               storeRecord = await dbServices.getStoreById(matchedStore.id);
+               resolvedStoreId = matchedStore.id;
+             }
            } catch (error) {
-             // 중복 가게 에러: 기존 가게를 찾아서 연결
-             if (error.message && error.message.includes('동일한 가게가 이미 존재합니다')) {
-               const storeName = requestData.storeName || ownerDetail.ownerName || ownerDetail.email;
-               const storeAddress = requestData.storeAddress || '';
-               const storePhone = ownerDetail.phone || '';
-               
-               // 정확한 가게 찾기 (이름+주소+전화번호로)
-               const storeCheck = await dbServices.getStores({ 
-                 keyword: storeName, 
-                 pageSize: 50 
+             console.warn('[점주 승인] 기존 가게 확인 실패, 새로 생성 시도:', error.message);
+           }
+         }
+         
+         // 기존 가게가 없으면 새로 생성
+         if (!resolvedStoreId) {
+           retries = 0;
+           while (retries < maxRetries) {
+             try {
+               storeRecord = await dbServices.createStore({
+                 name: storeName,
+                 address: storeAddress,
+                 phone: storePhone,
+                 status: 'pending' // 점주 승인 전까지는 pending 상태
                });
-               
-               const matchedStore = storeCheck.stores?.find(s => {
-                 const nameMatch = s.name && s.name.trim().toLowerCase() === storeName.trim().toLowerCase();
-                 const addressMatch = s.address && s.address.trim().toLowerCase() === storeAddress.trim().toLowerCase();
-                 const phoneMatch = !storePhone || (s.phone && s.phone.trim() === storePhone.trim());
-                 return nameMatch && addressMatch && phoneMatch;
-               });
-               
-               if (matchedStore) {
-                 console.log(`[점주 승인] 기존 가게 발견 및 연결: ${matchedStore.id}`);
-                 storeRecord = await dbServices.getStoreById(matchedStore.id);
-                 resolvedStoreId = matchedStore.id;
-                 break;
-               } else {
+               resolvedStoreId = storeRecord.id;
+               break;
+             } catch (error) {
+               // 중복 가게 에러: 이미 확인했지만 다시 확인
+               if (error.message && error.message.includes('동일한 가게가 이미 존재합니다')) {
+                 // 다시 한번 찾기 시도
+                 try {
+                   const storeCheck = await dbServices.getStores({ 
+                     keyword: storeName, 
+                     pageSize: 50 
+                   });
+                   
+                   const matchedStore = storeCheck.stores?.find(s => {
+                     const nameMatch = s.name && s.name.trim().toLowerCase() === storeName.trim().toLowerCase();
+                     const addressMatch = s.address && s.address.trim().toLowerCase() === storeAddress.trim().toLowerCase();
+                     const phoneMatch = !storePhone || (s.phone && s.phone.trim() === storePhone.trim());
+                     return nameMatch && addressMatch && phoneMatch;
+                   });
+                   
+                   if (matchedStore) {
+                     console.log(`[점주 승인] 중복 체크 후 기존 가게 연결: ${matchedStore.id}`);
+                     storeRecord = await dbServices.getStoreById(matchedStore.id);
+                     resolvedStoreId = matchedStore.id;
+                     break;
+                   }
+                 } catch (findError) {
+                   console.error('[점주 승인] 가게 찾기 실패:', findError);
+                 }
+                 
                  // 가게를 찾지 못한 경우 에러 반환
                  throw new Error(`동일한 가게가 존재하지만 연결할 수 없습니다: ${storeName}`);
                }
+               
+               if ((error.code === 'ECONNRESET' || error.code === 'EPIPE' || error.message.includes('terminated')) && retries < maxRetries - 1) {
+                 retries++;
+                 console.log(`[점주 승인] 가게 생성 연결 에러, 재시도 ${retries}/${maxRetries}...`);
+                 await new Promise(resolve => setTimeout(resolve, 1000));
+                 continue;
+               }
+               throw error;
              }
-             
-             if ((error.code === 'ECONNRESET' || error.code === 'EPIPE' || error.message.includes('terminated')) && retries < maxRetries - 1) {
-               retries++;
-               console.log(`[점주 승인] 가게 생성 연결 에러, 재시도 ${retries}/${maxRetries}...`);
-               await new Promise(resolve => setTimeout(resolve, 1000));
-               continue;
-             }
-             throw error;
            }
          }
       }
