@@ -296,16 +296,52 @@ async function query(text, params = []) {
 
 // 트랜잭션 실행
 async function transaction(callback) {
-  const client = getClient();
-  try {
-    await client.query('BEGIN');
-    const result = await callback(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
+  let retries = 0;
+  const maxRetries = 3;
+  
+  while (retries < maxRetries) {
+    let client;
+    try {
+      client = getClient();
+      
+      // 연결 상태 확인 및 재연결
+      if (client._ending || client._connectionError) {
+        console.log('[DB] 트랜잭션 시작 전 연결 상태 확인 및 재연결 시도...');
+        await attemptReconnect();
+        client = getClient();
+      }
+      
+      await client.query('BEGIN');
+      const result = await callback(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      // 롤백 시도
+      if (client && !client._ending) {
+        try {
+          await client.query('ROLLBACK');
+        } catch (rollbackError) {
+          console.error('[DB] 롤백 실패:', rollbackError.message);
+        }
+      }
+      
+      // 연결 관련 에러인 경우 재연결 시도
+      if ((error.code === 'ECONNRESET' || 
+           error.code === 'EPIPE' || 
+           error.message.includes('terminated') ||
+           error.message.includes('Connection')) && retries < maxRetries - 1) {
+        console.error(`[DB] 트랜잭션 실행 실패 (연결 에러, 재시도 ${retries + 1}/${maxRetries}):`, error.message);
+        retries++;
+        await attemptReconnect();
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        continue;
+      }
+      
+      throw error;
+    }
   }
+  
+  throw new Error('트랜잭션 실행 실패: 최대 재시도 횟수 초과');
 }
 
 // 헬스체크

@@ -1376,7 +1376,26 @@ class APIRouter {
       const body = await parseRequestBody(req);
       const { storeId: manualStoreId = null, password } = body || {};
 
-       const ownerDetail = await dbServices.getOwnerAccountDetail(ownerId);
+       // 연결 재시도 로직 포함하여 점주 정보 조회
+       let ownerDetail;
+       let retries = 0;
+       const maxRetries = 3;
+       
+       while (retries < maxRetries) {
+         try {
+           ownerDetail = await dbServices.getOwnerAccountDetail(ownerId);
+           break;
+         } catch (error) {
+           if ((error.code === 'ECONNRESET' || error.code === 'EPIPE' || error.message.includes('terminated')) && retries < maxRetries - 1) {
+             retries++;
+             console.log(`[점주 승인] 연결 에러, 재시도 ${retries}/${maxRetries}...`);
+             await new Promise(resolve => setTimeout(resolve, 1000));
+             continue;
+           }
+           throw error;
+         }
+       }
+       
        if (!ownerDetail) {
          sendErrorResponse(res, 404, '입점 요청 정보를 찾을 수 없습니다.');
          return;
@@ -1393,15 +1412,29 @@ class APIRouter {
 
       if (!resolvedStoreId) {
          const requestData = ownerDetail.requestData || {};
-         const newStore = await dbServices.createStore({
-           name: requestData.storeName || ownerDetail.ownerName || ownerDetail.email,
-           address: requestData.storeAddress || '',
-           phone: ownerDetail.phone || '',
-                status: 'active'
-         });
-         resolvedStoreId = newStore.id;
-         storeRecord = newStore;
-       }
+         // 가게 생성도 재시도 로직 포함
+         retries = 0;
+         while (retries < maxRetries) {
+           try {
+             storeRecord = await dbServices.createStore({
+               name: requestData.storeName || ownerDetail.ownerName || ownerDetail.email,
+               address: requestData.storeAddress || '',
+               phone: ownerDetail.phone || '',
+               status: 'active'
+             });
+             resolvedStoreId = storeRecord.id;
+             break;
+           } catch (error) {
+             if ((error.code === 'ECONNRESET' || error.code === 'EPIPE' || error.message.includes('terminated')) && retries < maxRetries - 1) {
+               retries++;
+               console.log(`[점주 승인] 가게 생성 연결 에러, 재시도 ${retries}/${maxRetries}...`);
+               await new Promise(resolve => setTimeout(resolve, 1000));
+               continue;
+             }
+             throw error;
+           }
+         }
+      }
 
       const storedHash = ownerDetail.passwordHash || '';
       const hashPattern = /^[0-9a-f]{64}$/i;
@@ -1434,16 +1467,44 @@ class APIRouter {
         return;
       }
 
-       const updatedOwner = await dbServices.approveOwnerAccount(ownerId, {
-         storeId: resolvedStoreId,
-        passwordHash: finalPasswordHash
-       });
-
-       if (!storeRecord) {
+       // 승인 작업 (트랜잭션으로 처리됨)
+       retries = 0;
+       let updatedOwner;
+       while (retries < maxRetries) {
          try {
-           storeRecord = await dbServices.getStoreById(resolvedStoreId);
+           updatedOwner = await dbServices.approveOwnerAccount(ownerId, {
+             storeId: resolvedStoreId,
+             passwordHash: finalPasswordHash
+           });
+           break;
          } catch (error) {
-           storeRecord = null;
+           if ((error.code === 'ECONNRESET' || error.code === 'EPIPE' || error.message.includes('terminated')) && retries < maxRetries - 1) {
+             retries++;
+             console.log(`[점주 승인] 승인 작업 연결 에러, 재시도 ${retries}/${maxRetries}...`);
+             await new Promise(resolve => setTimeout(resolve, 1000));
+             continue;
+           }
+           throw error;
+         }
+       }
+
+       // 가게 정보 조회 (필요시)
+       if (!storeRecord && resolvedStoreId) {
+         retries = 0;
+         while (retries < maxRetries) {
+           try {
+             storeRecord = await dbServices.getStoreById(resolvedStoreId);
+             break;
+           } catch (error) {
+             if ((error.code === 'ECONNRESET' || error.code === 'EPIPE' || error.message.includes('terminated')) && retries < maxRetries - 1) {
+               retries++;
+               console.log(`[점주 승인] 가게 정보 조회 연결 에러, 재시도 ${retries}/${maxRetries}...`);
+               await new Promise(resolve => setTimeout(resolve, 1000));
+               continue;
+             }
+             storeRecord = null;
+             break;
+           }
          }
        }
 
@@ -1467,7 +1528,9 @@ class APIRouter {
        });
      } catch (error) {
        log('ERROR', '점주 계정 승인 실패', error);
-       sendErrorResponse(res, 500, error.message || '계정 승인에 실패했습니다.');
+       const errorMessage = error.message || '계정 승인에 실패했습니다.';
+       console.error('[점주 승인] 상세 에러:', error);
+       sendErrorResponse(res, 500, errorMessage);
      }
    }
 

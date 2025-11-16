@@ -1310,34 +1310,68 @@ async function getOwnerAccountDetail(ownerId) {
 
 // 가게 사장님 계정 승인
 async function approveOwnerAccount(ownerId, { storeId, passwordHash }) {
-  const result = await db.query(
-    `UPDATE store_owners
-        SET status = 'active',
-            store_id = $2,
-            password_hash = $3,
-            approved_at = CURRENT_TIMESTAMP
-      WHERE id = $1
-      RETURNING id, owner_name, email, phone, store_id, status, approved_at`,
-    [ownerId, storeId, passwordHash]
-  );
-
-  if (result.rows.length === 0) {
-    throw new Error('점주 계정을 찾을 수 없습니다.');
-  }
-
-  if (storeId) {
-    await db.query(
-      `UPDATE stores
-          SET status = 'active', last_modified = CURRENT_TIMESTAMP
-        WHERE id = $1`,
-      [storeId]
+  // 트랜잭션으로 모든 작업을 원자적으로 처리
+  return await db.transaction(async (client) => {
+    // 점주 계정 승인
+    const result = await client.query(
+      `UPDATE store_owners
+          SET status = 'active',
+              store_id = $2,
+              password_hash = $3,
+              approved_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+        RETURNING id, owner_name, email, phone, store_id, status, approved_at`,
+      [ownerId, storeId, passwordHash]
     );
-    await linkOwnerToStore(result.rows[0].id, storeId);
-  }
 
-  const owner = result.rows[0];
-  owner.stores = await getStoresByOwner(owner.id);
-  return owner;
+    if (result.rows.length === 0) {
+      throw new Error('점주 계정을 찾을 수 없습니다.');
+    }
+
+    // 가게가 있으면 가게 상태 업데이트 및 연결
+    if (storeId) {
+      await client.query(
+        `UPDATE stores
+            SET status = 'active', last_modified = CURRENT_TIMESTAMP
+          WHERE id = $1`,
+        [storeId]
+      );
+      
+      // 점주-가게 연결 (트랜잭션 내에서 실행)
+      const linkResult = await client.query(
+        `INSERT INTO store_owner_links (store_id, owner_id, role, created_at)
+         VALUES ($1, $2, 'owner', CURRENT_TIMESTAMP)
+         ON CONFLICT (store_id, owner_id) DO UPDATE
+         SET role = EXCLUDED.role,
+             created_at = CASE WHEN store_owner_links.created_at IS NULL THEN EXCLUDED.created_at ELSE store_owner_links.created_at END
+         RETURNING store_id, owner_id, role, created_at`,
+        [storeId, ownerId]
+      );
+      
+      // 가게의 기본 점주 설정 (store_id 업데이트)
+      await client.query(
+        `UPDATE stores SET store_id = $1 WHERE id = $1`,
+        [storeId]
+      );
+    }
+
+    const owner = result.rows[0];
+    // 트랜잭션 내에서 가게 목록 조회
+    if (storeId) {
+      const storesResult = await client.query(
+        `SELECT s.id, s.name, s.address, s.status
+         FROM stores s
+         JOIN store_owner_links sol ON s.id = sol.store_id
+         WHERE sol.owner_id = $1`,
+        [ownerId]
+      );
+      owner.stores = storesResult.rows;
+    } else {
+      owner.stores = [];
+    }
+    
+    return owner;
+  });
 }
 
 // 가게 사장님 계정 거절/보류 처리
