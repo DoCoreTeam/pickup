@@ -2007,26 +2007,26 @@ async function updateStoreSettings(storeId, settings) {
         JSON.stringify(finalSettings.abTestSettings)
       ]);
     } else {
-      // 새 설정 생성
-    await db.query(`
-      INSERT INTO store_settings (
-          store_id, basic, delivery, discount, pickup, images, 
-          business_hours, section_order, qr_code,
-          seo_settings, ab_test_settings, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-    `, [
-      storeId,
-      JSON.stringify(settings.basic || {}),
-      JSON.stringify(settings.delivery || {}),
-      JSON.stringify(settings.discount || {}),
-      JSON.stringify(settings.pickup || {}),
-      JSON.stringify(settings.images || {}),
-      JSON.stringify(settings.businessHours || {}),
-      JSON.stringify(settings.sectionOrder || []),
-      JSON.stringify(settings.qrCode || {}),
-      JSON.stringify(settings.seoSettings || {}),
-      JSON.stringify(settings.abTestSettings || {})
-    ]);
+      // 새 설정 생성 (병합된 설정 사용)
+      await db.query(`
+        INSERT INTO store_settings (
+            store_id, basic, delivery, discount, pickup, images, 
+            business_hours, section_order, qr_code,
+            seo_settings, ab_test_settings, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `, [
+        storeId,
+        JSON.stringify(finalSettings.basic),
+        JSON.stringify(finalSettings.delivery),
+        JSON.stringify(finalSettings.discount),
+        JSON.stringify(finalSettings.pickup),
+        JSON.stringify(finalSettings.images),
+        JSON.stringify(finalSettings.businessHours),
+        JSON.stringify(finalSettings.sectionOrder),
+        JSON.stringify(finalSettings.qrCode),
+        JSON.stringify(finalSettings.seoSettings),
+        JSON.stringify(finalSettings.abTestSettings)
+      ]);
     }
     
     console.log(`가게 설정 업데이트 완료: ${storeId}`);
