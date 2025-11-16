@@ -1090,6 +1090,30 @@ class APIRouter {
 
   async getHealthCheck(req, res, parsedUrl) {
     try {
+      // 강제 재연결 시도 파라미터 확인
+      const forceReconnect = parsedUrl.query.reconnect === 'true';
+      
+      if (forceReconnect && this.dbConnected) {
+        // 강제 재연결 요청 시 즉시 재연결 시도
+        log('INFO', '강제 DB 재연결 요청 수신');
+        const router = this;
+        const attemptDbConnection = async () => {
+          try {
+            await db.disconnect().catch(() => {});
+            await db.connect();
+            router.dbConnected = () => true;
+            return true;
+          } catch (error) {
+            router.dbConnected = () => false;
+            return false;
+          }
+        };
+        const connected = await attemptDbConnection();
+        if (connected) {
+          log('INFO', '✅ 강제 재연결 성공!');
+        }
+      }
+      
       // DB 연결 상태 확인 (연결 실패 시에도 서버는 실행 중)
       const dbHealth = await db.healthCheck().catch(() => false);
       const dbStatus = dbHealth ? 'connected' : 'disconnected';
@@ -1100,6 +1124,7 @@ class APIRouter {
           status: 'degraded',
           database: dbStatus,
           message: '데이터베이스 연결이 실패했습니다. 일부 기능이 제한될 수 있습니다.',
+          reconnectHint: 'GET /api/healthz?reconnect=true 를 호출하여 수동 재연결을 시도할 수 있습니다.',
           timestamp: new Date().toISOString()
         });
         return;
@@ -4267,28 +4292,44 @@ class APIRouter {
 
   // 백그라운드 재연결 로직 (연결이 실패한 경우에만)
   let reconnectTimer = null;
-  function scheduleReconnect() {
+  function scheduleReconnect(immediate = false) {
     if (dbConnected) {
       return; // 이미 연결되어 있으면 재연결 불필요
     }
     
     if (reconnectTimer) {
       clearTimeout(reconnectTimer);
+      reconnectTimer = null;
     }
+    
+    const delay = immediate ? 0 : DB_RETRY_INTERVAL;
     
     reconnectTimer = setTimeout(async () => {
       log('INFO', 'DB 재연결 시도 중...');
       const connected = await attemptDbConnection();
       if (!connected) {
         scheduleReconnect(); // 실패 시 다시 스케줄링
+      } else {
+        log('INFO', '✅ DB 재연결 성공! 서비스가 정상적으로 작동합니다.');
       }
-    }, DB_RETRY_INTERVAL);
+    }, delay);
   }
 
-  // 연결 실패 시 백그라운드 재연결 시작
+  // 연결 실패 시 백그라운드 재연결 시작 (즉시 시도)
   if (!dbConnected) {
-    scheduleReconnect();
+    scheduleReconnect(true); // 즉시 재연결 시도
   }
+  
+  // 주기적 연결 상태 확인 및 재연결 (5분마다)
+  setInterval(async () => {
+    if (!dbConnected) {
+      log('INFO', '주기적 DB 연결 상태 확인 중...');
+      const connected = await attemptDbConnection();
+      if (connected) {
+        log('INFO', '✅ 주기적 확인: DB 재연결 성공!');
+      }
+    }
+  }, 5 * 60 * 1000); // 5분마다
 
   const router = new APIRouter();
   
