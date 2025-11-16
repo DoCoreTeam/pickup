@@ -2839,6 +2839,139 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
         }
 
+        /* 홈 페이지 스타일 */
+        .home-welcome {
+            text-align: center;
+            padding: 60px 20px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            margin-bottom: 32px;
+            color: white;
+        }
+
+        .home-title {
+            font-size: 36px;
+            font-weight: 700;
+            margin: 0 0 12px;
+            color: white;
+        }
+
+        .home-subtitle {
+            font-size: 18px;
+            opacity: 0.9;
+            margin: 0;
+        }
+
+        .home-section-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin: 0 0 20px;
+            color: #1f2937;
+        }
+
+        .home-quick-actions {
+            margin-bottom: 40px;
+        }
+
+        .home-action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+
+        .home-action-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid #e5e7eb;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .home-action-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.2);
+            border-color: #667eea;
+        }
+
+        .home-action-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .home-action-card h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0 0 8px;
+            color: #1f2937;
+        }
+
+        .home-action-card p {
+            font-size: 14px;
+            color: #6b7280;
+            margin: 0;
+        }
+
+        .home-recent-stores {
+            margin-top: 40px;
+        }
+
+        .home-stores-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .home-store-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .home-store-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .home-store-name {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0 0 8px;
+            color: #1f2937;
+        }
+
+        .home-store-subtitle {
+            font-size: 14px;
+            color: #6b7280;
+            margin: 0 0 12px;
+        }
+
+        .home-store-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .home-loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+
+        .catchphrase-container:hover {
+            opacity: 0.9;
+            transform: scale(1.02);
+            transition: all 0.2s ease;
+        }
+
         /* 로딩 및 에러 상태 스타일 */
         .loading-spinner {
             display: flex;
@@ -3453,7 +3586,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         <div class="admin-sidebar">
             <!-- 메뉴 영역 (스크롤 가능) -->
             <div class="sidebar-content">
-                <div class="catchphrase-container">
+                <div class="catchphrase-container" style="cursor: pointer;" onclick="showSection('home')" title="홈으로 이동">
                     <h2 class="catchphrase-title">관리자 메뉴</h2>
                     <div class="catchphrase">
                         <span class="catchphrase-text">우리집 5분거리</span>
@@ -3553,6 +3686,47 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     </a>
                     <a href="javascript:void(0)" onclick="openMainPage()" class="btn btn-primary">페이지 보기</a>
                     <button onclick="openLogoutModal()" class="btn btn-secondary">로그아웃</button>
+                </div>
+            </div>
+
+            <!-- 홈 (메인 페이지) -->
+            <div class="admin-section" id="home">
+                <div class="home-welcome">
+                    <h1 class="home-title">관리자 홈</h1>
+                    <p class="home-subtitle">빠르게 시작하세요</p>
+                </div>
+                
+                <div class="home-quick-actions">
+                    <h2 class="home-section-title">빠른 액션</h2>
+                    <div class="home-action-grid">
+                        <div class="home-action-card" onclick="showSection('stores')">
+                            <div class="home-action-icon">🏪</div>
+                            <h3>가게 관리</h3>
+                            <p>가게 목록 조회 및 관리</p>
+                        </div>
+                        <div class="home-action-card" onclick="showSection('dashboard')">
+                            <div class="home-action-icon">📊</div>
+                            <h3>대시보드</h3>
+                            <p>통계 및 분석</p>
+                        </div>
+                        <div class="home-action-card" onclick="showSection('basic')">
+                            <div class="home-action-icon">⚙️</div>
+                            <h3>기본 정보</h3>
+                            <p>가게 기본 정보 설정</p>
+                        </div>
+                        <div class="home-action-card" onclick="showSection('delivery')">
+                            <div class="home-action-icon">🚚</div>
+                            <h3>배달앱 설정</h3>
+                            <p>배달앱 링크 관리</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="home-recent-stores" id="homeRecentStores">
+                    <h2 class="home-section-title">최근 가게</h2>
+                    <div class="home-stores-list" id="homeStoresList">
+                        <div class="home-loading">가게 목록을 불러오는 중...</div>
+                    </div>
                 </div>
             </div>
 
@@ -9533,6 +9707,47 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[exponent]}`;
         }
 
+        // 홈 페이지 최근 가게 로드
+        async function loadHomeRecentStores() {
+            try {
+                const storesListEl = document.getElementById('homeStoresList');
+                if (!storesListEl) return;
+
+                // 최근 6개 가게만 가져오기 (빠른 로딩)
+                const query = new URLSearchParams({
+                    page: '1',
+                    pageSize: '6',
+                    sortBy: 'createdAt',
+                    sortOrder: 'desc'
+                });
+
+                const response = await apiRequest(`${API_BASE}/stores?${query.toString()}`, 'GET', null, 3, false);
+                const stores = normalizeStoreListResponse(response);
+
+                if (stores.length === 0) {
+                    storesListEl.innerHTML = '<div class="home-loading">등록된 가게가 없습니다.</div>';
+                    return;
+                }
+
+                storesListEl.innerHTML = stores.map(store => `
+                    <div class="home-store-card" onclick="selectStore('${store.id}')">
+                        <div class="home-store-name">${escapeHtml(store.basic?.storeName || store.name || '알 수 없는 가게')}</div>
+                        <div class="home-store-subtitle">${escapeHtml(store.basic?.storeSubtitle || store.subtitle || '')}</div>
+                        <div class="home-store-meta">
+                            <span>${store.status === 'active' ? '✅ 운영중' : store.status === 'paused' ? '⏸️ 일시정지' : '⏳ 대기중'}</span>
+                            ${store.subdomain ? `<span>🌐 ${store.subdomain}</span>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('홈 최근 가게 로드 실패:', error);
+                const storesListEl = document.getElementById('homeStoresList');
+                if (storesListEl) {
+                    storesListEl.innerHTML = '<div class="home-loading">가게 목록을 불러올 수 없습니다.</div>';
+                }
+            }
+        }
+
         // 슈퍼어드민 계정 정보 로드
         async function loadSuperAdminInfo() {
             try {
@@ -9716,6 +9931,32 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             // 가게 관리 섹션과 도메인 설정 섹션은 항상 접근 가능
             if (sectionId === 'accounts' && !IS_SUPERADMIN) {
                 showToast('접근 권한이 없습니다.', 'error');
+                return;
+            }
+
+            // 홈 섹션인 경우 최근 가게만 로드
+            if (sectionId === 'home') {
+                // 모든 섹션 숨기기
+                const sections = document.querySelectorAll('.admin-section');
+                sections.forEach(section => {
+                    section.style.display = 'none';
+                });
+                
+                // 홈 섹션 표시
+                const homeSection = document.getElementById('home');
+                if (homeSection) {
+                    homeSection.style.display = 'block';
+                }
+                
+                // 최근 가게 로드 (비동기, 로딩 바 없이)
+                loadHomeRecentStores().catch(err => {
+                    console.error('홈 최근 가게 로드 실패:', err);
+                });
+                
+                // 메뉴 활성화 제거 (홈은 메뉴가 아님)
+                const menuItems = document.querySelectorAll('.menu-item');
+                menuItems.forEach(item => item.classList.remove('active'));
+                
                 return;
             }
 
@@ -12020,9 +12261,20 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             // 초기 로드 시 전체 목록을 가져오도록 플래그 설정
             window.shouldReloadAllStores = true;
             
-            // 즉시 모든 섹션 숨기기 (CSS 로드 전에)
+            // 초기 로드 시 홈 페이지 표시 (빠른 로딩)
             const sections = document.querySelectorAll('.admin-section');
-            sections.forEach(section => section.style.display = 'none');
+            sections.forEach(section => {
+                if (section.id === 'home') {
+                    section.style.display = 'block';
+                } else {
+                    section.style.display = 'none';
+                }
+            });
+            
+            // 홈 페이지 최근 가게 로드 (비동기, 로딩 바 없이)
+            loadHomeRecentStores().catch(err => {
+                console.error('초기 홈 최근 가게 로드 실패:', err);
+            });
             
             // 가이드 메시지 초기화
             initializeGuideMessages();
