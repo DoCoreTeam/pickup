@@ -1452,6 +1452,10 @@ async function approveOwnerAccount(ownerId, { storeId, passwordHash }) {
         [ownerId]
       );
       owner.stores = storesResult.rows;
+      
+      // 가게 정보 캐시 무효화 (트랜잭션 완료 후)
+      clearCache('store', storeId);
+      clearCache('storeSettings', storeId);
     } else {
       owner.stores = [];
     }
