@@ -1459,19 +1459,43 @@ class APIRouter {
           createdAt: null,
         };
         
-        // QR 코드 URL이 있지만 파일이 없는 경우 빈 값으로 처리
-        if (qrCode.url && qrCode.filepath) {
+        // QR 코드 URL이나 filepath가 있는 경우 파일 존재 여부 확인
+        if (qrCode.url || qrCode.filepath) {
           const qrDir = path.join(__dirname, '../../qr');
-          const fileName = qrCode.filepath.replace(/^.*[\\\/]/, ''); // 파일명만 추출
-          const filePath = path.join(qrDir, fileName);
+          let fileName = '';
           
-          if (!fs.existsSync(filePath)) {
-            // 파일이 없으면 QR 코드 정보 초기화
-            qrCode = {
-              url: '',
-              filepath: '',
-              createdAt: null,
-            };
+          // filepath에서 파일명 추출
+          if (qrCode.filepath) {
+            fileName = qrCode.filepath.replace(/^.*[\\\/]/, '');
+          }
+          // URL에서 파일명 추출 (예: /qr/domain-store_xxx.png)
+          else if (qrCode.url) {
+            fileName = qrCode.url.replace(/^.*[\\\/]/, '').split('?')[0]; // 쿼리 파라미터 제거
+          }
+          
+          if (fileName) {
+            const filePath = path.join(qrDir, fileName);
+            
+            if (!fs.existsSync(filePath)) {
+              // 파일이 없으면 QR 코드 정보 초기화 및 DB 업데이트
+              qrCode = {
+                url: '',
+                filepath: '',
+                createdAt: null,
+              };
+              
+              // DB에서도 QR 코드 정보 제거
+              try {
+                // 기존 설정을 가져와서 qrCode만 빈 객체로 업데이트
+                const currentSettings = await dbServices.getStoreSettings(storeId);
+                await dbServices.updateStoreSettings(storeId, {
+                  ...currentSettings,
+                  qrCode: {}
+                });
+              } catch (updateError) {
+                log('WARN', 'QR 코드 정보 DB 업데이트 실패', updateError);
+              }
+            }
           }
         }
         
