@@ -10,14 +10,29 @@
             try {
                 const userRole = sessionStorage.getItem('user_role');
                 const isOwner = userRole === 'owner' && sessionStorage.getItem('owner_logged_in') === 'true';
-                if (isOwner && document.body) {
-                    document.body.classList.add('owner-mode');
+                if (isOwner) {
+                    // body가 로드되기 전일 수 있으므로 DOMContentLoaded 또는 즉시 실행
+                    if (document.body) {
+                        document.body.classList.add('owner-mode');
+                    } else {
+                        // body가 아직 없으면 DOMContentLoaded 이벤트에서 실행
+                        document.addEventListener('DOMContentLoaded', function() {
+                            document.body.classList.add('owner-mode');
+                        }, { once: true });
+                    }
                 }
             } catch(e) {
                 // sessionStorage 접근 실패 시 무시 (초기 로드 시)
             }
         })();
     </script>
+    <style>
+        /* 점주 계정 메뉴 초기 숨김 (스크립트 로드 전에도 적용) */
+        body:not(.owner-mode) .menu-item[data-role="superadmin-only"],
+        body:not(.owner-mode) .superadmin-only {
+            /* 초기에는 표시, owner-mode가 추가되면 숨김 */
+        }
+    </style>
     <!-- SortableJS 라이브러리 -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <!-- 카카오 주소 검색 API -->
