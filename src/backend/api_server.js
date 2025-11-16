@@ -1508,6 +1508,7 @@ class APIRouter {
   async getSettings(req, res, parsedUrl) {
     try {
       const storeId = parsedUrl.query.storeId;
+      const fields = parsedUrl.query.fields ? parsedUrl.query.fields.split(',') : null;
       
       if (storeId) {
         // 특정 가게 설정 조회 - 하나의 쿼리로 최적화
@@ -1571,44 +1572,119 @@ class APIRouter {
           }
         }
         
-        // 응답 데이터 구성
+        // 응답 데이터 구성 (필드 필터링 지원)
         const responseData = {
           id: storeData.id,
-          basic: {
+        };
+
+        // fields 파라미터가 있으면 해당 필드만 포함
+        if (fields && fields.length > 0) {
+          const allowedFields = new Set(fields.map(f => f.trim()));
+          
+          // basic은 항상 포함 (가게 기본 정보는 항상 필요)
+          if (allowedFields.has('basic') || allowedFields.has('*')) {
+            responseData.basic = {
+              storeName: storeData.name,
+              storeSubtitle: storeData.subtitle,
+              storePhone: storeData.phone,
+              storeAddress: storeData.address,
+            };
+          }
+          
+          if (allowedFields.has('discount') || allowedFields.has('*')) {
+            responseData.discount = settings.discount || {
+              title: '',
+              enabled: false,
+              description: '',
+            };
+          }
+          
+          if (allowedFields.has('delivery') || allowedFields.has('*')) {
+            responseData.delivery = settings.delivery || {
+              baeminUrl: '',
+              ttaengUrl: '',
+              yogiyoUrl: '',
+              coupangUrl: '',
+              deliveryOrder: [],
+            };
+          }
+          
+          if (allowedFields.has('pickup') || allowedFields.has('*')) {
+            responseData.pickup = settings.pickup || {
+              title: '',
+              enabled: false,
+              description: '',
+            };
+          }
+          
+          if (allowedFields.has('images') || allowedFields.has('*')) {
+            responseData.images = settings.images || {
+              mainLogo: '',
+              menuImage: '',
+            };
+          }
+          
+          if (allowedFields.has('businessHours') || allowedFields.has('*')) {
+            responseData.businessHours = settings.businessHours || {};
+          }
+          
+          if (allowedFields.has('sectionOrder') || allowedFields.has('*')) {
+            responseData.sectionOrder = settings.sectionOrder || [];
+          }
+          
+          if (allowedFields.has('qrCode') || allowedFields.has('*')) {
+            responseData.qrCode = qrCode;
+          }
+          
+          if (allowedFields.has('seoSettings') || allowedFields.has('*')) {
+            responseData.seoSettings = settings.seoSettings || {};
+          }
+          
+          if (allowedFields.has('abTestSettings') || allowedFields.has('*')) {
+            responseData.abTestSettings = settings.abTestSettings || {};
+          }
+          
+          if (allowedFields.has('*')) {
+            responseData.createdAt = storeData.createdAt;
+            responseData.updatedAt = storeData.updatedAt;
+          }
+        } else {
+          // fields가 없으면 모든 필드 반환 (하위 호환성)
+          responseData.basic = {
             storeName: storeData.name,
             storeSubtitle: storeData.subtitle,
             storePhone: storeData.phone,
             storeAddress: storeData.address,
-          },
-          discount: settings.discount || {
+          };
+          responseData.discount = settings.discount || {
             title: '',
             enabled: false,
             description: '',
-          },
-          delivery: settings.delivery || {
+          };
+          responseData.delivery = settings.delivery || {
             baeminUrl: '',
             ttaengUrl: '',
             yogiyoUrl: '',
             coupangUrl: '',
             deliveryOrder: [],
-          },
-          pickup: settings.pickup || {
+          };
+          responseData.pickup = settings.pickup || {
             title: '',
             enabled: false,
             description: '',
-          },
-          images: settings.images || {
+          };
+          responseData.images = settings.images || {
             mainLogo: '',
             menuImage: '',
-          },
-          businessHours: settings.businessHours || {},
-          sectionOrder: settings.sectionOrder || [],
-          qrCode: qrCode,
-          seoSettings: settings.seoSettings || {},
-          abTestSettings: settings.abTestSettings || {},
-          createdAt: storeData.createdAt,
-          updatedAt: storeData.updatedAt,
-        };
+          };
+          responseData.businessHours = settings.businessHours || {};
+          responseData.sectionOrder = settings.sectionOrder || [];
+          responseData.qrCode = qrCode;
+          responseData.seoSettings = settings.seoSettings || {};
+          responseData.abTestSettings = settings.abTestSettings || {};
+          responseData.createdAt = storeData.createdAt;
+          responseData.updatedAt = storeData.updatedAt;
+        }
         
         sendJsonResponse(res, 200, responseData);
       } else {

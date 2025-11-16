@@ -3531,7 +3531,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge">v1.5.33</div>
+                    <div class="version-badge">v1.5.34</div>
                 </div>
                 <a href="/admin/release-notes" class="release-notes-btn">
                     릴리즈 노트
@@ -6834,29 +6834,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 filteredStores = [...stores];
                 populateOwnerFilterOptions(stores);
 
-                // allStores는 항상 전체 가게 목록만 저장 (불변 조건)
-                // 슈퍼어드민 모드에서만 전체 목록을 별도로 가져옴
+                // allStores는 통계 계산용 (대시보드에서만 필요)
+                // 초기 로드 시에는 전체 목록을 가져오지 않음 (대시보드 섹션 열 때만 로드)
                 if (IS_SUPERADMIN) {
-                    // allStores가 비어있거나, 가게 추가/삭제/상태 변경 후에는 전체 목록을 다시 가져옴
-                    if (!allStores || allStores.length === 0 || window.shouldReloadAllStores) {
-                        try {
-                            const allStoresQuery = new URLSearchParams({
-                                page: '1',
-                                pageSize: '10000', // 충분히 큰 수로 전체 가져오기
-                                sortBy: 'createdAt',
-                                sortOrder: 'desc'
-                            });
-                            const allStoresResponse = await apiRequest(`${API_BASE}/stores?${allStoresQuery.toString()}`);
-                            allStores = normalizeStoreListResponse(allStoresResponse);
-                            window.shouldReloadAllStores = false; // 플래그 리셋
-                            console.log('✅ [통계] 전체 가게 목록 로드 완료:', allStores.length);
-                        } catch (error) {
-                            console.warn('⚠️ [통계] 전체 가게 목록 조회 실패, 필터된 목록 사용:', error);
-                            // 폴백: 필터된 목록을 allStores로 사용 (최선의 노력)
-                            if (!allStores || allStores.length === 0) {
-                                allStores = [...stores];
-                            }
-                        }
+                    // 통계가 필요한 경우에만 전체 목록 가져오기 (지연 로딩)
+                    // 여기서는 필터된 목록만 사용
+                    if (!allStores || allStores.length === 0) {
+                        allStores = [...stores]; // 초기에는 필터된 목록만 사용
                     }
                 } else {
                     // 점주 모드에서는 본인 가게만 전체 목록으로 간주
@@ -7007,25 +6991,28 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 updateSelectedStoreVisual(storeId);
                 console.log('✅ [DEBUG] 테이블 시각적 표시 업데이트 완료');
                 
-                // 설정 로드 (DOM이 완전히 로드된 후 실행)
-                console.log('🔄 [DEBUG] 설정 로딩 시작');
-                setTimeout(async () => {
-                    try {
-                        await loadSettings();
-                        renderBasicSummary();
-                        console.log('✅ [DEBUG] 설정 로딩 완료');
-                        
-                        // 배달앱 그리드 강제 새로고침
-                        await loadDeliveryOrderGrid();
-                        console.log('✅ [DEBUG] 배달앱 그리드 새로고침 완료');
-                        
-                        // 모든 배달앱 상태 강제 업데이트
-                        updateAllDeliveryStatuses();
-                        console.log('✅ [DEBUG] 배달앱 상태 업데이트 완료');
-                    } catch (error) {
-                        console.error('❌ [DEBUG] 설정 로딩 실패:', error);
+                // 가게 선택 시에는 현재 보이는 섹션의 데이터만 로드
+                // 모든 섹션의 로드 플래그 초기화 (새 가게 선택 시)
+                const sectionKeys = ['basicSectionLoaded', 'deliverySectionLoaded', 'imagesSectionLoaded', 
+                                     'discountSectionLoaded', 'sectionOrderLoaded'];
+                sectionKeys.forEach(key => {
+                    const fullKey = `${key}_${storeId}`;
+                    if (window[fullKey]) {
+                        delete window[fullKey];
                     }
-                }, 200);
+                });
+                
+                // 현재 보이는 섹션이 있으면 해당 섹션의 데이터만 로드
+                const visibleSection = document.querySelector('.admin-section[style*="block"]');
+                if (visibleSection && visibleSection.id) {
+                    const sectionId = visibleSection.id;
+                    // showSection을 다시 호출하여 해당 섹션의 데이터만 로드
+                    setTimeout(() => {
+                        showSection(sectionId).catch(err => {
+                            console.error('섹션 데이터 로드 실패:', err);
+                        });
+                    }, 100);
+                }
                 
                 // 사용자 정보 로드 (DB 데이터 → 폼 매핑)
                 console.log('🔄 [DEBUG] 가게 선택 후 사용자 정보 로딩 시작');
@@ -7684,8 +7671,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 return '알 수 없는 가게';
             }
         }
-        // 설정 로드
-        async function loadSettings() {
+        // 설정 로드 (필드 선택적 로딩 지원)
+        async function loadSettings(fields = null) {
             try {
                 const currentStoreId = await getCurrentStoreId();
                 console.log('🔍 [DEBUG] loadSettings - currentStoreId:', currentStoreId);
@@ -7695,7 +7682,12 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     return;
                 }
                 
-                const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                // fields 파라미터가 있으면 해당 필드만 요청
+                const url = fields && fields.length > 0
+                    ? `${API_BASE}/settings?storeId=${currentStoreId}&fields=${fields.join(',')}`
+                    : `${API_BASE}/settings?storeId=${currentStoreId}`;
+                
+                const settings = await apiRequest(url);
                 console.log('🔍 [DEBUG] loadSettings - settings:', settings);
                 console.log('🔍 [DEBUG] loadSettings - settings.basic:', settings.basic);
                 
@@ -9826,41 +9818,110 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             if (sectionId === 'dashboard') {
                 if (IS_SUPERADMIN) {
                     updateDashboardScopeUI();
+                    
+                    // 대시보드 섹션에서만 통계용 전체 가게 목록 로드
+                    if (window.shouldReloadAllStores || !allStores || allStores.length === 0) {
+                        try {
+                            const allStoresQuery = new URLSearchParams({
+                                page: '1',
+                                pageSize: '10000', // 통계 계산용 전체 목록
+                                sortBy: 'createdAt',
+                                sortOrder: 'desc'
+                            });
+                            const allStoresResponse = await apiRequest(`${API_BASE}/stores?${allStoresQuery.toString()}`);
+                            allStores = normalizeStoreListResponse(allStoresResponse);
+                            window.shouldReloadAllStores = false;
+                            console.log('✅ [통계] 대시보드용 전체 가게 목록 로드 완료:', allStores.length);
+                        } catch (error) {
+                            console.warn('⚠️ [통계] 전체 가게 목록 조회 실패:', error);
+                        }
+                    }
                 }
                 await loadDashboardSummary();
             }
 
-            // 기본 정보 섹션인 경우 영업시간 표시 업데이트
-            if (sectionId === 'basic-info') {
-                displayBusinessHours();
-            }
-            // UI 순서 변경 섹션인 경우 섹션 순서 로드
-            if (sectionId === 'section-order') {
-                loadSectionOrder();
+            // 섹션별 데이터 지연 로딩 (필요한 데이터만 로드)
+            const currentStoreId = await getCurrentStoreId();
+            
+            // 기본 정보 섹션인 경우 기본 정보와 영업시간만 로드
+            if (sectionId === 'basic' || sectionId === 'basic-info') {
+                const loadedKey = `basicSectionLoaded_${currentStoreId}`;
+                if (!window[loadedKey]) {
+                    try {
+                        await loadSettings(['basic', 'businessHours']);
+                        displayBusinessHours();
+                        window[loadedKey] = true;
+                    } catch (error) {
+                        console.error('기본 정보 로드 실패:', error);
+                        showToast('기본 정보를 불러오는데 실패했습니다.', 'error');
+                    }
+                } else {
+                    displayBusinessHours();
+                }
             }
             
-            // 배달앱 설정 섹션인 경우 설정 다시 로드 (한 번만)
-            if (sectionId === 'delivery') {
-                // 이미 로드된 경우 다시 로드하지 않음
-                if (window.deliverySectionLoaded) {
-                    console.log('배달앱 섹션 이미 로드됨, 건너뜀');
-                    return;
-                }
-                
-                // DOM이 완전히 렌더링된 후 실행
-                setTimeout(async () => {
+            // UI 순서 변경 섹션인 경우 섹션 순서만 로드
+            if (sectionId === 'section-order') {
+                const loadedKey = `sectionOrderLoaded_${currentStoreId}`;
+                if (!window[loadedKey]) {
                     try {
-                        await loadSettings();
-                        await loadDeliveryOrderGrid();
-                        window.deliverySectionLoaded = true; // 로드 완료 표시
+                        await loadSettings(['sectionOrder']);
+                        loadSectionOrder();
+                        window[loadedKey] = true;
                     } catch (error) {
-                        console.error('배달앱 설정 로드 실패:', error);
-                        showToast('배달앱 설정을 불러오는데 실패했습니다.', 'error');
+                        console.error('섹션 순서 로드 실패:', error);
+                        showToast('섹션 순서를 불러오는데 실패했습니다.', 'error');
                     }
-                }, 200);
-            } else {
-                // 다른 섹션으로 이동 시 플래그 리셋
-                window.deliverySectionLoaded = false;
+                } else {
+                    loadSectionOrder();
+                }
+            }
+            
+            // 배달앱 설정 섹션인 경우 배달앱 설정만 로드
+            if (sectionId === 'delivery') {
+                const loadedKey = `deliverySectionLoaded_${currentStoreId}`;
+                if (!window[loadedKey]) {
+                    setTimeout(async () => {
+                        try {
+                            await loadSettings(['delivery']);
+                            await loadDeliveryOrderGrid();
+                            window[loadedKey] = true;
+                        } catch (error) {
+                            console.error('배달앱 설정 로드 실패:', error);
+                            showToast('배달앱 설정을 불러오는데 실패했습니다.', 'error');
+                        }
+                    }, 200);
+                } else {
+                    await loadDeliveryOrderGrid();
+                }
+            }
+            
+            // 이미지/동영상 관리 섹션인 경우 이미지 정보만 로드
+            if (sectionId === 'images') {
+                const loadedKey = `imagesSectionLoaded_${currentStoreId}`;
+                if (!window[loadedKey]) {
+                    try {
+                        await loadSettings(['images']);
+                        window[loadedKey] = true;
+                    } catch (error) {
+                        console.error('이미지 정보 로드 실패:', error);
+                        showToast('이미지 정보를 불러오는데 실패했습니다.', 'error');
+                    }
+                }
+            }
+            
+            // 할인·픽업 안내 섹션인 경우 할인/픽업 정보만 로드
+            if (sectionId === 'discount') {
+                const loadedKey = `discountSectionLoaded_${currentStoreId}`;
+                if (!window[loadedKey]) {
+                    try {
+                        await loadSettings(['discount', 'pickup']);
+                        window[loadedKey] = true;
+                    } catch (error) {
+                        console.error('할인/픽업 정보 로드 실패:', error);
+                        showToast('할인/픽업 정보를 불러오는데 실패했습니다.', 'error');
+                    }
+                }
             }
             
             // 메뉴 활성화
@@ -11971,20 +12032,11 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             
             try {
                 await loadStoreList();
-                // 설정 로드 (DOM이 완전히 로드된 후 실행)
-                setTimeout(async () => {
-                    try {
-                        if (IS_SUPERADMIN && allStores.length === 0) {
-                            initializeSidebarStoreInfo();
-                            showNoStoreGuide();
-                            return;
-                        }
-                        await loadSettings();
-                        renderBasicSummary();
-                    } catch (error) {
-                        console.error('초기 설정 로드 실패:', error);
-                    }
-                }, 200);
+                // 초기 로드 시에는 설정을 로드하지 않음 (섹션 클릭 시에만 로드)
+                if (IS_SUPERADMIN && allStores.length === 0) {
+                    initializeSidebarStoreInfo();
+                    showNoStoreGuide();
+                }
                 if (IS_SUPERADMIN) {
                     await loadSuperAdminInfo();
                     await loadActivityLogs();
