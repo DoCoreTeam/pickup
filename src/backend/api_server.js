@@ -1087,9 +1087,20 @@ class APIRouter {
 
       const includeSummary = query.includeSummary !== 'false';
 
+      // 점주 계정인지 확인 (쿠키 또는 헤더에서)
+      const cookies = parseCookies(req.headers.cookie || '');
+      const isSuperAdmin = cookies.is_superadmin === 'true';
+      const requestOwnerId = cookies.owner_id || req.headers['x-owner-id'] || null;
+
+      // 점주 계정이고 ownerId가 없으면 자동으로 본인 ownerId로 필터링
+      let finalOwnerId = ownerId || null;
+      if (!isSuperAdmin && requestOwnerId && !ownerId) {
+        finalOwnerId = requestOwnerId;
+      }
+
       const options = {
         storeId: storeId || null,
-        ownerId: ownerId || null,
+        ownerId: finalOwnerId || null,
         status: status || '',
         keyword,
         createdDate,
@@ -1101,6 +1112,17 @@ class APIRouter {
       };
 
       const stores = await dbServices.getStores(options);
+      
+      // 점주 계정일 때는 연결된 점주가 있는 가게만 반환 (백엔드에서도 필터링)
+      if (!isSuperAdmin && finalOwnerId && stores.data) {
+        stores.data = stores.data.filter(store => {
+          const owners = store.owners || [];
+          return owners.some(owner => owner.id === finalOwnerId);
+        });
+        // 총 개수도 업데이트
+        stores.total = stores.data.length;
+      }
+
       sendJsonResponse(res, 200, stores);
     } catch (error) {
       log('ERROR', '가게 목록 조회 실패', error);

@@ -7359,103 +7359,96 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         }
         async function loadStoreList() {
             try {
-                if (IS_STORE_OWNER) {
-                    const ownerStoreId = sessionStorage.getItem('owner_store_id');
+                // 점주 계정일 때는 무조건 본인 가게만 조회 (슈퍼어드민이 아닐 때)
+                if (IS_STORE_OWNER && !IS_SUPERADMIN) {
                     const ownerId = sessionStorage.getItem('owner_id');
-
-                    let normalizedStores = [];
-                    if (ownerId) {
-                        try {
-                            const storesResponse = await apiRequest(`${API_BASE}/stores?ownerId=${ownerId}`);
-                            normalizedStores = normalizeStoreListResponse(storesResponse);
-                        } catch (error) {
-                            console.warn('점주 가게 목록 조회 실패, 세션 캐시 사용:', error);
-                        }
-                    }
-
-                    if (normalizedStores.length === 0 && ownerStoreId) {
-                        try {
-                            const storeResponse = await apiRequest(`${API_BASE}/stores/${ownerStoreId}`);
-                            const singleStore = normalizeStoreDetailResponse(storeResponse, ownerStoreId);
-                            normalizedStores = singleStore ? [singleStore] : normalizeStoreListResponse(storeResponse);
-                        } catch (error) {
-                            console.warn('점주 단일 가게 조회 실패:', error);
-                        }
-                    }
-
-                    if (normalizedStores.length === 0) {
-                        normalizedStores = restoreOwnerStoresFromSession();
-                    }
-
-                    if (normalizedStores.length === 0) {
+                    if (!ownerId) {
+                        console.warn('점주 ID가 없습니다. 로그인 상태를 확인해주세요.');
                         allStores = [];
                         filteredStores = [];
                         document.getElementById('filteredStoresCount').textContent = '0';
                         await renderStoreView();
                         initializeSidebarStoreInfo();
                         updateOwnerStoreActions(0);
-                        recalculateStoreStatsFrom(allStores); // 통계 재계산
+                        recalculateStoreStatsFrom(allStores);
                         return;
                     }
 
-                    allStores = normalizedStores;
-                    
-                    // 점주 모드에서도 storeQueryState.status 필터 적용 (단일 진실)
-                    filteredStores = normalizedStores.filter(store => {
-                        if (!storeQueryState.status || storeQueryState.status === '') {
-                            return true; // 전체 상태
-                        }
-                        const storeStatus = (store.status || '').toLowerCase();
-                        return storeStatus === storeQueryState.status.toLowerCase();
-                    });
-                    
-                    // createdDate 필터도 적용
-                    if (storeQueryState.createdDate) {
-                        const filterDate = storeQueryState.createdDate === 'today' 
-                            ? new Date().toISOString().split('T')[0]
-                            : storeQueryState.createdDate;
-                        filteredStores = filteredStores.filter(store => {
-                            if (!store.createdAt) return false;
-                            const createdDate = new Date(store.createdAt).toISOString().split('T')[0];
-                            return createdDate === filterDate;
-                        });
-                    }
-                    
-                    updateOwnerStoreActions(normalizedStores.length);
-                    recalculateStoreStatsFrom(allStores); // 통계 재계산
-
+                    // 점주 계정은 무조건 ownerId로 필터링하여 본인 가게만 조회
                     try {
-                        const serializedStores = normalizedStores
-                            .map(store => serializeStoreForSession(store))
-                            .filter(Boolean);
-                        sessionStorage.setItem('owner_store_list', JSON.stringify(serializedStores));
-                    } catch (error) {
-                        console.warn('owner_store_list 저장 실패:', error);
-                    }
+                        const storesResponse = await apiRequest(`${API_BASE}/stores?ownerId=${ownerId}`);
+                        const normalizedStores = normalizeStoreListResponse(storesResponse);
+                        
+                        // 연결된 점주가 있는 가게만 필터링 (연결된 점주 없음 가게 제외)
+                        const filteredByOwner = normalizedStores.filter(store => {
+                            const owners = store.owners || [];
+                            // 본인 ownerId와 연결된 가게만 표시
+                            return owners.some(owner => owner.id === ownerId);
+                        });
 
-                    // 선택 가게 복원 로직 (localStorage 우선)
-                    let activeStoreId = null;
-                    
-                    // 1순위: localStorage에 저장된 선택 가게 확인
-                    const savedStoreId = localStorage.getItem('currentStoreId');
-                    if (savedStoreId && normalizedStores.some(store => store.id === savedStoreId)) {
-                        activeStoreId = savedStoreId;
-                        console.log('✅ [선택 가게 복원] localStorage에서 복원:', activeStoreId);
-                    }
-                    // 2순위: sessionStorage의 owner_store_id 확인
-                    else if (ownerStoreId && normalizedStores.some(store => store.id === ownerStoreId)) {
-                        activeStoreId = ownerStoreId;
-                        console.log('✅ [선택 가게 복원] sessionStorage에서 복원:', activeStoreId);
-                    }
-                    // 3순위: window.currentStoreId 확인
-                    else if (window.currentStoreId && normalizedStores.some(store => store.id === window.currentStoreId)) {
-                        activeStoreId = window.currentStoreId;
-                        console.log('✅ [선택 가게 복원] window.currentStoreId에서 복원:', activeStoreId);
-                    }
-                    // 4순위: 최초 진입 시에만 첫 번째 가게 자동 선택
-                    else if (normalizedStores.length > 0 && !savedStoreId && !ownerStoreId && !window.currentStoreId) {
-                        activeStoreId = normalizedStores[0]?.id;
-                        console.log('✅ [선택 가게 복원] 최초 진입 - 첫 번째 가게 자동 선택:', activeStoreId);
+                        if (filteredByOwner.length === 0) {
+                            allStores = [];
+                            filteredStores = [];
+                            document.getElementById('filteredStoresCount').textContent = '0';
+                            await renderStoreView();
+                            initializeSidebarStoreInfo();
+                            updateOwnerStoreActions(0);
+                            recalculateStoreStatsFrom(allStores);
+                            return;
+                        }
+
+                        allStores = filteredByOwner;
+                        
+                        // 점주 모드에서도 storeQueryState.status 필터 적용
+                        filteredStores = filteredByOwner.filter(store => {
+                            if (!storeQueryState.status || storeQueryState.status === '') {
+                                return true;
+                            }
+                            const storeStatus = (store.status || '').toLowerCase();
+                            return storeStatus === storeQueryState.status.toLowerCase();
+                        });
+                        
+                        // createdDate 필터도 적용
+                        if (storeQueryState.createdDate) {
+                            const filterDate = storeQueryState.createdDate === 'today' 
+                                ? new Date().toISOString().split('T')[0]
+                                : storeQueryState.createdDate;
+                            filteredStores = filteredStores.filter(store => {
+                                if (!store.createdAt) return false;
+                                const createdDate = new Date(store.createdAt).toISOString().split('T')[0];
+                                return createdDate === filterDate;
+                            });
+                        }
+                        
+                        updateOwnerStoreActions(filteredByOwner.length);
+                        recalculateStoreStatsFrom(allStores);
+
+                        try {
+                            const serializedStores = filteredByOwner
+                                .map(store => serializeStoreForSession(store))
+                                .filter(Boolean);
+                            sessionStorage.setItem('owner_store_list', JSON.stringify(serializedStores));
+                        } catch (error) {
+                            console.warn('owner_store_list 저장 실패:', error);
+                        }
+
+                        // 선택 가게 복원 로직
+                        const ownerStoreId = sessionStorage.getItem('owner_store_id');
+                        let activeStoreId = null;
+                        
+                        const savedStoreId = localStorage.getItem('currentStoreId');
+                        if (savedStoreId && filteredByOwner.some(store => store.id === savedStoreId)) {
+                            activeStoreId = savedStoreId;
+                        } else if (ownerStoreId && filteredByOwner.some(store => store.id === ownerStoreId)) {
+                            activeStoreId = ownerStoreId;
+                        } else if (window.currentStoreId && filteredByOwner.some(store => store.id === window.currentStoreId)) {
+                            activeStoreId = window.currentStoreId;
+                            console.log('✅ [선택 가게 복원] window.currentStoreId에서 복원:', activeStoreId);
+                        }
+                        // 4순위: 최초 진입 시에만 첫 번째 가게 자동 선택
+                        else if (filteredByOwner.length > 0 && !savedStoreId && !ownerStoreId && !window.currentStoreId) {
+                            activeStoreId = filteredByOwner[0]?.id;
+                            console.log('✅ [선택 가게 복원] 최초 진입 - 첫 번째 가게 자동 선택:', activeStoreId);
                         // 최초 진입 시 localStorage에도 저장
                         if (activeStoreId) {
                             localStorage.setItem('currentStoreId', activeStoreId);
@@ -7476,7 +7469,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     }
 
                     document.getElementById('filteredStoresCount').textContent = filteredStores.length;
-                    populateOwnerFilterOptions(normalizedStores);
+                    populateOwnerFilterOptions(filteredByOwner);
                     await renderStoreView();
 
                     if (activeStoreId) {
