@@ -1571,20 +1571,14 @@ class APIRouter {
          const storeAddress = requestData.storeAddress || '';
          const storePhone = ownerDetail.phone || '';
          
-         // 먼저 기존 가게 확인 (중복 생성 방지)
+         // 먼저 기존 가게 확인 (중복 생성 방지) - 정확한 SQL 쿼리로 찾기
          if (storeName && storeAddress) {
            try {
-             const storeCheck = await dbServices.getStores({ 
-               keyword: storeName, 
-               pageSize: 50 
-             });
-             
-             const matchedStore = storeCheck.stores?.find(s => {
-               const nameMatch = s.name && s.name.trim().toLowerCase() === storeName.trim().toLowerCase();
-               const addressMatch = s.address && s.address.trim().toLowerCase() === storeAddress.trim().toLowerCase();
-               const phoneMatch = !storePhone || (s.phone && s.phone.trim() === storePhone.trim());
-               return nameMatch && addressMatch && phoneMatch;
-             });
+             const matchedStore = await dbServices.findStoreByNameAndAddress(
+               storeName,
+               storeAddress,
+               storePhone || null
+             );
              
              if (matchedStore) {
                console.log(`[점주 승인] 기존 가게 발견 및 연결: ${matchedStore.id} (${matchedStore.name})`);
@@ -1612,19 +1606,13 @@ class APIRouter {
              } catch (error) {
                // 중복 가게 에러: 이미 확인했지만 다시 확인
                if (error.message && error.message.includes('동일한 가게가 이미 존재합니다')) {
-                 // 다시 한번 찾기 시도
+                 // 다시 한번 정확한 SQL 쿼리로 찾기 시도
                  try {
-                   const storeCheck = await dbServices.getStores({ 
-                     keyword: storeName, 
-                     pageSize: 50 
-                   });
-                   
-                   const matchedStore = storeCheck.stores?.find(s => {
-                     const nameMatch = s.name && s.name.trim().toLowerCase() === storeName.trim().toLowerCase();
-                     const addressMatch = s.address && s.address.trim().toLowerCase() === storeAddress.trim().toLowerCase();
-                     const phoneMatch = !storePhone || (s.phone && s.phone.trim() === storePhone.trim());
-                     return nameMatch && addressMatch && phoneMatch;
-                   });
+                   const matchedStore = await dbServices.findStoreByNameAndAddress(
+                     storeName,
+                     storeAddress,
+                     storePhone || null
+                   );
                    
                    if (matchedStore) {
                      console.log(`[점주 승인] 중복 체크 후 기존 가게 연결: ${matchedStore.id}`);

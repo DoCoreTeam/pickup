@@ -3325,10 +3325,57 @@ async function bulkDeleteStores(storeIds = []) {
   };
 }
 
+// 이름, 주소, 전화번호로 정확한 가게 찾기 (점주 승인용)
+async function findStoreByNameAndAddress(storeName, storeAddress, storePhone = null) {
+  if (!storeName || !storeAddress) {
+    return null;
+  }
+  
+  try {
+    const query = storePhone
+      ? `
+        SELECT id, name, address, phone, status
+        FROM stores
+        WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
+        AND LOWER(TRIM(address)) = LOWER(TRIM($2))
+        AND TRIM(phone) = TRIM($3)
+        AND status != 'deleted'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `
+      : `
+        SELECT id, name, address, phone, status
+        FROM stores
+        WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
+        AND LOWER(TRIM(address)) = LOWER(TRIM($2))
+        AND (phone IS NULL OR phone = '' OR TRIM(phone) = '')
+        AND status != 'deleted'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `;
+    
+    const params = storePhone 
+      ? [storeName.trim(), storeAddress.trim(), storePhone.trim()]
+      : [storeName.trim(), storeAddress.trim()];
+    
+    const result = await db.query(query, params);
+    
+    if (result.rows.length > 0) {
+      return result.rows[0];
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('[가게 찾기] 에러:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   getSuperAdmin,
   getStores,
   getStoreById,
+  findStoreByNameAndAddress,
   getStoreBySubdomain,
   getStoreSettings,
   getStoreSettingsOptimized,
