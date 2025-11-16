@@ -1580,19 +1580,33 @@ class APIRouter {
              resolvedStoreId = storeRecord.id;
              break;
            } catch (error) {
-             // 중복 가게 에러는 그대로 전달 (이미 존재하는 가게 복구됨)
+             // 중복 가게 에러: 기존 가게를 찾아서 연결
              if (error.message && error.message.includes('동일한 가게가 이미 존재합니다')) {
-               // 가게가 복구되었으므로 해당 가게 ID 찾기
                const storeName = requestData.storeName || ownerDetail.ownerName || ownerDetail.email;
                const storeAddress = requestData.storeAddress || '';
-               const storeCheck = await dbServices.getStores({ keyword: storeName, pageSize: 10 });
-               const matchedStore = storeCheck.stores?.find(s => 
-                 s.name === storeName && s.address === storeAddress
-               );
+               const storePhone = ownerDetail.phone || '';
+               
+               // 정확한 가게 찾기 (이름+주소+전화번호로)
+               const storeCheck = await dbServices.getStores({ 
+                 keyword: storeName, 
+                 pageSize: 50 
+               });
+               
+               const matchedStore = storeCheck.stores?.find(s => {
+                 const nameMatch = s.name && s.name.trim().toLowerCase() === storeName.trim().toLowerCase();
+                 const addressMatch = s.address && s.address.trim().toLowerCase() === storeAddress.trim().toLowerCase();
+                 const phoneMatch = !storePhone || (s.phone && s.phone.trim() === storePhone.trim());
+                 return nameMatch && addressMatch && phoneMatch;
+               });
+               
                if (matchedStore) {
+                 console.log(`[점주 승인] 기존 가게 발견 및 연결: ${matchedStore.id}`);
                  storeRecord = await dbServices.getStoreById(matchedStore.id);
                  resolvedStoreId = matchedStore.id;
                  break;
+               } else {
+                 // 가게를 찾지 못한 경우 에러 반환
+                 throw new Error(`동일한 가게가 존재하지만 연결할 수 없습니다: ${storeName}`);
                }
              }
              

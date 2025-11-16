@@ -4749,6 +4749,11 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             <div class="stat-label">포함 전송량</div>
                             <div class="stat-value" id="dbStatsIncludedGB">100 GB</div>
                         </div>
+                        <div class="stat-card" style="grid-column: span 2; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                            <div class="stat-label" style="color: rgba(255,255,255,0.9);">예상 월간 비용 (전송량)</div>
+                            <div class="stat-value" id="dbStatsEstimatedCost" style="font-size: 24px; font-weight: 700;">$0.00</div>
+                            <div style="font-size: 12px; margin-top: 4px; opacity: 0.8;" id="dbStatsTransferOverGB">초과 전송량: 0 GB</div>
+                        </div>
                     </div>
 
                     <div class="db-stats-section">
@@ -11280,6 +11285,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     document.getElementById('dbStatsTotalGB').textContent = `${stats.totalTransferGB} GB`;
                     document.getElementById('dbStatsUptime').textContent = `${stats.uptimeHours}시간`;
                     document.getElementById('dbStatsIncludedGB').textContent = `${stats.includedTransferGB} GB`;
+                    
+                    // 비용 정보 업데이트
+                    const estimatedCost = stats.estimatedCost || {};
+                    const costPerMonth = parseFloat(estimatedCost.transferCostPerMonth || 0);
+                    const transferOverGB = parseFloat(estimatedCost.transferOverGB || 0);
+                    document.getElementById('dbStatsEstimatedCost').textContent = `$${costPerMonth.toFixed(2)}`;
+                    document.getElementById('dbStatsTransferOverGB').textContent = `초과 전송량: ${transferOverGB.toFixed(4)} GB`;
                     
                     // 쿼리 타입별 통계 테이블
                     const queriesByTypeEl = document.getElementById('dbStatsQueriesByType');

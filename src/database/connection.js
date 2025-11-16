@@ -154,6 +154,12 @@ const dbStats = {
     const totalTransferGB = this.totalBytes / (1024 * 1024 * 1024);
     const transferOverGB = Math.max(0, totalTransferGB - includedTransferGB);
     
+    // NEON 비용 추정 (네트워크 전송량만, 실제 Compute/Storage는 서버에서 확인 필요)
+    // Launch 플랜: 100GB 포함, 초과 시 $0.20/GB-month
+    // 서버 가동 시간을 기준으로 월간 추정 (실제로는 월 단위 청구)
+    const monthlyTransferGB = transferOverGB;
+    const transferCostPerMonth = monthlyTransferGB * 0.20; // $0.20 per GB-month
+    
     return {
       totalQueries: this.totalQueries,
       totalBytes: this.totalBytes,
@@ -164,9 +170,10 @@ const dbStats = {
       uptimeMs: uptime,
       uptimeHours: uptimeHours.toFixed(2),
       queriesPerHour: queriesPerHour.toFixed(2),
-      // NEON 비용 추정 (네트워크 전송량만, 실제 Compute/Storage는 서버에서 확인 필요)
+      // NEON 비용 추정
       estimatedCost: {
-        transferCost: 0, // Launch 플랜에는 100GB 포함되어 있음
+        transferCostPerMonth: transferCostPerMonth.toFixed(2),
+        transferOverGB: monthlyTransferGB.toFixed(4),
         note: 'Compute 및 Storage 비용은 Neon 대시보드에서 확인하세요'
       }
     };
