@@ -6258,29 +6258,28 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     owner.approvedAt = response.owner?.approved_at || new Date().toISOString();
                     owner.storeName = response.store?.name || owner.requestData?.storeName || owner.storeName || '';
                 }
-                // 승인된 계정은 '운영 중' 탭으로 이동하므로 탭 변경
+                // 즉시 UI 업데이트: 승인된 계정은 '운영 중' 탭으로 이동
                 ownerStatusFilter = OWNER_STATUS.ACTIVE;
                 const activeTab = document.querySelector(`.owner-tab[data-status="${OWNER_STATUS.ACTIVE}"]`);
                 const tabs = document.querySelectorAll('.owner-tab');
                 if (activeTab) {
                     tabs.forEach(t => t.classList.remove('active'));
                     activeTab.classList.add('active');
-                    // 탭 변경 후 해당 상태로 API 재요청
-                    await loadOwnerAccounts(OWNER_STATUS.ACTIVE);
-                } else {
-                    renderOwnerAccounts();
                 }
                 
-                // 가게 목록도 업데이트 (승인된 점주와 연결된 가게 상태 변경 반영)
+                // 가게 목록 즉시 업데이트 (승인된 점주와 연결된 가게 상태 변경 반영)
                 const storesSection = document.getElementById('stores');
                 if (storesSection && storesSection.style.display !== 'none') {
-                    // 가게 관리 섹션이 열려있으면 목록 새로고침
                     const cacheKey = 'stores_list';
                     if (window.sessionCache) {
                         window.sessionCache.clear(cacheKey);
                     }
-                    await loadStoreList();
+                    // 비동기로 로드 (UI 블로킹 방지)
+                    loadStoreList().catch(err => console.error('가게 목록 새로고침 실패:', err));
                 }
+                
+                // 점주 목록 즉시 업데이트
+                await loadOwnerAccounts(OWNER_STATUS.ACTIVE);
                 
                 // 로딩 숨김
                 if (window.hideGlobalLoading) {
