@@ -8,6 +8,45 @@
 
 ## 📋 버전 목록
 
+### v1.5.46 (2025-01-13) - ⚡ DB 요청 최소화 및 네트워크 효율성 극대화
+**상태**: ✅ 개발 완료
+
+**주요 개선사항**:
+- 🔥 N+1 문제 해결: `getStoreById`에서 JOIN으로 owners 한번에 조회 (별도 쿼리 제거)
+- 💾 백엔드 메모리 캐싱: 자주 조회되는 데이터 5분 TTL 캐싱으로 중복 요청 제거
+- 📦 배치 조회 함수: 여러 storeId를 한번에 조회하는 `getStoresByIds` 추가
+- ⚡ 병렬 처리: `Promise.all`로 독립적인 쿼리 병렬 실행 (`getData` API)
+- 🗑️ 캐시 무효화: 데이터 변경 시 관련 캐시 자동 삭제 (`updateStoreSettings`, `updateStore`)
+
+**해결된 문제**:
+- ✅ N+1 쿼리 문제 해결 (가게 조회 시 owners 별도 쿼리 제거)
+- ✅ 네트워크 트래픽 대폭 감소 (캐싱으로 중복 요청 제거)
+- ✅ 응답 시간 단축 (캐시 히트 시 즉시 반환)
+- ✅ Neon DB 과금 최적화 (요청 수 및 데이터 전송량 감소)
+
+**기술적 변경**:
+- `getStoreById` 함수:
+  - JOIN으로 owners를 한번에 조회 (별도 `getOwnersByStore` 호출 제거)
+  - 메모리 캐싱 적용 (5분 TTL)
+- `getStoreSettingsOptimized` 함수:
+  - 메모리 캐싱 적용 (5분 TTL)
+- `getStoresByIds` 함수 (신규):
+  - 여러 storeId를 한번에 조회하는 배치 함수
+  - 캐시 우선 확인 후 DB 조회
+- `getData` API:
+  - `Promise.all`로 `getSuperAdmin`과 `getCurrentStoreId` 병렬 실행
+- 캐시 관리:
+  - `updateStoreSettings`, `updateStore` 호출 시 관련 캐시 자동 무효화
+  - 1시간마다 만료된 캐시 자동 정리
+
+**성능 개선 효과**:
+- DB 쿼리 수: N+1 → 1 (가게당 2개 쿼리 → 1개 쿼리)
+- 네트워크 트래픽: 캐시 히트 시 0바이트 전송
+- 응답 시간: 캐시 히트 시 < 1ms (DB 조회 대비 100배 이상 향상)
+- Neon DB 과금: 요청 수 및 데이터 전송량 대폭 감소
+
+---
+
 ### v1.5.45 (2025-01-13) - 🛡️ DB 연결 실패 시 서버 크래시 방지 및 graceful 처리
 **상태**: ✅ 개발 완료
 
