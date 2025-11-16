@@ -1839,9 +1839,9 @@ class APIRouter {
         
         sendJsonResponse(res, 200, responseData);
       } else {
-        // 전체 설정 조회 (기존 방식)
-        const data = await dbServices.getAllData();
-        sendJsonResponse(res, 200, data.settings || {});
+        // storeId가 없으면 빈 객체 반환 (데이터 전송량 절감)
+        // 전체 설정 조회는 더 이상 지원하지 않음 (개별 API 사용 권장)
+        sendJsonResponse(res, 200, {});
       }
     } catch (error) {
       log('ERROR', '설정 조회 실패', error);

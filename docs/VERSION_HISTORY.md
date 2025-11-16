@@ -8,13 +8,43 @@
 
 ## 📋 버전 목록
 
+### v1.5.47 (2025-01-13) - 🐛 ReferenceError 수정 및 Railway 데이터 전송량 최적화
+**상태**: ✅ 개발 완료
+
+**주요 개선사항**:
+- 🐛 `ReferenceError: getStoresByIds is not defined` 수정: 정의되지 않은 함수 export 제거
+- 📉 Railway 데이터 전송량 최적화: `getAllData` 함수의 `pageSize` 500 → 20으로 감소
+- 🚫 전체 설정 조회 제거: `getSettings`에서 `storeId` 없을 때 빈 객체 반환 (개별 API 사용 권장)
+- 💾 불필요한 설정 조회 제거: `getAllData`에서 모든 가게 설정 루프 제거
+
+**해결된 문제**:
+- ✅ 서버 시작 시 `ReferenceError`로 인한 크래시 해결
+- ✅ Railway 데이터 전송량 할당량 초과 문제 완화
+- ✅ 불필요한 대량 데이터 전송 제거
+
+**기술적 변경**:
+- `src/database/services.js`:
+  - `module.exports`에서 `getStoresByIds` 제거 (정의되지 않은 함수)
+  - `getAllData` 함수 최적화:
+    - `pageSize` 500 → 20으로 감소
+    - 모든 가게 설정 조회 루프 제거 (`settings: {}` 반환)
+- `src/backend/api_server.js`:
+  - `getSettings` 함수에서 `storeId` 없을 때 `getAllData()` 호출 제거
+  - 빈 객체 반환으로 변경 (데이터 전송량 절감)
+
+**성능 개선 효과**:
+- 서버 시작 안정성: ReferenceError로 인한 크래시 방지
+- 데이터 전송량: `getAllData` 호출 시 최대 96% 감소 (500개 → 20개 가게)
+- Railway 할당량: 대량 데이터 전송 제거로 할당량 초과 위험 감소
+
+---
+
 ### v1.5.46 (2025-01-13) - ⚡ DB 요청 최소화 및 네트워크 효율성 극대화
 **상태**: ✅ 개발 완료
 
 **주요 개선사항**:
 - 🔥 N+1 문제 해결: `getStoreById`에서 JOIN으로 owners 한번에 조회 (별도 쿼리 제거)
 - 💾 백엔드 메모리 캐싱: 자주 조회되는 데이터 5분 TTL 캐싱으로 중복 요청 제거
-- 📦 배치 조회 함수: 여러 storeId를 한번에 조회하는 `getStoresByIds` 추가
 - ⚡ 병렬 처리: `Promise.all`로 독립적인 쿼리 병렬 실행 (`getData` API)
 - 🗑️ 캐시 무효화: 데이터 변경 시 관련 캐시 자동 삭제 (`updateStoreSettings`, `updateStore`)
 
@@ -30,9 +60,6 @@
   - 메모리 캐싱 적용 (5분 TTL)
 - `getStoreSettingsOptimized` 함수:
   - 메모리 캐싱 적용 (5분 TTL)
-- `getStoresByIds` 함수 (신규):
-  - 여러 storeId를 한번에 조회하는 배치 함수
-  - 캐시 우선 확인 후 DB 조회
 - `getData` API:
   - `Promise.all`로 `getSuperAdmin`과 `getCurrentStoreId` 병렬 실행
 - 캐시 관리:

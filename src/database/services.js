@@ -19,6 +19,56 @@ let storeSettingsColumnsEnsured = false;
 let historyTablesAvailable = true;
 let storeSettingsColumnsAvailable = true;
 
+// 백엔드 메모리 캐싱 (TTL 기반) - DB 요청 최소화
+const cache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5분
+
+function getCacheKey(type, id) {
+  return `${type}:${id}`;
+}
+
+function getCached(key) {
+  const cached = cache.get(key);
+  if (!cached) return null;
+  
+  if (Date.now() > cached.expiresAt) {
+    cache.delete(key);
+    return null;
+  }
+  
+  return cached.data;
+}
+
+function setCache(key, data, ttl = CACHE_TTL) {
+  cache.set(key, {
+    data,
+    expiresAt: Date.now() + ttl
+  });
+}
+
+function clearCache(pattern = null) {
+  if (!pattern) {
+    cache.clear();
+    return;
+  }
+  
+  for (const key of cache.keys()) {
+    if (key.startsWith(pattern)) {
+      cache.delete(key);
+    }
+  }
+}
+
+// 캐시 정리 (1시간마다 만료된 항목 제거)
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of cache.entries()) {
+    if (now > value.expiresAt) {
+      cache.delete(key);
+    }
+  }
+}, 60 * 60 * 1000); // 1시간마다
+
 function hashPassword(password) {
   const trimmed = (password || '').trim();
   if (!trimmed) {
@@ -859,8 +909,15 @@ async function getStoreSettings(storeId) {
   };
 }
 
-// 가게 설정 조회 최적화 버전 (stores와 store_settings를 하나의 쿼리로 조회)
+// 가게 설정 조회 최적화 버전 (stores와 store_settings를 하나의 쿼리로 조회, 캐싱 적용)
 async function getStoreSettingsOptimized(storeId) {
+  // 캐시 확인
+  const cacheKey = getCacheKey('storeSettings', storeId);
+  const cached = getCached(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  
   const result = await db.query(`
     SELECT 
       s.id,
@@ -903,7 +960,7 @@ async function getStoreSettingsOptimized(storeId) {
     abTestSettings: row.ab_test_settings || {}
   };
   
-  return {
+  const storeData = {
     id: row.id,
     name: row.name,
     subtitle: row.subtitle,
@@ -913,6 +970,11 @@ async function getStoreSettingsOptimized(storeId) {
     updatedAt: row.last_modified,
     settings
   };
+  
+  // 캐시에 저장
+  setCache(cacheKey, storeData);
+  
+  return storeData;
 }
 
 // 현재 가게 ID 조회
@@ -2467,11 +2529,11 @@ async function getAbTestSettingsForStore(storeId) {
   return sanitizeAbTestSettingsPayload(result.rows[0].ab_test_settings);
 }
 
-// 전체 데이터 조회 (기존 API 호환성)
+// 전체 데이터 조회 (기존 API 호환성) - 최적화됨
 async function getAllData() {
   const [superadmin, storesResult, currentStoreId] = await Promise.all([
     getSuperAdmin(),
-    getStores({ page: 1, pageSize: 500, includeSummary: false }),
+    getStores({ page: 1, pageSize: 20, includeSummary: false }), // pageSize 500 -> 20으로 대폭 감소
     getCurrentStoreId()
   ]);
   
@@ -2481,20 +2543,17 @@ async function getAllData() {
       ? storesResult
       : [];
   
-  // 가게 설정들 조회
-  const settings = {};
-  const storesObj = {};
-  
-  for (const store of stores) {
-    storesObj[store.id] = store;
-    settings[store.id] = await getStoreSettings(store.id);
-  }
+  // 설정은 개별 API로 조회하도록 변경 (데이터 전송량 절감)
+  // for (const store of stores) {
+  //   storesObj[store.id] = store;
+  //   settings[store.id] = await getStoreSettings(store.id);
+  // }
   
   return {
     superadmin,
     stores, // 배열로 반환 (프론트엔드 호환성)
     currentStoreId,
-    settings,
+    settings: {}, // 설정은 개별 API로 조회하도록 변경
     deliveryOrders: {}, // 기존 구조 유지
     images: {} // 기존 구조 유지
   };
@@ -2856,6 +2915,10 @@ async function updateStoreSubdomain(storeId, options = {}) {
 
 // 가게 수정
 async function updateStore(storeId, storeData) {
+  // 가게 업데이트 시 캐시 무효화
+  clearCache(`store:${storeId}`);
+  clearCache(`storeSettings:${storeId}`);
+  
   try {
     const now = new Date().toISOString();
 
@@ -3176,7 +3239,6 @@ module.exports = {
   approveStore,
   rejectStore,
   getStoresForExport,
-  getStoresByIds,
   clearCache, // 캐시 관리 함수 export
   bulkUpdateStoreStatus,
   bulkDeleteStores,
