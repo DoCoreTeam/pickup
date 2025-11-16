@@ -104,7 +104,9 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 50%, #f8fafc 100%);
+        background-size: 200% 200%;
+        animation: gradient-shift 3s ease infinite;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -113,16 +115,38 @@
         transition: opacity 0.3s ease-out;
       }
       
+      @keyframes gradient-shift {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+      }
+      
       .loading-overlay.fade-out {
         opacity: 0;
         pointer-events: none;
       }
       
+      .loading-content {
+        background: white;
+        border-radius: 20px;
+        padding: 40px 32px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        text-align: center;
+        max-width: 320px;
+        width: 90%;
+      }
+      
+      .loading-icon {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 24px;
+        position: relative;
+      }
+      
       .spinner {
-        width: 60px;
-        height: 60px;
-        border: 4px solid rgba(255, 255, 255, 0.3);
-        border-top-color: white;
+        width: 64px;
+        height: 64px;
+        border: 4px solid #e0e7ff;
+        border-top-color: #4f46e5;
         border-radius: 50%;
         animation: spin 0.8s linear infinite;
       }
@@ -132,11 +156,18 @@
       }
       
       .loading-text {
-        margin-top: 20px;
-        color: white;
-        font-size: 16px;
-        font-weight: 600;
-        letter-spacing: 0.5px;
+        color: #1e293b;
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        letter-spacing: -0.5px;
+      }
+      
+      .loading-subtext {
+        color: #64748b;
+        font-size: 14px;
+        font-weight: 500;
+        margin-top: 8px;
       }
       
       .loading-dots::after {
@@ -149,6 +180,47 @@
         40% { content: '.'; }
         60% { content: '..'; }
         80%, 100% { content: '...'; }
+      }
+      
+      .loading-steps {
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid #e2e8f0;
+      }
+      
+      .loading-step {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 12px;
+        padding: 8px 0;
+        color: #64748b;
+        font-size: 13px;
+        transition: color 0.3s;
+      }
+      
+      .loading-step.active {
+        color: #4f46e5;
+        font-weight: 600;
+      }
+      
+      .loading-step-icon {
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: #e2e8f0;
+        color: #64748b;
+        font-size: 12px;
+        font-weight: 700;
+        transition: all 0.3s;
+      }
+      
+      .loading-step.active .loading-step-icon {
+        background: #4f46e5;
+        color: white;
       }
 
       /* Lazy loading 이미지 스타일 */
@@ -967,9 +1039,28 @@
     <div id="globalLoadingBar" class="global-loading-bar"></div>
     <!-- 로딩 오버레이 -->
     <div id="loadingOverlay" class="loading-overlay">
-      <div class="spinner"></div>
-      <div class="loading-text">
-        <span class="loading-dots">가게 정보를 불러오는 중</span>
+      <div class="loading-content">
+        <div class="loading-icon">
+          <div class="spinner"></div>
+        </div>
+        <div class="loading-text">
+          <span class="loading-dots">가게 정보를 불러오는 중</span>
+        </div>
+        <div class="loading-subtext">잠시만 기다려주세요</div>
+        <div class="loading-steps">
+          <div class="loading-step" id="loadingStep1">
+            <div class="loading-step-icon">1</div>
+            <span>가게 정보 확인 중</span>
+          </div>
+          <div class="loading-step" id="loadingStep2">
+            <div class="loading-step-icon">2</div>
+            <span>메뉴 및 설정 불러오는 중</span>
+          </div>
+          <div class="loading-step" id="loadingStep3">
+            <div class="loading-step-icon">3</div>
+            <span>페이지 준비 중</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1478,9 +1569,37 @@
       // 🏪 가게 관련 함수들
       // ========================================
 
+      // 로딩 단계 업데이트 함수
+      function updateLoadingStep(stepNumber) {
+        for (let i = 1; i <= 3; i++) {
+          const step = document.getElementById(`loadingStep${i}`);
+          if (step) {
+            if (i <= stepNumber) {
+              step.classList.add('active');
+            } else {
+              step.classList.remove('active');
+            }
+          }
+        }
+      }
+      
+      // 로딩 오버레이 숨기기
+      function hideLoadingOverlay() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) {
+          overlay.classList.add('fade-out');
+          setTimeout(() => {
+            if (overlay.parentNode) {
+              overlay.remove();
+            }
+          }, 300);
+        }
+      }
+
       async function loadStoreInfo(storeId) {
         try {
           log('INFO', '가게 정보 로딩 시작', { storeId });
+          updateLoadingStep(1); // 1단계: 가게 정보 확인 중
           
           let store = null;
           let resolvedStoreId = storeId;
@@ -1545,6 +1664,8 @@
 
       async function loadSettings(storeId) {
         try {
+          updateLoadingStep(2); // 2단계: 메뉴 및 설정 불러오는 중
+          
           const resolved = await resolveStoreIdentifier(storeId);
           if (!resolved.storeId) {
             throw new Error('가게를 찾을 수 없습니다.');
@@ -1559,23 +1680,27 @@
           if (settingsData && (settingsData.images || settingsData.basic)) {
             settings = settingsData;
             log('INFO', '설정 로딩 완료', settings);
+            updateLoadingStep(3); // 3단계: 페이지 준비 중
             return settings;
           }
           // API 응답이 {success: true, data: {...}} 형태인 경우
           else if (settingsData && settingsData.success && settingsData.data) {
             settings = settingsData.data;
             log('INFO', '설정 로딩 완료', settings);
+            updateLoadingStep(3); // 3단계: 페이지 준비 중
             return settings;
           }
           // 설정 데이터가 없는 경우
           else {
             log('WARN', '설정 데이터가 없음, 빈 객체 사용');
             settings = {};
+            updateLoadingStep(3); // 3단계: 페이지 준비 중
             return settings;
           }
         } catch (error) {
           log('ERROR', '설정 로딩 실패', error);
           settings = {};
+          updateLoadingStep(3); // 3단계: 페이지 준비 중
           return settings;
         }
       }
@@ -2754,20 +2879,6 @@
         }
       }
 
-      // 로딩 오버레이 숨기기
-      function hideLoadingOverlay() {
-        console.log('🔄 로딩 오버레이 숨기기 시작');
-        const overlay = document.getElementById('loadingOverlay');
-        if (overlay) {
-          overlay.classList.add('fade-out');
-          setTimeout(() => {
-            overlay.style.display = 'none';
-            console.log('✅ 로딩 오버레이 숨김 완료');
-          }, 300);
-        } else {
-          console.error('❌ 로딩 오버레이 요소를 찾을 수 없음');
-        }
-      }
 
       // 전체 영업시간 모달 표시
       function showAllBusinessHours() {

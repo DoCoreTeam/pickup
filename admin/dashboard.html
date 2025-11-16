@@ -11827,14 +11827,24 @@ body:not(.owner-mode) .menu-section-title.owner-only {
 
                 // 캐시에 없을 때만 API 호출
                 const response = await apiRequest(`${API_BASE}/store/${currentStoreId}/domain-settings`);
+                console.log('🔍 [DEBUG] 도메인 설정 응답:', { response, success: response?.success, data: response?.data });
+                
                 if (response && response.success && response.data) {
                     const domainSettings = response.data;
                     const subdomain = domainSettings.subdomain || '';
                     document.getElementById('subdomain').value = subdomain;
+                    
+                    // QR 코드 정보 추출 (여러 경로 확인)
+                    const qrCodeData = domainSettings.qrCode || {};
+                    console.log('🔍 [DEBUG] QR 코드 데이터:', { qrCodeData, url: qrCodeData.url });
+                    
                     currentDomainQrInfo = {
-                        url: domainSettings.qrCode?.url || '',
-                        domainUrl: domainSettings.qrCode?.domainUrl || ''
+                        url: qrCodeData.url || '',
+                        domainUrl: qrCodeData.domainUrl || qrCodeData.url || ''
                     };
+                    
+                    console.log('🔍 [DEBUG] currentDomainQrInfo 설정:', currentDomainQrInfo);
+                    
                     updateDomainSummaryView(subdomain, currentDomainQrInfo);
                     applyDomainSettingsPermissions(domainSettings);
                     updateDomainQrSection(subdomain, currentDomainQrInfo);
@@ -11846,12 +11856,14 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 } else {
                     // 응답이 없거나 실패한 경우에도 QR 정보 확인 (qrCode 필드 직접 확인)
                     const qrInfo = response?.data?.qrCode || response?.qrCode || {};
+                    console.log('🔍 [DEBUG] 응답 실패 또는 QR 정보 확인:', { qrInfo, response });
+                    
                     if (qrInfo && qrInfo.url) {
                         // QR 코드가 있으면 표시
                         const subdomain = (response?.data?.subdomain || document.getElementById('subdomain')?.value || '').trim();
                         currentDomainQrInfo = {
                             url: qrInfo.url || '',
-                            domainUrl: qrInfo.domainUrl || ''
+                            domainUrl: qrInfo.domainUrl || qrInfo.url || ''
                         };
                         updateDomainSummaryView(subdomain, currentDomainQrInfo);
                         applyDomainSettingsPermissions(response?.data || {});
@@ -11931,22 +11943,25 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
             
             // QR 코드 이미지 업데이트
-            if (qrCodeDisplay && hasQr) {
+            if (qrCodeDisplay && hasQr && qrInfo.url) {
                 const qrUrl = resolveQrUrl(qrInfo.url);
-                console.log('🔍 [DEBUG] QR 코드 표시:', { qrUrl, hasQr, qrInfo });
+                console.log('🔍 [DEBUG] QR 코드 표시:', { qrUrl, hasQr, qrInfo, qrCodeDisplayTag: qrCodeDisplay.tagName });
                 // qrCodeDisplay가 img 태그인지 div인지 확인
                 if (qrCodeDisplay.tagName === 'IMG') {
                     qrCodeDisplay.src = qrUrl;
                     qrCodeDisplay.alt = 'QR 코드';
                     qrCodeDisplay.style.display = 'block';
                 } else {
-                    qrCodeDisplay.innerHTML = `<img src="${qrUrl}" alt="QR Code" style="max-width: 300px; width: 100%; height: auto;">`;
+                    // div인 경우 innerHTML로 img 태그 삽입
+                    qrCodeDisplay.innerHTML = `<img src="${qrUrl}" alt="QR Code" style="max-width: 300px; width: 100%; height: auto; display: block; margin: 0 auto;">`;
+                    qrCodeDisplay.style.display = 'block';
                 }
             } else if (qrCodeDisplay) {
                 if (qrCodeDisplay.tagName === 'IMG') {
                     qrCodeDisplay.style.display = 'none';
                 } else {
                     qrCodeDisplay.innerHTML = '';
+                    qrCodeDisplay.style.display = 'none';
                 }
             }
             
