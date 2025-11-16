@@ -7449,10 +7449,47 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         else if (filteredByOwner.length > 0 && !savedStoreId && !ownerStoreId && !window.currentStoreId) {
                             activeStoreId = filteredByOwner[0]?.id;
                             console.log('✅ [선택 가게 복원] 최초 진입 - 첫 번째 가게 자동 선택:', activeStoreId);
-                        // 최초 진입 시 localStorage에도 저장
-                        if (activeStoreId) {
-                            localStorage.setItem('currentStoreId', activeStoreId);
+                            // 최초 진입 시 localStorage에도 저장
+                            if (activeStoreId) {
+                                localStorage.setItem('currentStoreId', activeStoreId);
+                            }
                         }
+
+                        if (activeStoreId) {
+                            // sessionStorage 동기화 (점주 모드)
+                            sessionStorage.setItem('owner_store_id', activeStoreId);
+                            // window.currentStoreId 동기화
+                            window.currentStoreId = activeStoreId;
+                            // API 동기화
+                            try {
+                                await apiRequest(`${API_BASE}/current-store`, 'POST', { storeId: activeStoreId });
+                            } catch (error) {
+                                console.warn('현재 가게 설정 동기화 실패:', error);
+                            }
+                        }
+
+                        document.getElementById('filteredStoresCount').textContent = filteredStores.length;
+                        populateOwnerFilterOptions(filteredByOwner);
+                        await renderStoreView();
+
+                        if (activeStoreId) {
+                            await updateSelectedStoreCard(activeStoreId);
+                            updateSelectedStoreVisual(activeStoreId);
+                        } else {
+                            initializeSidebarStoreInfo();
+                        }
+
+                        return;
+                    } catch (error) {
+                        console.error('점주 가게 목록 조회 실패:', error);
+                        allStores = [];
+                        filteredStores = [];
+                        document.getElementById('filteredStoresCount').textContent = '0';
+                        await renderStoreView();
+                        initializeSidebarStoreInfo();
+                        updateOwnerStoreActions(0);
+                        recalculateStoreStatsFrom(allStores);
+                        return;
                     }
 
                     if (activeStoreId) {
