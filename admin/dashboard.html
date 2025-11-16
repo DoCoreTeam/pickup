@@ -3870,7 +3870,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge">v1.5.51</div>
+                    <div class="version-badge">v1.5.55</div>
                 </div>
                 <a href="/admin/release-notes" class="release-notes-btn">
                     릴리즈 노트
@@ -6254,8 +6254,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     headers['X-Superadmin-Auth'] = 'true';
                 }
                 
-                // 간단한 작업이므로 로딩바 없이 빠르게 처리
-                const response = await apiRequest(`${API_BASE}/owners/${currentOwnerApprovalId}/approve`, 'POST', {}, 1, false, headers);
+                // 점주 승인은 DB 트랜잭션 작업이므로 충분한 타임아웃 필요 (30초)
+                const response = await apiRequest(`${API_BASE}/owners/${currentOwnerApprovalId}/approve`, 'POST', {}, 3, false, headers, 30000);
                 const owner = ownerAccounts.find(item => item.id === currentOwnerApprovalId);
                 if (owner) {
                     owner.status = OWNER_STATUS.ACTIVE; // 상수 사용
