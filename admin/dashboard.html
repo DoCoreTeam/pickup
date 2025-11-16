@@ -11770,11 +11770,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 domainQrDownloadBtn.style.display = hasQr ? 'inline-flex' : 'none';
             }
             
-            // QR 생성 버튼 표시/숨김 (슈퍼어드민만, QR이 없고 서브도메인이 있을 때)
+            // QR 생성 버튼 표시/숨김 (슈퍼어드민 또는 점주, QR이 없고 서브도메인이 있을 때)
             if (domainQrGenerateBtn) {
-                const canGenerate = IS_SUPERADMIN && !hasQr && hasSubdomain && !qrLocked;
+                // 슈퍼어드민 또는 점주 계정이 QR을 생성할 수 있음 (QR이 없고 서브도메인이 있으며 잠금 상태가 아닐 때)
+                const canGenerate = (IS_SUPERADMIN || IS_STORE_OWNER) && !hasQr && hasSubdomain && !qrLocked;
                 console.log('QR 생성 버튼 표시 조건:', { 
                     IS_SUPERADMIN, 
+                    IS_STORE_OWNER,
                     hasQr, 
                     hasSubdomain, 
                     qrLocked, 
