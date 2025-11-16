@@ -39,8 +39,12 @@
     <style>
         /* 초기 상태: 슈퍼어드민 전용 메뉴는 숨김 (슈퍼어드민 모드일 때만 표시) */
         .menu-item[data-role="superadmin-only"],
-        .superadmin-only,
         .menu-section-title[data-role="superadmin-only"] {
+            display: none !important;
+        }
+        
+        /* 슈퍼어드민 전용 요소는 기본적으로 숨김 (메뉴 제외, 섹션 내부 요소는 나중에 처리) */
+        .superadmin-only {
             display: none !important;
         }
         
@@ -48,6 +52,34 @@
         body.superadmin-mode .menu-item[data-role="superadmin-only"],
         body.superadmin-mode .menu-section-title[data-role="superadmin-only"] {
             display: block !important;
+        }
+        
+        /* 슈퍼어드민 모드일 때 슈퍼어드민 전용 요소 표시 (섹션 내부 컨트롤 등) */
+        /* flex 컨테이너인 경우 flex 유지 */
+        body.superadmin-mode .superadmin-only.dashboard-controls,
+        body.superadmin-mode .superadmin-only[class*="flex"],
+        body.superadmin-mode .superadmin-only[class*="controls"] {
+            display: flex !important;
+        }
+        
+        /* 테이블 관련 요소 */
+        body.superadmin-mode .superadmin-only[class*="table"],
+        body.superadmin-mode .superadmin-only.dashboard-store-table {
+            display: table !important;
+        }
+        
+        body.superadmin-mode .superadmin-only[class*="table-row"] {
+            display: table-row !important;
+        }
+        
+        /* 일반 요소는 block */
+        body.superadmin-mode .superadmin-only {
+            display: block !important;
+        }
+        
+        /* 인라인 요소 */
+        body.superadmin-mode .superadmin-only[class*="inline"] {
+            display: inline !important;
         }
         
         /* 슈퍼어드민 전용 섹션은 기본적으로 숨김 (showSection으로 표시/숨김 제어) */
