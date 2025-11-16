@@ -10,16 +10,26 @@
             try {
                 const userRole = sessionStorage.getItem('user_role');
                 const isOwner = userRole === 'owner' && sessionStorage.getItem('owner_logged_in') === 'true';
-                if (isOwner) {
-                    // body가 로드되기 전일 수 있으므로 DOMContentLoaded 또는 즉시 실행
-                    if (document.body) {
+                const isSuperAdmin = userRole !== 'owner' && sessionStorage.getItem('superadmin_logged_in') === 'true';
+                
+                // 즉시 body에 클래스 추가 (HTML 파싱 전에 실행 가능하도록)
+                if (document.body) {
+                    if (isOwner) {
                         document.body.classList.add('owner-mode');
-                    } else {
-                        // body가 아직 없으면 DOMContentLoaded 이벤트에서 실행
-                        document.addEventListener('DOMContentLoaded', function() {
-                            document.body.classList.add('owner-mode');
-                        }, { once: true });
                     }
+                    if (isSuperAdmin) {
+                        document.body.classList.add('superadmin-mode');
+                    }
+                } else {
+                    // body가 아직 없으면 DOMContentLoaded 이벤트에서 실행
+                    document.addEventListener('DOMContentLoaded', function() {
+                        if (isOwner) {
+                            document.body.classList.add('owner-mode');
+                        }
+                        if (isSuperAdmin) {
+                            document.body.classList.add('superadmin-mode');
+                        }
+                    }, { once: true });
                 }
             } catch(e) {
                 // sessionStorage 접근 실패 시 무시 (초기 로드 시)
@@ -27,10 +37,41 @@
         })();
     </script>
     <style>
-        /* 점주 계정 메뉴 초기 숨김 (스크립트 로드 전에도 적용) */
-        body:not(.owner-mode) .menu-item[data-role="superadmin-only"],
-        body:not(.owner-mode) .superadmin-only {
-            /* 초기에는 표시, owner-mode가 추가되면 숨김 */
+        /* 초기 상태: 슈퍼어드민 전용 메뉴는 숨김 (슈퍼어드민 모드일 때만 표시) */
+        .menu-item[data-role="superadmin-only"],
+        .superadmin-only,
+        .menu-section-title[data-role="superadmin-only"] {
+            display: none !important;
+        }
+        
+        /* 슈퍼어드민 모드일 때만 슈퍼어드민 전용 메뉴 표시 */
+        body.superadmin-mode .menu-item[data-role="superadmin-only"],
+        body.superadmin-mode .superadmin-only,
+        body.superadmin-mode .menu-section-title[data-role="superadmin-only"] {
+            display: block !important;
+        }
+        
+        /* 점주 계정 모드일 때는 슈퍼어드민 전용 메뉴 숨김 (우선순위 높음) */
+        body.owner-mode .menu-item[data-role="superadmin-only"],
+        body.owner-mode .superadmin-only,
+        body.owner-mode .menu-section-title[data-role="superadmin-only"] {
+            display: none !important;
+        }
+        
+        /* 초기 상태: 점주 전용 메뉴는 숨김 (점주 모드일 때만 표시) */
+        .menu-section-title.owner-only,
+        .menu-item.owner-only {
+            display: none !important;
+        }
+        
+        /* 점주 모드일 때만 점주 전용 메뉴 표시 */
+        body.owner-mode .menu-section-title.owner-only,
+        body.owner-mode .menu-item.owner-only {
+            display: block !important;
+        }
+        
+        body:not(.owner-mode) .menu-section-title.owner-only {
+            display: none !important;
         }
     </style>
     <!-- SortableJS 라이브러리 -->
@@ -59,12 +100,7 @@
             -webkit-overflow-scrolling: touch;
         }
 
-/* 점주 계정 메뉴 숨김 (초기 로드 시에도 적용되도록 명시적 스타일) */
-body.owner-mode .menu-item[data-role="superadmin-only"],
-body.owner-mode .superadmin-only,
-body.owner-mode .menu-section-title[data-role="superadmin-only"] {
-    display: none !important;
-}
+/* 점주 계정 메뉴 숨김은 위의 <head> 스타일에서 처리됨 */
 
 body.owner-mode #bulkManagementBtn,
 body.owner-mode #stores .button-group {
