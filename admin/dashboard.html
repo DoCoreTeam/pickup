@@ -8138,8 +8138,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 for (const storeId of storeIds) {
                     try {
                         const response = await apiRequest(`${API_BASE}/stores/${storeId}`);
-                        const store = response?.data || response;
-                        if (store) {
+                        // normalizeStoreDetailResponse 사용하여 단일 가게 객체 추출
+                        const store = normalizeStoreDetailResponse(response, storeId);
+                        if (store && store.id) {
                             updatedStores.push(store);
                         }
                     } catch (error) {
@@ -8151,21 +8152,19 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 // 목록에 추가/업데이트 (로컬에서만)
                 updatedStores.forEach(store => {
-                    // 단일 가게 객체를 배열로 변환하여 정규화
-                    const normalizedStores = normalizeStoreListResponse(Array.isArray(store) ? store : [store]);
-                    if (normalizedStores.length === 0) return;
+                    // 이미 정규화된 가게 객체 (normalizeStoreDetailResponse 사용)
+                    if (!store || !store.id) return;
                     
-                    const normalizedStore = normalizedStores[0];
-                    const existingIndex = allStores.findIndex(s => s.id === normalizedStore.id);
+                    const existingIndex = allStores.findIndex(s => s.id === store.id);
                     
                     if (existingIndex >= 0) {
                         // 기존 가게 업데이트
-                        allStores[existingIndex] = normalizedStore;
-                        log('INFO', '가게 업데이트 (로컬)', { storeId: normalizedStore.id, name: normalizedStore.name || store.name });
+                        allStores[existingIndex] = store;
+                        log('INFO', '가게 업데이트 (로컬)', { storeId: store.id, name: store.name || store.basic?.storeName });
                     } else {
                         // 새 가게 추가
-                        allStores.push(normalizedStore);
-                        log('INFO', '가게 추가 (로컬)', { storeId: normalizedStore.id, name: normalizedStore.name || store.name });
+                        allStores.push(store);
+                        log('INFO', '가게 추가 (로컬)', { storeId: store.id, name: store.name || store.basic?.storeName });
                     }
                 });
                 
