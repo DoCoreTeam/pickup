@@ -167,6 +167,7 @@ const dbStats = {
       includedTransferGB,
       transferOverGB: transferOverGB.toFixed(4),
       queriesByType: { ...this.queriesByType },
+      recentQueries: this.recentQueries.slice(-50), // 최근 50개만 반환
       uptimeMs: uptime,
       uptimeHours: uptimeHours.toFixed(2),
       queriesPerHour: queriesPerHour.toFixed(2),
@@ -379,6 +380,22 @@ async function query(text, params = []) {
       dbStats.totalQueries++;
       dbStats.totalBytes += totalSize;
       dbStats.queriesByType[queryType] = (dbStats.queriesByType[queryType] || 0) + 1;
+      
+      // 최근 쿼리 기록 (최대 100개 유지)
+      const queryPreview = text.length > 200 ? text.substring(0, 200) + '...' : text;
+      dbStats.recentQueries.push({
+        type: queryType,
+        query: queryPreview,
+        params: params.length > 0 ? JSON.stringify(params).substring(0, 100) : null,
+        duration: queryDuration,
+        size: totalSize,
+        timestamp: Date.now()
+      });
+      
+      // 최대 100개만 유지
+      if (dbStats.recentQueries.length > 100) {
+        dbStats.recentQueries.shift();
+      }
       
       return result;
     } catch (error) {

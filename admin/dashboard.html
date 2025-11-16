@@ -662,7 +662,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             top: 0;
             transition: transform 0.3s ease;
             height: 100vh;
-            overflow: hidden;
+            max-height: 100vh;
+            overflow-y: auto;
+            overflow-x: hidden;
             z-index: 1000;
         }
         
@@ -4760,6 +4762,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         <h3>쿼리 타입별 통계</h3>
                         <div class="db-stats-table" id="dbStatsQueriesByType">
                             <div class="db-stats-loading">통계를 불러오는 중...</div>
+                        </div>
+                    </div>
+
+                    <div class="db-stats-section">
+                        <h3>최근 실행된 쿼리 (최근 50개)</h3>
+                        <div class="db-stats-table" id="dbStatsRecentQueries" style="max-height: 400px; overflow-y: auto;">
+                            <div class="db-stats-loading">쿼리 데이터를 불러오는 중...</div>
                         </div>
                     </div>
 
@@ -10541,26 +10550,15 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         filteredStores = cached;
                         await renderStoreView();
                     } else {
-                        // 캐시에 없으면 로드
-                        if (window.showGlobalLoading) {
-                            window.showGlobalLoading('default', true, '가게 목록을 불러오는 중...');
-                        }
+                        // 캐시에 없으면 즉시 로드 (로딩바 없이 빠르게)
                         try {
                             await loadStoreList();
                             // 캐시에 저장
                             if (window.sessionCache && allStores.length > 0) {
                                 window.sessionCache.set(cacheKey, allStores);
                             }
-                            if (window.hideGlobalLoading) {
-                                window.setLoadingBarType('success');
-                                setTimeout(() => window.hideGlobalLoading(), 200);
-                            }
                         } catch (error) {
                             console.error('가게 목록 로드 실패:', error);
-                            if (window.hideGlobalLoading) {
-                                window.setLoadingBarType('error');
-                                setTimeout(() => window.hideGlobalLoading(), 500);
-                            }
                         }
                     }
                 }
