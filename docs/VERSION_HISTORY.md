@@ -8,6 +8,44 @@
 
 ## 📋 버전 목록
 
+### v1.5.36 (2025-01-13) - ⚡ 세션 기반 가게 ID 관리 및 섹션별 로딩바 추가
+**상태**: ✅ 개발 완료
+
+**주요 개선사항**:
+- 🔑 세션 기반 가게 ID 관리: `getCurrentStoreId()` 함수 단순화 (API 호출 제거)
+- 💾 세션 저장 강화: 가게 선택 시 `sessionStorage`에 명시적으로 저장
+- 📊 섹션별 로딩바: 각 섹션 데이터 로드 시 로딩바 표시 (멈춤 방지)
+- ⚡ 성능 최적화: 불필요한 API 호출 제거로 응답 속도 향상
+
+**해결된 문제**:
+- ✅ 한번에 모든 정보를 가져오는 문제 해결 (세션 기반으로 필요한 데이터만 로드)
+- ✅ 멈춘 것처럼 보이는 문제 해결 (각 섹션에 로딩바 표시)
+- ✅ 불필요한 API 호출 제거 (`getCurrentStoreId`에서 API 호출 제거)
+- ✅ 사용자 경험 개선 (로딩 상태 명확히 표시)
+
+**기술적 변경**:
+- `getCurrentStoreId()` 함수를 동기 함수로 변경 (API 호출 제거)
+  - `window.currentStoreId` 우선 확인
+  - `sessionStorage.getItem('currentStoreId')` 확인
+  - `localStorage.getItem('currentStoreId')` 확인
+  - 점주 모드: `sessionStorage.getItem('owner_store_id')` 확인
+- `selectStore()` 함수에서 `sessionStorage`에 명시적으로 저장
+- `checkStoreSelected()` 함수를 동기 함수로 변경
+- 각 섹션 데이터 로드 시 로딩바 표시:
+  - 기본 정보 (`basic`)
+  - UI 순서 변경 (`section-order`)
+  - 배달앱 설정 (`delivery`)
+  - 이미지/동영상 관리 (`images`)
+  - 할인·픽업 안내 (`discount`)
+  - 도메인/QR 관리 (`domain-qr`)
+
+**성능 개선 효과**:
+- API 호출 수 감소 (`getCurrentStoreId` 호출 시)
+- 응답 속도 향상 (세션/로컬스토리지만 확인)
+- 사용자 피드백 개선 (로딩바로 상태 명확히 표시)
+
+---
+
 ### v1.5.35 (2025-01-13) - 🏠 관리자 홈 페이지 추가 (초기 로딩 최적화)
 **상태**: ✅ 개발 완료
 

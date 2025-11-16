@@ -3664,7 +3664,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge">v1.5.35</div>
+                    <div class="version-badge">v1.5.36</div>
                 </div>
                 <a href="/admin/release-notes" class="release-notes-btn">
                     릴리즈 노트
@@ -5295,46 +5295,32 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             };
         })();
 
-        // 현재 가게 ID 가져오기
-        async function getCurrentStoreId() {
+        // 현재 가게 ID 가져오기 (세션/로컬스토리지만 확인, API 호출 없음)
+        function getCurrentStoreId() {
             try {
                 // 1순위: window.currentStoreId (현재 세션)
                 if (window.currentStoreId) {
                     return window.currentStoreId;
                 }
 
-                // 2순위: localStorage에 저장된 선택 가게 (새로고침 후 복원용)
+                // 2순위: sessionStorage (세션 저장)
+                const sessionStoreId = sessionStorage.getItem('currentStoreId');
+                if (sessionStoreId) {
+                    return sessionStoreId;
+                }
+
+                // 3순위: localStorage에 저장된 선택 가게 (새로고침 후 복원용)
                 const savedStoreId = localStorage.getItem('currentStoreId');
                 if (savedStoreId) {
                     return savedStoreId;
                 }
 
-                // 3순위: 점주 모드의 경우 sessionStorage
+                // 4순위: 점주 모드의 경우 sessionStorage의 owner_store_id
                 if (IS_STORE_OWNER) {
                     const ownerStoreId = sessionStorage.getItem('owner_store_id');
                     if (ownerStoreId) {
                         return ownerStoreId;
                     }
-                }
-
-                // 4순위: API에서 현재 가게 조회
-                try {
-                    const currentStore = await apiRequest(`${API_BASE}/current-store`);
-                    if (currentStore && currentStore.id) {
-                        return currentStore.id;
-                    }
-                } catch (apiError) {
-                    console.warn('API에서 현재 가게 조회 실패:', apiError);
-                }
-                
-                // 5순위: fallback으로 /api/data에서 조회
-                try {
-                    const data = await apiRequest(`${API_BASE}/data`);
-                    if (data && data.currentStoreId) {
-                        return data.currentStoreId;
-                    }
-                } catch (dataError) {
-                    console.warn('API에서 data 조회 실패:', dataError);
                 }
 
                 return null;
@@ -7149,13 +7135,26 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 window.currentStoreId = storeId;
                 console.log('✅ [DEBUG] window.currentStoreId 설정:', storeId);
                 
+                // sessionStorage에 저장 (세션 유지)
+                sessionStorage.setItem('currentStoreId', storeId);
+                console.log('✅ [DEBUG] sessionStorage에 선택 가게 저장:', storeId);
+                
                 // localStorage에 저장 (새로고침 후 복원용)
                 localStorage.setItem('currentStoreId', storeId);
                 console.log('✅ [DEBUG] localStorage에 선택 가게 저장:', storeId);
                 
-                // 현재 가게 설정
-                await apiRequest(`${API_BASE}/current-store`, 'POST', { storeId });
-                console.log('✅ [DEBUG] 현재 가게 설정 완료');
+                // 점주 모드의 경우 owner_store_id도 저장
+                if (IS_STORE_OWNER) {
+                    sessionStorage.setItem('owner_store_id', storeId);
+                }
+                
+                // 현재 가게 설정 (백엔드 동기화, 로딩바 없이)
+                try {
+                    await apiRequest(`${API_BASE}/current-store`, 'POST', { storeId }, 3, false);
+                    console.log('✅ [DEBUG] 현재 가게 설정 완료');
+                } catch (error) {
+                    console.warn('⚠️ [DEBUG] 현재 가게 설정 실패 (계속 진행):', error);
+                }
                 
                 // 현재 가게 정보 업데이트 (사이드바)
                 await updateCurrentStoreInfo(storeId);
@@ -9866,10 +9865,10 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
         }
 
-        // 가게 선택 상태 확인
-        async function checkStoreSelected() {
+        // 가게 선택 상태 확인 (동기 함수로 변경)
+        function checkStoreSelected() {
             try {
-                const currentStoreId = await getCurrentStoreId();
+                const currentStoreId = getCurrentStoreId();
                 return currentStoreId && currentStoreId !== null;
             } catch (error) {
                 console.error('가게 선택 상태 확인 실패:', error);
@@ -9982,8 +9981,23 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 // 도메인 설정 섹션인 경우 도메인 정보 로드
                 if (sectionId === 'domain-settings' || sectionId === 'domain-qr') {
-                    loadDomainSettings().catch(error => {
+                    // 로딩바 표시
+                    if (window.showGlobalLoading) {
+                        window.showGlobalLoading();
+                    }
+                    loadDomainSettings().then(() => {
+                        // 로딩바 숨김
+                        if (window.hideGlobalLoading) {
+                            window.setLoadingBarType('success');
+                            setTimeout(() => window.hideGlobalLoading(), 200);
+                        }
+                    }).catch(error => {
                         console.error('도메인 설정 로드 실패:', error);
+                        // 에러 시 로딩바 숨김
+                        if (window.hideGlobalLoading) {
+                            window.setLoadingBarType('error');
+                            setTimeout(() => window.hideGlobalLoading(), 500);
+                        }
                     });
                 }
 
@@ -9997,7 +10011,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
 
             // 도메인/QR 관리 섹션은 가게 선택 후에만 접근 가능
             if (sectionId === 'domain-qr') {
-                if (!(await checkStoreSelected())) {
+                if (!checkStoreSelected()) {
                     showStoreSelectionRequired();
                     return;
                 }
@@ -10011,8 +10025,25 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 if (domainQrSection) {
                     domainQrSection.style.display = 'block';
                 }
-                // 도메인 설정 로드
-                await loadDomainSettings();
+                // 도메인 설정 로드 (로딩바 표시)
+                if (window.showGlobalLoading) {
+                    window.showGlobalLoading();
+                }
+                try {
+                    await loadDomainSettings();
+                    // 로딩바 숨김
+                    if (window.hideGlobalLoading) {
+                        window.setLoadingBarType('success');
+                        setTimeout(() => window.hideGlobalLoading(), 200);
+                    }
+                } catch (error) {
+                    console.error('도메인 설정 로드 실패:', error);
+                    // 에러 시 로딩바 숨김
+                    if (window.hideGlobalLoading) {
+                        window.setLoadingBarType('error');
+                        setTimeout(() => window.hideGlobalLoading(), 500);
+                    }
+                }
                 // 메뉴 활성화
                 const menuItems = document.querySelectorAll('.menu-item');
                 menuItems.forEach(item => item.classList.remove('active'));
@@ -10024,7 +10055,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
             
             // 다른 섹션들은 가게 선택 후에만 접근 가능
-            if (!skipStoreCheck && !(await checkStoreSelected())) {
+            if (!skipStoreCheck && !checkStoreSelected()) {
                 showStoreSelectionRequired();
                 return;
             }
@@ -10082,19 +10113,33 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
 
             // 섹션별 데이터 지연 로딩 (필요한 데이터만 로드)
-            const currentStoreId = await getCurrentStoreId();
+            const currentStoreId = getCurrentStoreId();
             
             // 기본 정보 섹션인 경우 기본 정보와 영업시간만 로드
             if (sectionId === 'basic' || sectionId === 'basic-info') {
                 const loadedKey = `basicSectionLoaded_${currentStoreId}`;
                 if (!window[loadedKey]) {
                     try {
+                        // 로딩바 표시
+                        if (window.showGlobalLoading) {
+                            window.showGlobalLoading();
+                        }
                         await loadSettings(['basic', 'businessHours']);
                         displayBusinessHours();
                         window[loadedKey] = true;
+                        // 로딩바 숨김
+                        if (window.hideGlobalLoading) {
+                            window.setLoadingBarType('success');
+                            setTimeout(() => window.hideGlobalLoading(), 200);
+                        }
                     } catch (error) {
                         console.error('기본 정보 로드 실패:', error);
                         showToast('기본 정보를 불러오는데 실패했습니다.', 'error');
+                        // 에러 시 로딩바 숨김
+                        if (window.hideGlobalLoading) {
+                            window.setLoadingBarType('error');
+                            setTimeout(() => window.hideGlobalLoading(), 500);
+                        }
                     }
                 } else {
                     displayBusinessHours();
@@ -10106,12 +10151,26 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 const loadedKey = `sectionOrderLoaded_${currentStoreId}`;
                 if (!window[loadedKey]) {
                     try {
+                        // 로딩바 표시
+                        if (window.showGlobalLoading) {
+                            window.showGlobalLoading();
+                        }
                         await loadSettings(['sectionOrder']);
                         loadSectionOrder();
                         window[loadedKey] = true;
+                        // 로딩바 숨김
+                        if (window.hideGlobalLoading) {
+                            window.setLoadingBarType('success');
+                            setTimeout(() => window.hideGlobalLoading(), 200);
+                        }
                     } catch (error) {
                         console.error('섹션 순서 로드 실패:', error);
                         showToast('섹션 순서를 불러오는데 실패했습니다.', 'error');
+                        // 에러 시 로딩바 숨김
+                        if (window.hideGlobalLoading) {
+                            window.setLoadingBarType('error');
+                            setTimeout(() => window.hideGlobalLoading(), 500);
+                        }
                     }
                 } else {
                     loadSectionOrder();
@@ -10122,14 +10181,28 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             if (sectionId === 'delivery') {
                 const loadedKey = `deliverySectionLoaded_${currentStoreId}`;
                 if (!window[loadedKey]) {
+                    // 로딩바 표시
+                    if (window.showGlobalLoading) {
+                        window.showGlobalLoading();
+                    }
                     setTimeout(async () => {
                         try {
                             await loadSettings(['delivery']);
                             await loadDeliveryOrderGrid();
                             window[loadedKey] = true;
+                            // 로딩바 숨김
+                            if (window.hideGlobalLoading) {
+                                window.setLoadingBarType('success');
+                                setTimeout(() => window.hideGlobalLoading(), 200);
+                            }
                         } catch (error) {
                             console.error('배달앱 설정 로드 실패:', error);
                             showToast('배달앱 설정을 불러오는데 실패했습니다.', 'error');
+                            // 에러 시 로딩바 숨김
+                            if (window.hideGlobalLoading) {
+                                window.setLoadingBarType('error');
+                                setTimeout(() => window.hideGlobalLoading(), 500);
+                            }
                         }
                     }, 200);
                 } else {
@@ -10142,11 +10215,25 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 const loadedKey = `imagesSectionLoaded_${currentStoreId}`;
                 if (!window[loadedKey]) {
                     try {
+                        // 로딩바 표시
+                        if (window.showGlobalLoading) {
+                            window.showGlobalLoading();
+                        }
                         await loadSettings(['images']);
                         window[loadedKey] = true;
+                        // 로딩바 숨김
+                        if (window.hideGlobalLoading) {
+                            window.setLoadingBarType('success');
+                            setTimeout(() => window.hideGlobalLoading(), 200);
+                        }
                     } catch (error) {
                         console.error('이미지 정보 로드 실패:', error);
                         showToast('이미지 정보를 불러오는데 실패했습니다.', 'error');
+                        // 에러 시 로딩바 숨김
+                        if (window.hideGlobalLoading) {
+                            window.setLoadingBarType('error');
+                            setTimeout(() => window.hideGlobalLoading(), 500);
+                        }
                     }
                 }
             }
@@ -10156,11 +10243,25 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 const loadedKey = `discountSectionLoaded_${currentStoreId}`;
                 if (!window[loadedKey]) {
                     try {
+                        // 로딩바 표시
+                        if (window.showGlobalLoading) {
+                            window.showGlobalLoading();
+                        }
                         await loadSettings(['discount', 'pickup']);
                         window[loadedKey] = true;
+                        // 로딩바 숨김
+                        if (window.hideGlobalLoading) {
+                            window.setLoadingBarType('success');
+                            setTimeout(() => window.hideGlobalLoading(), 200);
+                        }
                     } catch (error) {
                         console.error('할인/픽업 정보 로드 실패:', error);
                         showToast('할인/픽업 정보를 불러오는데 실패했습니다.', 'error');
+                        // 에러 시 로딩바 숨김
+                        if (window.hideGlobalLoading) {
+                            window.setLoadingBarType('error');
+                            setTimeout(() => window.hideGlobalLoading(), 500);
+                        }
                     }
                 }
             }
