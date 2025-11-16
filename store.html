@@ -1583,17 +1583,23 @@
         }
       }
       
-      // 로딩 오버레이 숨기기
+      // 로딩 오버레이 숨기기 (즉시, 애니메이션 없이)
       function hideLoadingOverlay() {
         const overlay = document.getElementById('loadingOverlay');
         if (overlay) {
-          overlay.classList.add('fade-out');
-          setTimeout(() => {
-            if (overlay.parentNode) {
-              overlay.remove();
-            }
-          }, 300);
+          // 즉시 숨김 (애니메이션 없이)
+          overlay.style.display = 'none';
+          overlay.remove();
         }
+      }
+      
+      // 서버에서 전달된 초기 데이터 확인 (서브도메인 접근 시)
+      function getInitialStoreData() {
+        // window.__INITIAL_STORE_DATA__는 서버에서 HTML에 인라인으로 포함된 데이터
+        if (window.__INITIAL_STORE_DATA__) {
+          return window.__INITIAL_STORE_DATA__;
+        }
+        return null;
       }
 
       async function loadStoreInfo(storeId) {
@@ -2869,13 +2875,69 @@
         try {
           log('INFO', '페이지 초기화 시작');
           
-          const storeId = getStoreIdFromUrl();
-          if (!storeId) {
+          // 서버에서 전달된 초기 데이터 확인 (서브도메인 접근 시)
+          const initialData = getInitialStoreData();
+          
+          let storeId = getStoreIdFromUrl();
+          if (!storeId && !initialData) {
             throw new Error('가게 ID가 없습니다');
           }
           
+          // 초기 데이터가 있으면 즉시 렌더링 (로딩 오버레이 없이)
+          if (initialData && initialData.store) {
+            currentStore = initialData.store;
+            currentStoreId = initialData.store.id;
+            
+            // 필수 설정만 먼저 설정 (로고)
+            if (initialData.settings && initialData.settings.images) {
+              settings = { images: initialData.settings.images };
+            }
+            
+            isLoading = false;
+            
+            // 즉시 렌더링 (로딩 오버레이 없이)
+            renderStorePage();
+            hideLoadingOverlay();
+            
+            log('INFO', '초기 데이터로 즉시 렌더링 완료');
+            
+            // 나머지 설정은 백그라운드에서 로드
+            if (currentStoreId) {
+              loadSettings(currentStoreId).then(fullSettings => {
+                if (fullSettings) {
+                  settings = {
+                    ...settings,
+                    ...fullSettings,
+                    images: settings.images || fullSettings.images
+                  };
+                  
+                  const businessHoursSection = document.getElementById('businessHoursSection');
+                  if (businessHoursSection && settings?.businessHours) {
+                    businessHoursSection.innerHTML = renderBusinessHours(settings);
+                  }
+                  
+                  renderDynamicSections();
+                  
+                  setTimeout(() => {
+                    if (getActiveDeliveryApps().length > 0) {
+                      renderDeliveryApps();
+                    }
+                  }, 100);
+                }
+              }).catch(() => {});
+            }
+            
+            // 페이지 방문 이벤트 기록 (비동기)
+            logEvent('page_view', {
+              path: window.location.pathname,
+              referrer: document.referrer || ''
+            }).catch(() => {});
+            
+            return;
+          }
+          
+          // 초기 데이터가 없으면 기존 방식으로 로드
           currentStoreId = storeId;
-          updateLoadingStep(1); // 1단계: 가게 정보 확인 중
           
           // 1단계: 필수 데이터만 먼저 로드 (가게 기본 정보 + 로고)
           const [storeData, essentialSettings] = await Promise.all([
@@ -2909,7 +2971,6 @@
           log('INFO', '페이지 초기 렌더링 완료');
           
           // 2단계: 나머지 설정 백그라운드에서 로드 (점진적 렌더링)
-          updateLoadingStep(2);
           loadSettings(storeId).then(fullSettings => {
             if (fullSettings) {
               // 전체 설정으로 업데이트 (기존 로고 유지)

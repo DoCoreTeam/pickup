@@ -383,9 +383,6 @@ function serveStaticFile(req, res, filePath) {
     // CORS 헤더 추가
     setCorsHeaders(res);
     
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Length', stat.size);
-    
     // 브라우저 캐싱 설정 (파일 타입별로 다른 캐시 정책)
     const isImage = /\.(jpg|jpeg|png|gif|webp|svg|ico)$/i.test(ext);
     const isStaticAsset = /\.(css|js|woff|woff2|ttf|eot)$/i.test(ext);
@@ -403,6 +400,38 @@ function serveStaticFile(req, res, filePath) {
       // 기타 파일: 1시간 캐시
       res.setHeader('Cache-Control', 'public, max-age=3600');
     }
+    
+    // store.html이고 초기 데이터가 있으면 HTML에 데이터 주입
+    if (ext === '.html' && filePath.endsWith('store.html') && req.initialStoreData) {
+      try {
+        // HTML 파일 읽기
+        let htmlContent = fs.readFileSync(filePath, 'utf8');
+        
+        // </head> 태그 앞에 초기 데이터 주입
+        const initialDataScript = `
+    <script>
+      // 서버에서 전달된 초기 데이터 (QR 접근 시 즉시 렌더링)
+      window.__INITIAL_STORE_DATA__ = ${JSON.stringify(req.initialStoreData)};
+    </script>`;
+        
+        htmlContent = htmlContent.replace('</head>', `${initialDataScript}\n  </head>`);
+        
+        // 수정된 HTML 전송
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Length', Buffer.byteLength(htmlContent, 'utf8'));
+        res.writeHead(200);
+        res.end(htmlContent, 'utf8');
+        
+        log('INFO', '초기 데이터 포함하여 store.html 서빙', { storeId: req.initialStoreData.store.id });
+        return true;
+      } catch (error) {
+        log('WARN', '초기 데이터 주입 실패 (원본 파일 전송)', error);
+        // 초기 데이터 주입 실패 시 원본 파일 전송
+      }
+    }
+    
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', stat.size);
     
     // ETag 추가 (파일 수정 시간 기반)
     const etag = `"${stat.mtime.getTime()}-${stat.size}"`;
@@ -958,9 +987,33 @@ class APIRouter {
               // 일시정지된 가게는 paused.html로 리다이렉트
               filePath = path.join(publicPath, 'paused.html');
             } else {
-              // 정상 운영 중인 가게는 store.html 서빙
+              // 정상 운영 중인 가게는 store.html 서빙 (초기 데이터 포함)
               filePath = path.join(publicPath, 'store.html');
-              // Note: 실제로는 클라이언트에서 subdomain을 읽어서 가게 정보를 로드해야 함
+              
+              // 서버 사이드에서 초기 데이터 생성 (가게 정보 + 로고만)
+              try {
+                const settings = await dbServices.getStoreSettingsOptimized(store.id, ['images']);
+                const initialData = {
+                  store: {
+                    id: store.id,
+                    name: store.name,
+                    subtitle: store.subtitle,
+                    phone: store.phone,
+                    address: store.address,
+                    status: store.status
+                  },
+                  settings: {
+                    images: settings?.images || null
+                  }
+                };
+                
+                // HTML에 초기 데이터 주입을 위한 플래그 설정
+                req.initialStoreData = initialData;
+                log('INFO', '초기 데이터 준비 완료', { storeId: store.id, hasLogo: Boolean(settings?.images?.mainLogo) });
+              } catch (error) {
+                log('WARN', '초기 데이터 로드 실패 (무시)', error);
+                // 초기 데이터 로드 실패해도 계속 진행
+              }
             }
           } else {
             // 서브도메인에 해당하는 가게가 없으면 기본 파일 경로 사용
