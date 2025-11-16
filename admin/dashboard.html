@@ -11761,9 +11761,15 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         }
         function resolveQrUrl(qrUrl) {
             if (!qrUrl) return '';
+            // Base64 데이터인 경우 (data:image/png;base64,로 시작)
+            if (qrUrl.startsWith('data:image/')) {
+                return qrUrl;
+            }
+            // HTTP/HTTPS URL인 경우
             if (/^https?:\/\//i.test(qrUrl)) {
                 return qrUrl;
             }
+            // 상대 경로인 경우
             const normalized = qrUrl.startsWith('/') ? qrUrl : `/${qrUrl}`;
             return `${window.location.origin}${normalized}`;
         }
