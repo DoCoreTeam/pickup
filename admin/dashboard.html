@@ -5554,7 +5554,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         })();
 
         // API 요청 함수 (타임아웃 및 재시도 포함, 로딩 바 통합)
-        async function apiRequest(url, method = 'GET', data = null, retries = 3, showLoading = true) {
+        async function apiRequest(url, method = 'GET', data = null, retries = 3, showLoading = true, customHeaders = {}) {
             // 로딩 바는 섹션 레벨에서 관리하므로 여기서는 표시하지 않음
             // showLoading 파라미터는 유지하되 실제로는 사용하지 않음
 
@@ -5570,7 +5570,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         const options = {
                             method: method,
                             headers: {
-                                'Content-Type': 'application/json'
+                                'Content-Type': 'application/json',
+                                ...customHeaders
                             },
                             signal: controller.signal
                         };
@@ -6224,6 +6225,11 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             const resultEl = document.getElementById('ownerModalResult');
             const submitBtn = document.getElementById('ownerModalSubmitBtn');
 
+            // 중복 클릭 방지
+            if (submitBtn.disabled) {
+                return;
+            }
+
             submitBtn.disabled = true;
             submitBtn.textContent = '승인 중...';
 
@@ -6233,7 +6239,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     window.showGlobalLoading('default', true, '점주 계정을 승인하는 중...');
                 }
                 
-                const response = await apiRequest(`${API_BASE}/owners/${currentOwnerApprovalId}/approve`, 'POST', {});
+                // 슈퍼어드민 권한 헤더 추가
+                const headers = {};
+                if (IS_SUPERADMIN) {
+                    headers['X-Superadmin-Auth'] = 'true';
+                }
+                
+                const response = await apiRequest(`${API_BASE}/owners/${currentOwnerApprovalId}/approve`, 'POST', {}, 3, false, headers);
                 const owner = ownerAccounts.find(item => item.id === currentOwnerApprovalId);
                 if (owner) {
                     owner.status = OWNER_STATUS.ACTIVE; // 상수 사용
@@ -11251,7 +11263,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         // DB 통계 로드
         async function loadDbStats() {
             try {
-                const response = await apiRequest(`${API_BASE}/db-stats`, 'GET', null, 3, false);
+                // 슈퍼어드민 권한 헤더 추가
+                const headers = {};
+                if (IS_SUPERADMIN) {
+                    headers['X-Superadmin-Auth'] = 'true';
+                }
+                
+                const response = await apiRequest(`${API_BASE}/db-stats`, 'GET', null, 3, false, headers);
                 if (response && response.success && response.data) {
                     const stats = response.data;
                     

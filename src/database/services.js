@@ -2781,14 +2781,80 @@ async function createActivityLog(logEntry) {
 // 가게 생성
 async function createStore(storeData = {}) {
   try {
+    const storeName = (storeData.name || '').trim();
+    const storeAddress = (storeData.address || '').trim();
+    const storePhone = (storeData.phone || '').trim();
+    
+    // 중복 체크: 동일한 이름+주소+전화번호 조합이 있는지 확인
+    if (storeName && storeAddress) {
+      const existingCheck = await db.query(`
+        SELECT id, name, address, phone, status
+        FROM stores
+        WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
+          AND LOWER(TRIM(address)) = LOWER(TRIM($2))
+          ${storePhone ? `AND TRIM(phone) = TRIM($3)` : 'AND (phone IS NULL OR phone = \'\')'}
+        LIMIT 1
+      `, storePhone ? [storeName, storeAddress, storePhone] : [storeName, storeAddress]);
+      
+      if (existingCheck.rows.length > 0) {
+        const existing = existingCheck.rows[0];
+        // 삭제되지 않은 가게면 에러
+        if (existing.status !== 'deleted') {
+          throw new Error(`동일한 가게가 이미 존재합니다: ${existing.name} (${existing.id})`);
+        }
+        // 삭제된 가게면 복구
+        console.log(`[가게 생성] 삭제된 가게 복구: ${existing.id}`);
+        const now = new Date().toISOString();
+        await db.query(`
+          UPDATE stores
+          SET status = $1,
+              last_modified = $2,
+              paused_at = NULL
+          WHERE id = $3
+          RETURNING *
+        `, [storeData.status || 'pending', now, existing.id]);
+        
+        // 기본 설정이 없으면 생성
+        const settingsCheck = await db.query(`SELECT store_id FROM store_settings WHERE store_id = $1`, [existing.id]);
+        if (settingsCheck.rows.length === 0) {
+          const basicInfo = storeData.basic || {
+            storeName: storeName,
+            storeSubtitle: storeData.subtitle || '',
+            storePhone: storePhone,
+            storeAddress: storeAddress
+          };
+          await db.query(`
+            INSERT INTO store_settings (store_id, basic, discount, delivery, pickup, images, business_hours, section_order, qr_code)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          `, [
+            existing.id,
+            JSON.stringify(basicInfo),
+            JSON.stringify({}),
+            JSON.stringify({}),
+            JSON.stringify({}),
+            JSON.stringify({}),
+            JSON.stringify({}),
+            JSON.stringify([
+              { id: 'delivery', icon: 'discount', title: '배달 주문' },
+              { id: 'discount', icon: 'discount', title: '할인 안내' },
+              { id: 'address', icon: 'discount', title: '주소 정보' }
+            ]),
+            JSON.stringify({})
+          ]);
+        }
+        
+        return await getStoreById(existing.id);
+      }
+    }
+    
     const storeId = `store_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const now = new Date().toISOString();
     const status = storeData.status || 'active';
     const basicInfo = storeData.basic || {
-      storeName: storeData.name || '',
+      storeName: storeName,
       storeSubtitle: storeData.subtitle || '',
-      storePhone: storeData.phone || '',
-      storeAddress: storeData.address || ''
+      storePhone: storePhone,
+      storeAddress: storeAddress
     };
     
     const result = await db.query(`

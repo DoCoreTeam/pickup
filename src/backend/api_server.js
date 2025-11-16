@@ -1516,6 +1516,18 @@ class APIRouter {
 
   async approveOwnerAccount(ownerId, req, res, parsedUrl) {
      try {
+      // 중복 승인 방지: 이미 승인된 계정인지 확인
+      let existingOwner;
+      try {
+        existingOwner = await dbServices.getOwnerAccountDetail(ownerId);
+        if (existingOwner && existingOwner.status === 'active') {
+          sendErrorResponse(res, 400, '이미 승인된 계정입니다.');
+          return;
+        }
+      } catch (error) {
+        // 계정을 찾을 수 없으면 계속 진행
+      }
+      
       const body = await parseRequestBody(req);
       const { storeId: manualStoreId = null, password } = body || {};
 
@@ -1555,7 +1567,7 @@ class APIRouter {
 
       if (!resolvedStoreId) {
          const requestData = ownerDetail.requestData || {};
-         // 가게 생성도 재시도 로직 포함
+         // 가게 생성도 재시도 로직 포함 (중복 체크는 createStore 내부에서 처리)
          retries = 0;
          while (retries < maxRetries) {
            try {
@@ -1568,6 +1580,22 @@ class APIRouter {
              resolvedStoreId = storeRecord.id;
              break;
            } catch (error) {
+             // 중복 가게 에러는 그대로 전달 (이미 존재하는 가게 복구됨)
+             if (error.message && error.message.includes('동일한 가게가 이미 존재합니다')) {
+               // 가게가 복구되었으므로 해당 가게 ID 찾기
+               const storeName = requestData.storeName || ownerDetail.ownerName || ownerDetail.email;
+               const storeAddress = requestData.storeAddress || '';
+               const storeCheck = await dbServices.getStores({ keyword: storeName, pageSize: 10 });
+               const matchedStore = storeCheck.stores?.find(s => 
+                 s.name === storeName && s.address === storeAddress
+               );
+               if (matchedStore) {
+                 storeRecord = await dbServices.getStoreById(matchedStore.id);
+                 resolvedStoreId = matchedStore.id;
+                 break;
+               }
+             }
+             
              if ((error.code === 'ECONNRESET' || error.code === 'EPIPE' || error.message.includes('terminated')) && retries < maxRetries - 1) {
                retries++;
                console.log(`[점주 승인] 가게 생성 연결 에러, 재시도 ${retries}/${maxRetries}...`);
@@ -1711,14 +1739,23 @@ class APIRouter {
     }
   }
 
+  // 슈퍼어드민 권한 확인 헬퍼 함수
+  checkSuperAdmin(req) {
+    // 쿠키 기반 확인
+    const cookies = parseCookies(req.headers.cookie || '');
+    const cookieAuth = cookies.is_superadmin === 'true';
+    
+    // 세션 기반 확인 (프론트엔드에서 전달하는 경우)
+    const sessionAuth = req.headers['x-superadmin-auth'] === 'true';
+    
+    return cookieAuth || sessionAuth;
+  }
+
   // DB 통계 조회 (슈퍼어드민 전용)
   async getDbStats(req, res, parsedUrl) {
     try {
-      // 슈퍼어드민 권한 확인 (쿠키 기반)
-      const cookies = parseCookies(req.headers.cookie || '');
-      const isSuperAdmin = cookies.is_superadmin === 'true';
-      
-      if (!isSuperAdmin) {
+      // 슈퍼어드민 권한 확인 (쿠키 + 세션 기반)
+      if (!this.checkSuperAdmin(req)) {
         sendErrorResponse(res, 403, '슈퍼어드민 권한이 필요합니다.');
         return;
       }
@@ -1737,11 +1774,8 @@ class APIRouter {
   // DB 통계 리셋 (슈퍼어드민 전용)
   async resetDbStats(req, res, parsedUrl) {
     try {
-      // 슈퍼어드민 권한 확인 (쿠키 기반)
-      const cookies = parseCookies(req.headers.cookie || '');
-      const isSuperAdmin = cookies.is_superadmin === 'true';
-      
-      if (!isSuperAdmin) {
+      // 슈퍼어드민 권한 확인 (쿠키 + 세션 기반)
+      if (!this.checkSuperAdmin(req)) {
         sendErrorResponse(res, 403, '슈퍼어드민 권한이 필요합니다.');
         return;
       }
