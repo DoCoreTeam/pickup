@@ -11934,33 +11934,26 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             if (qrCodeDisplay && hasQr) {
                 const qrUrl = resolveQrUrl(qrInfo.url);
                 console.log('🔍 [DEBUG] QR 코드 표시:', { qrUrl, hasQr, qrInfo });
-                qrCodeDisplay.src = qrUrl;
-                qrCodeDisplay.alt = 'QR 코드';
-                qrCodeDisplay.style.display = 'block';
+                // qrCodeDisplay가 img 태그인지 div인지 확인
+                if (qrCodeDisplay.tagName === 'IMG') {
+                    qrCodeDisplay.src = qrUrl;
+                    qrCodeDisplay.alt = 'QR 코드';
+                    qrCodeDisplay.style.display = 'block';
+                } else {
+                    qrCodeDisplay.innerHTML = `<img src="${qrUrl}" alt="QR Code" style="max-width: 300px; width: 100%; height: auto;">`;
+                }
             } else if (qrCodeDisplay) {
-                qrCodeDisplay.style.display = 'none';
+                if (qrCodeDisplay.tagName === 'IMG') {
+                    qrCodeDisplay.style.display = 'none';
+                } else {
+                    qrCodeDisplay.innerHTML = '';
+                }
             }
             
             // QR 다운로드 버튼 표시/숨김
             if (domainQrDownloadBtn) {
                 domainQrDownloadBtn.style.display = hasQr ? 'inline-flex' : 'none';
                 domainQrDownloadBtn.disabled = !hasQr;
-            }
-            if (qrSection) {
-                qrSection.style.display = hasQr ? 'block' : 'none';
-            }
-            
-            // QR 코드 이미지 표시
-            if (qrCodeDisplay && hasQr) {
-                const resolvedUrl = resolveQrUrl(qrInfo.url);
-                qrCodeDisplay.innerHTML = `<img src="${resolvedUrl}" alt="QR Code" style="max-width: 300px; width: 100%; height: auto;">`;
-            } else if (qrCodeDisplay && !hasQr) {
-                qrCodeDisplay.innerHTML = '';
-            }
-            
-            // QR 다운로드 버튼 표시/숨김
-            if (domainQrDownloadBtn) {
-                domainQrDownloadBtn.style.display = hasQr ? 'inline-flex' : 'none';
             }
             
             // QR 생성 버튼 표시/숨김 (슈퍼어드민 또는 점주, QR이 없고 서브도메인이 있을 때)
