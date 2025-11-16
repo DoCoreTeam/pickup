@@ -8094,183 +8094,194 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 if (cached) {
                     console.log('✅ [캐시] 세션 캐시에서 설정 로드:', cacheKey);
                     window.currentSettings = cached;
-                    return cached;
-                }
-                
-                // fields 파라미터가 있으면 해당 필드만 요청
-                const url = fields && fields.length > 0
-                    ? `${API_BASE}/settings?storeId=${currentStoreId}&fields=${fields.join(',')}`
-                    : `${API_BASE}/settings?storeId=${currentStoreId}`;
-                
-                const settings = await apiRequest(url);
-                console.log('🔍 [DEBUG] loadSettings - settings:', settings);
-                console.log('🔍 [DEBUG] loadSettings - settings.basic:', settings.basic);
-                
-                // 전역 설정 저장
-                window.currentSettings = settings;
-                
-                // 세션 캐시에 저장
-                if (window.sessionCache) {
-                    window.sessionCache.set(cacheKey, settings);
-                    console.log('✅ [캐시] 세션 캐시에 설정 저장:', cacheKey);
-                }
-                
-                // 기본 정보
-                const storeNameEl = document.getElementById('storeName');
-                const storeSubtitleEl = document.getElementById('storeSubtitle');
-                const storePhoneEl = document.getElementById('storePhone');
-                const storeAddressEl = document.getElementById('storeAddress');
-                
-                console.log('🔍 [DEBUG] loadSettings - DOM elements:', {
-                    storeNameEl: storeNameEl ? 'found' : 'NOT FOUND',
-                    storeSubtitleEl: storeSubtitleEl ? 'found' : 'NOT FOUND', 
-                    storePhoneEl: storePhoneEl ? 'found' : 'NOT FOUND',
-                    storeAddressEl: storeAddressEl ? 'found' : 'NOT FOUND'
-                });
-                
-                // DOM 요소가 없으면 잠시 후 재시도 (최대 3회)
-                if (!storeNameEl || !storeSubtitleEl || !storePhoneEl || !storeAddressEl) {
-                    if (!window.loadSettingsRetryCount) window.loadSettingsRetryCount = 0;
-                    window.loadSettingsRetryCount++;
+                    // 캐시에서 가져온 경우에도 UI 업데이트 필요 (fields에 따라 필요한 부분만)
+                    // UI 업데이트는 아래 로직에서 처리하므로 return하지 않고 계속 진행
+                } else {
+                    // 캐시에 없으면 API 호출
+                    // fields 파라미터가 있으면 해당 필드만 요청
+                    const url = fields && fields.length > 0
+                        ? `${API_BASE}/settings?storeId=${currentStoreId}&fields=${fields.join(',')}`
+                        : `${API_BASE}/settings?storeId=${currentStoreId}`;
                     
-                    if (window.loadSettingsRetryCount < 3) {
-                        console.log(`⚠️ [DEBUG] DOM elements not found, retrying ${window.loadSettingsRetryCount}/3 in 200ms...`);
-                        setTimeout(() => loadSettings(), 200);
-                        return;
-                    } else {
-                        console.error('❌ [DEBUG] DOM elements not found after 3 retries, giving up');
-                        window.loadSettingsRetryCount = 0; // 리셋
-                        return;
+                    const settings = await apiRequest(url);
+                    console.log('🔍 [DEBUG] loadSettings - settings:', settings);
+                    console.log('🔍 [DEBUG] loadSettings - settings.basic:', settings.basic);
+                    
+                    // 전역 설정 저장
+                    window.currentSettings = settings;
+                    
+                    // 세션 캐시에 저장
+                    if (window.sessionCache) {
+                        window.sessionCache.set(cacheKey, settings);
+                        console.log('✅ [캐시] 세션 캐시에 설정 저장:', cacheKey);
                     }
                 }
                 
-                // 성공 시 리셋 카운터
-                window.loadSettingsRetryCount = 0;
+                // 캐시에서 가져왔든 API에서 가져왔든 UI 업데이트는 동일하게 수행
+                const settings = window.currentSettings;
                 
-                if (storeNameEl) {
-                    const storeName = settings.basic?.storeName || settings.name || '';
-                    storeNameEl.value = storeName;
-                    console.log('🔍 [DEBUG] loadSettings - storeName set to:', storeName);
-                }
-                if (storeSubtitleEl) {
-                    const storeSubtitle = settings.basic?.storeSubtitle || settings.subtitle || '';
-                    storeSubtitleEl.value = storeSubtitle;
-                    console.log('🔍 [DEBUG] loadSettings - storeSubtitle set to:', storeSubtitle);
-                }
-                if (storePhoneEl) {
-                    const storePhone = settings.basic?.storePhone || settings.phone || '';
-                    storePhoneEl.value = storePhone;
-                    console.log('🔍 [DEBUG] loadSettings - storePhone set to:', storePhone);
-                }
-                if (storeAddressEl) {
-                    const basicSettings = settings.basic || {};
-                    const storeAddress = basicSettings.storeAddress || settings.address || '';
-                    const storePostalCodeEl = document.getElementById('storePostalCode');
-                    const storeRoadAddressEl = document.getElementById('storeRoadAddress');
-                    const storeExtraAddressEl = document.getElementById('storeExtraAddress');
-                    const storeAddressDetailEl = document.getElementById('storeAddressDetail');
+                // fields 파라미터에 따라 필요한 필드만 업데이트
+                const fieldsSet = fields && fields.length > 0 ? new Set(fields.map(f => f.trim())) : null;
+                const shouldUpdateField = (fieldName) => !fieldsSet || fieldsSet.has(fieldName) || fieldsSet.has('*');
+                
+                // 기본 정보 (basic 필드가 요청되었거나 전체 요청인 경우만)
+                if (shouldUpdateField('basic')) {
+                    const storeNameEl = document.getElementById('storeName');
+                    const storeSubtitleEl = document.getElementById('storeSubtitle');
+                    const storePhoneEl = document.getElementById('storePhone');
+                    const storeAddressEl = document.getElementById('storeAddress');
+                    
+                    if (storeNameEl) {
+                        const storeName = settings.basic?.storeName || settings.name || '';
+                        storeNameEl.value = storeName;
+                    }
+                    if (storeSubtitleEl) {
+                        const storeSubtitle = settings.basic?.storeSubtitle || settings.subtitle || '';
+                        storeSubtitleEl.value = storeSubtitle;
+                    }
+                    if (storePhoneEl) {
+                        const storePhone = settings.basic?.storePhone || settings.phone || '';
+                        storePhoneEl.value = storePhone;
+                    }
+                    if (storeAddressEl) {
+                        const basicSettings = settings.basic || {};
+                        const storeAddress = basicSettings.storeAddress || settings.address || '';
+                        const storePostalCodeEl = document.getElementById('storePostalCode');
+                        const storeRoadAddressEl = document.getElementById('storeRoadAddress');
+                        const storeExtraAddressEl = document.getElementById('storeExtraAddress');
+                        const storeAddressDetailEl = document.getElementById('storeAddressDetail');
 
-                    if (storePostalCodeEl) {
-                        storePostalCodeEl.value = basicSettings.storePostalCode || '';
-                    }
-                    if (storeRoadAddressEl) {
-                        storeRoadAddressEl.value = basicSettings.storeRoadAddress || storeAddress;
-                    }
-                    if (storeExtraAddressEl) {
-                        storeExtraAddressEl.value = basicSettings.storeExtraAddress || '';
-                    }
-                    if (storeAddressDetailEl) {
-                        storeAddressDetailEl.value = basicSettings.storeAddressDetail || '';
-                    }
+                        if (storePostalCodeEl) {
+                            storePostalCodeEl.value = basicSettings.storePostalCode || '';
+                        }
+                        if (storeRoadAddressEl) {
+                            storeRoadAddressEl.value = basicSettings.storeRoadAddress || storeAddress;
+                        }
+                        if (storeExtraAddressEl) {
+                            storeExtraAddressEl.value = basicSettings.storeExtraAddress || '';
+                        }
+                        if (storeAddressDetailEl) {
+                            storeAddressDetailEl.value = basicSettings.storeAddressDetail || '';
+                        }
 
-                    storeAddressEl.value = storeAddress;
-                    syncFullAddress();
-                    console.log('🔍 [DEBUG] loadSettings - 주소 정보 업데이트:', {
-                        storeAddress,
-                        postalCode: storePostalCodeEl?.value || '',
-                        roadAddress: storeRoadAddressEl?.value || '',
-                        extraAddress: storeExtraAddressEl?.value || '',
-                        detailAddress: storeAddressDetailEl?.value || ''
-                    });
-                }
-                // 배달앱 설정
-                console.log('🔍 [DEBUG] loadSettings - delivery settings:', settings.delivery);
-                
-                const ttaengUrlEl = document.getElementById('ttaengUrl');
-                const baeminUrlEl = document.getElementById('baeminUrl');
-                const coupangUrlEl = document.getElementById('coupangUrl');
-                const yogiyoUrlEl = document.getElementById('yogiyoUrl');
-                
-                console.log('🔍 [DEBUG] loadSettings - delivery DOM elements:', {
-                    ttaengUrlEl: ttaengUrlEl ? 'found' : 'NOT FOUND',
-                    baeminUrlEl: baeminUrlEl ? 'found' : 'NOT FOUND',
-                    coupangUrlEl: coupangUrlEl ? 'found' : 'NOT FOUND',
-                    yogiyoUrlEl: yogiyoUrlEl ? 'found' : 'NOT FOUND'
-                });
-                
-                if (ttaengUrlEl) {
-                    ttaengUrlEl.value = settings.delivery?.ttaengUrl || '';
-                    console.log('🔍 [DEBUG] loadSettings - ttaengUrl set to:', ttaengUrlEl.value);
-                }
-                if (baeminUrlEl) {
-                    baeminUrlEl.value = settings.delivery?.baeminUrl || '';
-                    console.log('🔍 [DEBUG] loadSettings - baeminUrl set to:', baeminUrlEl.value);
-                }
-                if (coupangUrlEl) {
-                    coupangUrlEl.value = settings.delivery?.coupangUrl || '';
-                    console.log('🔍 [DEBUG] loadSettings - coupangUrl set to:', coupangUrlEl.value);
-                }
-                if (yogiyoUrlEl) {
-                    yogiyoUrlEl.value = settings.delivery?.yogiyoUrl || '';
-                    console.log('🔍 [DEBUG] loadSettings - yogiyoUrl set to:', yogiyoUrlEl.value);
+                        storeAddressEl.value = storeAddress;
+                        if (typeof syncFullAddress === 'function') {
+                            syncFullAddress();
+                        }
+                    }
                 }
                 
-                // 배달앱 상태 업데이트 (설정 로드 후)
-                setTimeout(() => {
-                    updateAllDeliveryStatuses();
-                }, 100);
-                
-                // 할인 설정
-                document.getElementById('discountEnabled').checked = settings.discount?.enabled || false;
-                document.getElementById('discountTitle').value = settings.discount?.title || '';
-                document.getElementById('discountDescription').value = settings.discount?.description || '';
-                
-                // 할인 폼 표시/숨김
-                const discountForm = document.getElementById('discountForm');
-                if (settings.discount?.enabled) {
-                    discountForm.classList.add('active');
-                } else {
-                    discountForm.classList.remove('active');
+                // 배달앱 설정 (delivery 필드가 요청되었거나 전체 요청인 경우만)
+                if (shouldUpdateField('delivery')) {
+                    const ttaengUrlEl = document.getElementById('ttaengUrl');
+                    const baeminUrlEl = document.getElementById('baeminUrl');
+                    const coupangUrlEl = document.getElementById('coupangUrl');
+                    const yogiyoUrlEl = document.getElementById('yogiyoUrl');
+                    
+                    if (ttaengUrlEl) {
+                        ttaengUrlEl.value = settings.delivery?.ttaengUrl || '';
+                    }
+                    if (baeminUrlEl) {
+                        baeminUrlEl.value = settings.delivery?.baeminUrl || '';
+                    }
+                    if (coupangUrlEl) {
+                        coupangUrlEl.value = settings.delivery?.coupangUrl || '';
+                    }
+                    if (yogiyoUrlEl) {
+                        yogiyoUrlEl.value = settings.delivery?.yogiyoUrl || '';
+                    }
+                    
+                    // 배달앱 상태 업데이트 (설정 로드 후)
+                    setTimeout(() => {
+                        if (typeof updateAllDeliveryStatuses === 'function') {
+                            updateAllDeliveryStatuses();
+                        }
+                    }, 100);
+                    
+                    // 배달앱 순서 렌더링
+                    if (typeof renderDeliveryOrder === 'function') {
+                        await renderDeliveryOrder();
+                    }
                 }
                 
-                // 픽업 설정
-                document.getElementById('pickupEnabled').checked = settings.pickup?.enabled || false;
-                document.getElementById('pickupTitle').value = settings.pickup?.title || '';
-                document.getElementById('pickupDescription').value = settings.pickup?.description || '';
-                
-                // 픽업 폼 표시/숨김
-                const pickupForm = document.getElementById('pickupForm');
-                if (settings.pickup?.enabled) {
-                    pickupForm.classList.add('active');
-                } else {
-                    pickupForm.classList.remove('active');
+                // 할인 설정 (discount 필드가 요청되었거나 전체 요청인 경우만)
+                if (shouldUpdateField('discount')) {
+                    const discountEnabledEl = document.getElementById('discountEnabled');
+                    const discountTitleEl = document.getElementById('discountTitle');
+                    const discountDescriptionEl = document.getElementById('discountDescription');
+                    
+                    if (discountEnabledEl) {
+                        discountEnabledEl.checked = settings.discount?.enabled || false;
+                    }
+                    if (discountTitleEl) {
+                        discountTitleEl.value = settings.discount?.title || '';
+                    }
+                    if (discountDescriptionEl) {
+                        discountDescriptionEl.value = settings.discount?.description || '';
+                    }
+                    
+                    // 할인 폼 표시/숨김
+                    const discountForm = document.getElementById('discountForm');
+                    if (discountForm) {
+                        if (settings.discount?.enabled) {
+                            discountForm.classList.add('active');
+                        } else {
+                            discountForm.classList.remove('active');
+                        }
+                    }
                 }
                 
-                // 영업시간 로드
-                loadBusinessHours(settings);
-                
-                // 이미지 설정
-                if (settings.images) {
-                    updateImagePreview('mainLogo', settings.images.mainLogo);
-                    updateImagePreview('menuImage', settings.images.menuImage);
-                    updateVideoPreview('promoVideo', settings.images.promoVideo);
+                // 픽업 설정 (pickup 필드가 요청되었거나 전체 요청인 경우만)
+                if (shouldUpdateField('pickup')) {
+                    const pickupEnabledEl = document.getElementById('pickupEnabled');
+                    const pickupTitleEl = document.getElementById('pickupTitle');
+                    const pickupDescriptionEl = document.getElementById('pickupDescription');
+                    
+                    if (pickupEnabledEl) {
+                        pickupEnabledEl.checked = settings.pickup?.enabled || false;
+                    }
+                    if (pickupTitleEl) {
+                        pickupTitleEl.value = settings.pickup?.title || '';
+                    }
+                    if (pickupDescriptionEl) {
+                        pickupDescriptionEl.value = settings.pickup?.description || '';
+                    }
+                    
+                    // 픽업 폼 표시/숨김
+                    const pickupForm = document.getElementById('pickupForm');
+                    if (pickupForm) {
+                        if (settings.pickup?.enabled) {
+                            pickupForm.classList.add('active');
+                        } else {
+                            pickupForm.classList.remove('active');
+                        }
+                    }
                 }
                 
-                // 배달앱 순서 렌더링
-                await renderDeliveryOrder();
+                // 영업시간 로드 (businessHours 필드가 요청되었거나 전체 요청인 경우만)
+                if (shouldUpdateField('businessHours')) {
+                    if (typeof loadBusinessHours === 'function') {
+                        loadBusinessHours(settings);
+                    }
+                }
                 
-                // 섹션 순서 렌더링
-                await renderSectionOrder();
+                // 이미지 설정 (images 필드가 요청되었거나 전체 요청인 경우만)
+                if (shouldUpdateField('images') && settings.images) {
+                    if (typeof updateImagePreview === 'function') {
+                        updateImagePreview('mainLogo', settings.images.mainLogo);
+                        updateImagePreview('menuImage', settings.images.menuImage);
+                    }
+                    if (typeof updateVideoPreview === 'function') {
+                        updateVideoPreview('promoVideo', settings.images.promoVideo);
+                    }
+                }
+                
+                // 섹션 순서 렌더링 (sectionOrder 필드가 요청되었거나 전체 요청인 경우만)
+                if (shouldUpdateField('sectionOrder')) {
+                    if (typeof renderSectionOrder === 'function') {
+                        await renderSectionOrder();
+                    }
+                }
                 
             } catch (error) {
                 console.error('설정 로드 실패:', error);
