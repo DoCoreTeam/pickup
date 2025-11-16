@@ -1916,34 +1916,68 @@ async function updateStoreSettings(storeId, settings) {
     await ensureStoreSettingsColumns();
     console.log(`가게 설정 업데이트 시도: ${storeId}`, settings);
     
-    // store_settings 테이블에서 해당 가게의 설정을 찾거나 생성
-    const existingSettings = await db.query(
-      'SELECT id FROM store_settings WHERE store_id = $1',
+    // store_settings 테이블에서 해당 가게의 기존 설정을 가져오기
+    const existingSettingsQuery = await db.query(
+      'SELECT basic, delivery, discount, pickup, images, business_hours, section_order, qr_code, seo_settings, ab_test_settings FROM store_settings WHERE store_id = $1',
       [storeId]
     );
     
+    // 기존 설정이 있으면 병합, 없으면 새로 생성
+    let finalSettings = {};
+    
+    if (existingSettingsQuery.rows.length > 0) {
+      // 기존 설정과 새 설정 병합 (새 설정이 우선)
+      const existing = existingSettingsQuery.rows[0];
+      finalSettings = {
+        basic: { ...(existing.basic || {}), ...(settings.basic || {}) },
+        delivery: { ...(existing.delivery || {}), ...(settings.delivery || {}) },
+        discount: { ...(existing.discount || {}), ...(settings.discount || {}) },
+        pickup: { ...(existing.pickup || {}), ...(settings.pickup || {}) },
+        images: { ...(existing.images || {}), ...(settings.images || {}) },
+        businessHours: { ...(existing.business_hours || {}), ...(settings.businessHours || {}) },
+        sectionOrder: settings.sectionOrder !== undefined ? settings.sectionOrder : (existing.section_order || []),
+        qrCode: { ...(existing.qr_code || {}), ...(settings.qrCode || {}) },
+        seoSettings: { ...(existing.seo_settings || {}), ...(settings.seoSettings || {}) },
+        abTestSettings: { ...(existing.ab_test_settings || {}), ...(settings.abTestSettings || {}) }
+      };
+    } else {
+      // 기존 설정이 없으면 새 설정 사용
+      finalSettings = {
+        basic: settings.basic || {},
+        delivery: settings.delivery || {},
+        discount: settings.discount || {},
+        pickup: settings.pickup || {},
+        images: settings.images || {},
+        businessHours: settings.businessHours || {},
+        sectionOrder: settings.sectionOrder || [],
+        qrCode: settings.qrCode || {},
+        seoSettings: settings.seoSettings || {},
+        abTestSettings: settings.abTestSettings || {}
+      };
+    }
+    
     // 기본 정보 업데이트 (stores 테이블)
-    if (settings.basic) {
+    if (finalSettings.basic && (finalSettings.basic.storeName || finalSettings.basic.storeSubtitle || finalSettings.basic.storePhone || finalSettings.basic.storeAddress)) {
       await db.query(`
         UPDATE stores 
         SET 
-          name = $2,
-          subtitle = $3,
-          phone = $4,
-          address = $5,
+          name = COALESCE($2, name),
+          subtitle = COALESCE($3, subtitle),
+          phone = COALESCE($4, phone),
+          address = COALESCE($5, address),
           last_modified = CURRENT_TIMESTAMP
         WHERE id = $1
       `, [
         storeId,
-        settings.basic.storeName || '',
-        settings.basic.storeSubtitle || '',
-        settings.basic.storePhone || '',
-        settings.basic.storeAddress || ''
+        finalSettings.basic.storeName || null,
+        finalSettings.basic.storeSubtitle || null,
+        finalSettings.basic.storePhone || null,
+        finalSettings.basic.storeAddress || null
       ]);
     }
 
-    if (existingSettings.rows.length > 0) {
-      // 기존 설정 업데이트
+    if (existingSettingsQuery.rows.length > 0) {
+      // 기존 설정 업데이트 (병합된 설정 사용)
       await db.query(`
         UPDATE store_settings 
         SET 
@@ -1955,18 +1989,22 @@ async function updateStoreSettings(storeId, settings) {
           business_hours = $7,
           section_order = $8,
           qr_code = $9,
+          seo_settings = $10,
+          ab_test_settings = $11,
           updated_at = CURRENT_TIMESTAMP
         WHERE store_id = $1
       `, [
         storeId,
-        JSON.stringify(settings.basic || {}),
-        JSON.stringify(settings.delivery || {}),
-        JSON.stringify(settings.discount || {}),
-        JSON.stringify(settings.pickup || {}),
-        JSON.stringify(settings.images || {}),
-        JSON.stringify(settings.businessHours || {}),
-        JSON.stringify(settings.sectionOrder || []),
-        JSON.stringify(settings.qrCode || {})
+        JSON.stringify(finalSettings.basic),
+        JSON.stringify(finalSettings.delivery),
+        JSON.stringify(finalSettings.discount),
+        JSON.stringify(finalSettings.pickup),
+        JSON.stringify(finalSettings.images),
+        JSON.stringify(finalSettings.businessHours),
+        JSON.stringify(finalSettings.sectionOrder),
+        JSON.stringify(finalSettings.qrCode),
+        JSON.stringify(finalSettings.seoSettings),
+        JSON.stringify(finalSettings.abTestSettings)
       ]);
     } else {
       // 새 설정 생성
