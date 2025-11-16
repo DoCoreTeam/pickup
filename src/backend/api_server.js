@@ -1093,24 +1093,27 @@ class APIRouter {
       // 강제 재연결 시도 파라미터 확인
       const forceReconnect = parsedUrl.query.reconnect === 'true';
       
-      if (forceReconnect && this.dbConnected) {
+      if (forceReconnect) {
         // 강제 재연결 요청 시 즉시 재연결 시도
         log('INFO', '강제 DB 재연결 요청 수신');
-        const router = this;
-        const attemptDbConnection = async () => {
-          try {
-            await db.disconnect().catch(() => {});
-            await db.connect();
-            router.dbConnected = () => true;
-            return true;
-          } catch (error) {
-            router.dbConnected = () => false;
-            return false;
+        try {
+          // 기존 연결 종료
+          await db.disconnect().catch(() => {});
+          
+          // 새 연결 시도
+          await db.connect();
+          
+          // 전역 dbConnected 플래그 업데이트
+          if (this.updateDbConnected) {
+            this.updateDbConnected(true);
           }
-        };
-        const connected = await attemptDbConnection();
-        if (connected) {
+          
           log('INFO', '✅ 강제 재연결 성공!');
+        } catch (error) {
+          log('ERROR', '강제 재연결 실패', { error: error.message });
+          if (this.updateDbConnected) {
+            this.updateDbConnected(false);
+          }
         }
       }
       
