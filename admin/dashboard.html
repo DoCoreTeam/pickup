@@ -79,6 +79,21 @@
             display: block !important;
         }
         
+        /* 슈퍼어드민 모드일 때 점주 전용 버튼 숨김 (설정 가이드 등) */
+        body.superadmin-mode .owner-only {
+            display: none !important;
+        }
+        
+        /* 점주 전용 버튼도 기본적으로 숨김 */
+        .owner-only {
+            display: none !important;
+        }
+        
+        /* 점주 모드일 때만 점주 전용 버튼 표시 */
+        body.owner-mode .owner-only {
+            display: block !important;
+        }
+        
         body:not(.owner-mode) .menu-section-title.owner-only {
             display: none !important;
         }
@@ -10195,12 +10210,14 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 }
                 // 백엔드 캐시는 API 호출 시 자동으로 무효화됨 (프론트엔드에서 직접 접근 불가)
                 
-                // 현재 설정 업데이트 (즉시 반영)
-                if (window.currentSettings) {
+                // 현재 설정 업데이트 (즉시 반영) - 설정 가이드에서 바로 확인 가능하도록
+                if (!window.currentSettings) {
+                    window.currentSettings = oldSettings;
+                } else {
                     window.currentSettings.discount = oldSettings.discount;
                 }
                 
-                // 설정 가이드 자동 갱신
+                // 설정 가이드 자동 갱신 (설정 저장 후 즉시 반영)
                 await refreshSetupGuideIfVisible();
                 
                 // 토글 상태에 따라 폼 표시/숨김
@@ -10264,12 +10281,14 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 }
                 // 백엔드 캐시는 API 호출 시 자동으로 무효화됨 (프론트엔드에서 직접 접근 불가)
                 
-                // 현재 설정 업데이트 (즉시 반영)
-                if (window.currentSettings) {
+                // 현재 설정 업데이트 (즉시 반영) - 설정 가이드에서 바로 확인 가능하도록
+                if (!window.currentSettings) {
+                    window.currentSettings = oldSettings;
+                } else {
                     window.currentSettings.pickup = oldSettings.pickup;
                 }
                 
-                // 설정 가이드 자동 갱신
+                // 설정 가이드 자동 갱신 (설정 저장 후 즉시 반영)
                 await refreshSetupGuideIfVisible();
                 
                 // 토글 상태에 따라 폼 표시/숨김
@@ -12724,8 +12743,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             
             try {
                 // 가게 정보 및 설정 로드 (에러 핸들링 강화)
+                // 설정 저장 후 즉시 반영을 위해 window.currentSettings 우선 사용
                 let store = null;
-                let settings = {};
+                let settings = window.currentSettings || {}; // 저장된 설정 우선 사용
                 let domainSettings = {};
                 
                 try {
@@ -12739,12 +12759,30 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     throw new Error('가게 정보를 불러올 수 없습니다.');
                 }
                 
-                try {
-                    const settingsResponse = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
-                    settings = settingsResponse?.data || settingsResponse || {};
-                } catch (error) {
-                    console.warn('설정 로드 실패 (기본값 사용):', error);
-                    settings = {};
+                // window.currentSettings가 없거나 불완전한 경우만 API 호출
+                // 설정 저장 후 즉시 반영을 위해 window.currentSettings 우선 사용
+                if (!settings || Object.keys(settings).length === 0) {
+                    try {
+                        const settingsResponse = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                        const fetchedSettings = settingsResponse?.data || settingsResponse || {};
+                        settings = fetchedSettings;
+                        // window.currentSettings 초기화 (없을 때만)
+                        if (!window.currentSettings) {
+                            window.currentSettings = settings;
+                        }
+                    } catch (error) {
+                        console.warn('설정 로드 실패 (기본값 사용):', error);
+                        settings = settings || {};
+                    }
+                } else {
+                    // window.currentSettings가 있으면 사용 (저장된 최신 설정)
+                    settings = window.currentSettings;
+                    console.log('✅ [설정 가이드] 저장된 설정 사용:', { 
+                        hasDiscount: Boolean(settings.discount),
+                        hasPickup: Boolean(settings.pickup),
+                        discountEnabled: settings.discount?.enabled,
+                        pickupEnabled: settings.pickup?.enabled
+                    });
                 }
                 
                 try {
