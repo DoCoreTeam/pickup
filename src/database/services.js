@@ -482,57 +482,58 @@ async function getStores(options = {}) {
   const sortColumn = sortColumnMap[finalOptions.sortBy] || 's.created_at';
   const orderClause = `ORDER BY ${sortColumn} ${normalizedSortOrder}, s.created_at DESC`;
 
-  const countSql = `
-    SELECT COUNT(*)::int AS total
-    FROM (
-      SELECT DISTINCT s.id
-      FROM stores s
-      ${ownerJoinClause}
-      ${filterWhere}
-    ) filtered_ids
-  `;
-  const countResult = await db.query(countSql, filterParams);
-  const total = Number(countResult.rows?.[0]?.total || 0);
-  const totalPages = total > 0 ? Math.ceil(total / safePageSize) : 0;
-  const resolvedPage = totalPages > 0 ? Math.min(safePage, totalPages) : 1;
-  const offset = (resolvedPage - 1) * safePageSize;
-  const startRow = offset + 1;
-  const endRow = offset + safePageSize;
-
-  let summary = {
-    total,
-    active: 0,
-    paused: 0,
-    pending: 0,
-    today: 0
-  };
-
-  if (finalOptions.includeSummary !== false) {
-    const summarySql = `
+  // COUNT와 Summary를 하나의 쿼리로 통합하여 성능 최적화
+  const countAndSummarySql = finalOptions.includeSummary !== false
+    ? `
+      WITH filtered_ids AS (
+        SELECT DISTINCT s.id, s.status, s.created_at
+        FROM stores s
+        ${ownerJoinClause}
+        ${filterWhere}
+      )
       SELECT
         COUNT(*)::int AS total,
         COUNT(*) FILTER (WHERE status = 'active')::int AS active,
         COUNT(*) FILTER (WHERE status = 'paused')::int AS paused,
         COUNT(*) FILTER (WHERE status = 'pending')::int AS pending,
         COUNT(*) FILTER (WHERE created_at::date = CURRENT_DATE)::int AS today
+      FROM filtered_ids
+    `
+    : `
+      SELECT COUNT(*)::int AS total
       FROM (
-        SELECT s.id, s.status, s.created_at
+        SELECT DISTINCT s.id
         FROM stores s
         ${ownerJoinClause}
-        ${baseWhere}
-        GROUP BY s.id, s.status, s.created_at
-      ) base_counts
+        ${filterWhere}
+      ) filtered_ids
     `;
-    const summaryResult = await db.query(summarySql, baseParams);
-    const summaryRow = summaryResult.rows?.[0] || {};
-    summary = {
-      total: Number(summaryRow.total) || 0,
-      active: Number(summaryRow.active) || 0,
-      paused: Number(summaryRow.paused) || 0,
-      pending: Number(summaryRow.pending) || 0,
-      today: Number(summaryRow.today) || 0
-    };
-  }
+
+  const countResult = await db.query(countAndSummarySql, filterParams);
+  const countRow = countResult.rows?.[0] || {};
+  const total = Number(countRow.total || 0);
+  
+  const summary = finalOptions.includeSummary !== false
+    ? {
+        total,
+        active: Number(countRow.active || 0),
+        paused: Number(countRow.paused || 0),
+        pending: Number(countRow.pending || 0),
+        today: Number(countRow.today || 0)
+      }
+    : {
+        total,
+        active: 0,
+        paused: 0,
+        pending: 0,
+        today: 0
+      };
+
+  const totalPages = total > 0 ? Math.ceil(total / safePageSize) : 0;
+  const resolvedPage = totalPages > 0 ? Math.min(safePage, totalPages) : 1;
+  const offset = (resolvedPage - 1) * safePageSize;
+  const startRow = offset + 1;
+  const endRow = offset + safePageSize;
 
   const dataRows = [];
 
