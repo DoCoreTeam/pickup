@@ -9485,6 +9485,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     console.log('🔍 [DEBUG] 가게 정보 로컬 업데이트:', currentStore);
                 }
                 
+                // window.currentSettings 업데이트 (설정 가이드 즉시 반영)
+                if (!window.currentSettings) {
+                    window.currentSettings = settings;
+                } else {
+                    window.currentSettings.basic = settings.basic;
+                }
+                
                 // 활동 로그 기록
                 await logActivity('basic', '기본 정보 변경', 
                     `기본 정보가 변경되었습니다.\n가게명: ${storeName}\n하단 텍스트: ${storeSubtitle}\n전화번호: ${storePhone}\n주소: ${storeAddress}`, 
@@ -9503,7 +9510,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 showStatus('가게명, 하단 텍스트, 전화번호, 주소가 저장되었습니다!', 'success');
                 renderBasicSummary();
                 
-                // 설정 가이드 자동 갱신
+                // 설정 가이드 자동 갱신 (설정 저장 후 즉시 반영)
                 await refreshSetupGuideIfVisible();
                 
                 // 가게 목록 다시 로드하여 변경사항 반영
