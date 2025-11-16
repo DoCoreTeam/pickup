@@ -8851,6 +8851,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             const summarySubtitle = document.getElementById('summaryStoreSubtitle');
             const summaryPhone = document.getElementById('summaryStorePhone');
             const summaryAddress = document.getElementById('summaryStoreAddress');
+            const summaryDomain = document.getElementById('summaryStoreDomain');
+            const summaryQrDownloadBtn = document.getElementById('summaryQrDownloadBtn');
+            const summaryDomainNotice = document.getElementById('summaryDomainNotice');
 
             if (!summaryName || !summarySubtitle || !summaryPhone || !summaryAddress) {
                 return;
@@ -8863,6 +8866,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             const roadInput = document.getElementById('storeRoadAddress');
             const extraInput = document.getElementById('storeExtraAddress');
             const detailInput = document.getElementById('storeAddressDetail');
+            const subdomainInput = document.getElementById('subdomain');
 
             const nameValue = (storeNameInput?.value || '').trim();
             const subtitleValue = (storeSubtitleInput?.value || '').trim();
@@ -8871,6 +8875,36 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             const roadAddress = (roadInput?.value || '').trim();
             const extraAddress = (extraInput?.value || '').trim();
             const detailAddress = (detailInput?.value || '').trim();
+            
+            // 서브도메인 정보 확인 (input 필드 또는 캐시에서)
+            let subdomainValue = '';
+            if (subdomainInput && subdomainInput.value) {
+                subdomainValue = subdomainInput.value.trim();
+            } else {
+                // 캐시에서 도메인 설정 확인
+                const currentStoreId = getCurrentStoreId();
+                if (currentStoreId) {
+                    const cacheKey = `domain_settings_${currentStoreId}`;
+                    const cached = window.sessionCache?.get(cacheKey);
+                    if (cached && cached.subdomain) {
+                        subdomainValue = cached.subdomain.trim();
+                        // subdomain input에도 업데이트
+                        if (subdomainInput) {
+                            subdomainInput.value = subdomainValue;
+                        }
+                    }
+                }
+                
+                // 캐시에 없으면 API 호출 (비동기, 백그라운드)
+                if (!subdomainValue && currentStoreId) {
+                    loadDomainSettings().then(() => {
+                        // 도메인 설정 로드 완료 후 요약 다시 렌더링
+                        renderBasicSummary();
+                    }).catch(err => {
+                        console.warn('도메인 설정 로드 실패 (백그라운드):', err);
+                    });
+                }
+            }
 
             const addressParts = [];
             if (roadAddress) addressParts.push(roadAddress);
@@ -8886,6 +8920,42 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             summarySubtitle.textContent = subtitleValue || '-';
             summaryPhone.textContent = phoneValue || '-';
             summaryAddress.textContent = formattedAddress || '-';
+            
+            // 서브도메인 정보 표시
+            if (summaryDomain) {
+                if (subdomainValue) {
+                    const origin = window.location.origin;
+                    const domainUrl = `${origin}/${subdomainValue}`;
+                    summaryDomain.textContent = domainUrl;
+                    
+                    // QR 다운로드 버튼 표시 (QR 코드가 있으면)
+                    if (summaryQrDownloadBtn) {
+                        const cacheKey = `domain_settings_${getCurrentStoreId()}`;
+                        const cached = window.sessionCache?.get(cacheKey);
+                        const hasQr = Boolean(cached?.qrCode?.url);
+                        if (hasQr) {
+                            summaryQrDownloadBtn.style.display = 'inline-flex';
+                        } else {
+                            summaryQrDownloadBtn.style.display = 'none';
+                        }
+                    }
+                    
+                    // 도메인 안내 텍스트
+                    if (summaryDomainNotice) {
+                        summaryDomainNotice.textContent = `이 주소로 접속하면 ${nameValue || '가게'} 페이지가 표시됩니다.`;
+                        summaryDomainNotice.style.display = 'block';
+                    }
+                } else {
+                    summaryDomain.textContent = '설정되지 않음';
+                    if (summaryQrDownloadBtn) {
+                        summaryQrDownloadBtn.style.display = 'none';
+                    }
+                    if (summaryDomainNotice) {
+                        summaryDomainNotice.textContent = '서브도메인을 설정하면 고유한 주소로 가게 페이지를 제공할 수 있습니다.';
+                        summaryDomainNotice.style.display = 'block';
+                    }
+                }
+            }
         }
 
         async function saveBasicInfo() {
@@ -10993,6 +11063,23 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         console.log('✅ [캐시] 기본 정보 즉시 표시');
                         window.currentSettings = cached;
                         displayBusinessHours();
+                        
+                        // 도메인 설정도 확인 (캐시에서 또는 백그라운드 로드)
+                        const domainCacheKey = `domain_settings_${currentStoreId}`;
+                        const domainCached = window.sessionCache?.get(domainCacheKey);
+                        if (domainCached && domainCached.subdomain) {
+                            // 캐시에 도메인 설정이 있으면 input 필드에 업데이트
+                            const subdomainInput = document.getElementById('subdomain');
+                            if (subdomainInput) {
+                                subdomainInput.value = domainCached.subdomain || '';
+                            }
+                        } else {
+                            // 캐시에 없으면 백그라운드에서 로드
+                            loadDomainSettings().catch(err => {
+                                console.warn('도메인 설정 로드 실패 (백그라운드):', err);
+                            });
+                        }
+                        
                         renderBasicSummary();
                         window[loadedKey] = true;
                         return; // 즉시 반환
@@ -11005,10 +11092,19 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             if (window.showGlobalLoading) {
                                 window.showGlobalLoading('default', true, '기본 정보를 불러오는 중...');
                             }
-                            await loadSettings(['basic', 'businessHours']);
+                            
+                            // 기본 정보와 도메인 설정을 동시에 로드
+                            await Promise.all([
+                                loadSettings(['basic', 'businessHours']),
+                                loadDomainSettings().catch(err => {
+                                    console.warn('도메인 설정 로드 실패 (무시):', err);
+                                    return null;
+                                })
+                            ]);
+                            
                             // loadSettings가 완료된 후 UI 업데이트
                             displayBusinessHours();
-                            renderBasicSummary(); // 기본 정보 요약 표시
+                            renderBasicSummary(); // 기본 정보 요약 표시 (서브도메인 포함)
                             window[loadedKey] = true;
                             // 로딩바는 모든 작업이 완료된 후 한 번만 숨김
                             if (window.hideGlobalLoading) {
@@ -11024,7 +11120,17 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             }
                         }
                     } else {
-                        // 이미 로드된 경우에도 요약 업데이트
+                        // 이미 로드된 경우에도 도메인 설정 확인 및 요약 업데이트
+                        const domainCacheKey = `domain_settings_${currentStoreId}`;
+                        const domainCached = window.sessionCache?.get(domainCacheKey);
+                        if (!domainCached) {
+                            // 캐시에 없으면 백그라운드에서 로드
+                            loadDomainSettings().then(() => {
+                                renderBasicSummary(); // 도메인 설정 로드 후 요약 업데이트
+                            }).catch(err => {
+                                console.warn('도메인 설정 로드 실패 (백그라운드):', err);
+                            });
+                        }
                         displayBusinessHours();
                         renderBasicSummary();
                     }
