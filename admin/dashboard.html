@@ -10117,7 +10117,22 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 await apiRequest(`${API_BASE}/store/${currentStoreId}/settings`, 'POST', settings);
                 
-                showStatus('UI 순서가 자동으로 저장되었습니다!', 'success');
+                // 캐시 무효화 (최신 데이터 반영)
+                const cacheKey = `settings_${currentStoreId}`;
+                if (window.sessionCache) {
+                    window.sessionCache.clear(cacheKey);
+                }
+                // 백엔드 캐시도 무효화
+                if (window.dbServices && window.dbServices.clearCache) {
+                    window.dbServices.clearCache('storeSettings', currentStoreId);
+                }
+                
+                // 현재 설정 업데이트 (즉시 반영)
+                if (window.currentSettings) {
+                    window.currentSettings.sectionOrder = sectionOrder;
+                }
+                
+                showToast('UI 순서가 자동으로 저장되었습니다!', 'success', '저장 완료');
                 
                 // 활동 로그 기록 (변경 전/후 명확히)
                 await logActivity('settings', 'UI 순서 변경', 
