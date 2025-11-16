@@ -3023,13 +3023,33 @@ class APIRouter {
         : null;
       const lastModified = store.subdomainLastModified || store.subdomainCreatedAt || store.updatedAt || null;
 
+      // QR 코드 정보 정규화 (url 또는 base64 데이터 확인)
+      const normalizedQrCode = {
+        url: qrCodeInfo.url || '',
+        base64: qrCodeInfo.base64 || '',
+        domainUrl: qrCodeInfo.domainUrl || '',
+        createdAt: qrCodeInfo.createdAt || null
+      };
+      
+      // base64 데이터가 있지만 url이 없으면 base64를 url로 사용
+      if (!normalizedQrCode.url && normalizedQrCode.base64) {
+        normalizedQrCode.url = normalizedQrCode.base64;
+      }
+
+      log('INFO', '도메인 설정 조회', { 
+        storeId, 
+        hasQrUrl: Boolean(normalizedQrCode.url), 
+        hasBase64: Boolean(normalizedQrCode.base64),
+        qrCodeInfo 
+      });
+
       const responseData = {
         subdomain,
         customDomain: '',
         qrLockedAt,
         lastModified,
         lastGeneratedAt,
-        qrCode: qrCodeInfo,
+        qrCode: normalizedQrCode,
         domainSettings: {
           subdomain,
           customDomain: '',
@@ -3222,8 +3242,18 @@ class APIRouter {
       const currentSettings = await dbServices.getStoreSettings(storeId) || {};
       const existingSubdomain = (store.subdomain || '').trim();
       const existingQrInfo = currentSettings.qrCode || {};
-      const hasExistingQr = Boolean(existingQrInfo.url);
+      // QR 코드 존재 여부 확인: url 또는 base64 데이터가 있으면 존재하는 것으로 간주
+      const hasExistingQr = Boolean(existingQrInfo.url || existingQrInfo.base64);
       const qrAlreadyLocked = hasExistingQr || (store.subdomainStatus || '').toLowerCase() === 'locked';
+
+      log('INFO', 'QR 생성 요청 확인', { 
+        storeId, 
+        hasExistingQr, 
+        qrUrl: existingQrInfo.url, 
+        hasBase64: Boolean(existingQrInfo.base64),
+        qrAlreadyLocked,
+        isOwnerRequest 
+      });
 
       if (isOwnerRequest && (hasExistingQr || qrAlreadyLocked)) {
         sendErrorResponse(res, 403, '점주는 이미 발급된 QR 코드를 다시 생성할 수 없습니다.');
