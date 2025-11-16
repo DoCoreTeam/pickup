@@ -346,6 +346,36 @@ function serveStaticFile(req, res, filePath) {
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Length', stat.size);
     
+    // 브라우저 캐싱 설정 (파일 타입별로 다른 캐시 정책)
+    const isImage = /\.(jpg|jpeg|png|gif|webp|svg|ico)$/i.test(ext);
+    const isStaticAsset = /\.(css|js|woff|woff2|ttf|eot)$/i.test(ext);
+    
+    if (isImage || isStaticAsset) {
+      // 이미지와 정적 자산: 1년 캐시 (파일명에 해시가 포함되어 있으면 안전)
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      res.setHeader('Expires', new Date(Date.now() + 31536000000).toUTCString());
+    } else if (ext === '.html') {
+      // HTML 파일: 캐시하지 않음 (항상 최신 버전)
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    } else {
+      // 기타 파일: 1시간 캐시
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+    }
+    
+    // ETag 추가 (파일 수정 시간 기반)
+    const etag = `"${stat.mtime.getTime()}-${stat.size}"`;
+    res.setHeader('ETag', etag);
+    
+    // If-None-Match 헤더 확인 (304 Not Modified 응답)
+    const ifNoneMatch = req.headers['if-none-match'];
+    if (ifNoneMatch === etag) {
+      res.writeHead(304);
+      res.end();
+      return true;
+    }
+    
     console.log('🔍 [DEBUG] 파일 스트림 시작:', filePath);
     
     // 파일을 스트림으로 전송 (바이너리 파일 지원)

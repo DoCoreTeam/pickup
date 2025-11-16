@@ -58,6 +58,45 @@
         min-height: 100vh;
       }
 
+      /* 전역 로딩 바 (상단 고정) */
+      .global-loading-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        z-index: 10000;
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%);
+        background-size: 200% 100%;
+        animation: loading-shimmer 1.5s ease-in-out infinite;
+        transform: translateY(-100%);
+        transition: transform 0.3s ease-out;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+      }
+
+      .global-loading-bar.active {
+        transform: translateY(0);
+      }
+
+      .global-loading-bar.error {
+        background: linear-gradient(90deg, #ef4444 0%, #dc2626 50%, #ef4444 100%);
+        background-size: 200% 100%;
+      }
+
+      .global-loading-bar.success {
+        background: linear-gradient(90deg, #10b981 0%, #059669 50%, #10b981 100%);
+        background-size: 200% 100%;
+      }
+
+      @keyframes loading-shimmer {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+      }
+
       /* 로딩 스피너 */
       .loading-overlay {
         position: fixed;
@@ -110,6 +149,16 @@
         40% { content: '.'; }
         60% { content: '..'; }
         80%, 100% { content: '...'; }
+      }
+
+      /* Lazy loading 이미지 스타일 */
+      img.lazy {
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      img.lazy.loaded {
+        opacity: 1;
       }
 
       .container {
@@ -914,6 +963,8 @@
     </style>
   </head>
   <body>
+    <!-- 전역 로딩 바 -->
+    <div id="globalLoadingBar" class="global-loading-bar"></div>
     <!-- 로딩 오버레이 -->
     <div id="loadingOverlay" class="loading-overlay">
       <div class="spinner"></div>
@@ -969,6 +1020,111 @@
         }
       }
 
+      // 전역 로딩 바 관리자
+      (function() {
+        let loadingCount = 0;
+        let loadingBar = null;
+        let minDisplayTime = 300;
+        let hideTimer = null;
+
+        function initLoadingBar() {
+          loadingBar = document.getElementById('globalLoadingBar');
+        }
+
+        function showLoadingBar(type = 'default') {
+          if (!loadingBar) initLoadingBar();
+          if (!loadingBar) return;
+
+          loadingCount++;
+          if (hideTimer) {
+            clearTimeout(hideTimer);
+            hideTimer = null;
+          }
+
+          loadingBar.className = 'global-loading-bar active';
+          if (type === 'error') {
+            loadingBar.classList.add('error');
+          } else if (type === 'success') {
+            loadingBar.classList.add('success');
+          }
+        }
+
+        function hideLoadingBar(force = false) {
+          if (!loadingBar) initLoadingBar();
+          if (!loadingBar) return;
+
+          loadingCount = Math.max(0, loadingCount - 1);
+
+          if (loadingCount === 0) {
+            const hide = () => {
+              loadingBar.classList.remove('active', 'error', 'success');
+            };
+
+            if (force || minDisplayTime === 0) {
+              hide();
+            } else {
+              hideTimer = setTimeout(hide, minDisplayTime);
+            }
+          }
+        }
+
+        window.showGlobalLoading = showLoadingBar;
+        window.hideGlobalLoading = hideLoadingBar;
+        window.setLoadingBarType = function(type) {
+          if (!loadingBar) initLoadingBar();
+          if (!loadingBar) return;
+          loadingBar.classList.remove('error', 'success');
+          if (type === 'error' || type === 'success') {
+            loadingBar.classList.add(type);
+          }
+        };
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initLoadingBar);
+        } else {
+          initLoadingBar();
+        }
+      })();
+
+      // 이미지 Lazy Loading 구현
+      (function() {
+        const imageObserverOptions = {
+          root: null,
+          rootMargin: '50px',
+          threshold: 0.01
+        };
+
+        const imageObserver = new IntersectionObserver((entries, observer) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              const img = entry.target;
+              const src = img.getAttribute('data-src');
+              
+              if (src) {
+                img.src = src;
+                img.removeAttribute('data-src');
+                img.classList.remove('lazy');
+                img.classList.add('loaded');
+                observer.unobserve(img);
+              }
+            }
+          });
+        }, imageObserverOptions);
+
+        window.initLazyLoading = function() {
+          const lazyImages = document.querySelectorAll('img[data-src]');
+          lazyImages.forEach(img => {
+            imageObserver.observe(img);
+          });
+        };
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', window.initLazyLoading);
+        } else {
+          window.initLazyLoading();
+        }
+      })();
+
       /**
        * 사용자 입력을 안전하게 출력하기 위해 HTML 특수문자를 이스케이프합니다.
        * @param {string} value 원본 문자열
@@ -986,7 +1142,12 @@
           .replace(/'/g, '&#39;');
       }
 
-      async function apiRequest(url, options = {}) {
+      async function apiRequest(url, options = {}, showLoading = true) {
+        // 로딩 바 표시
+        if (showLoading && window.showGlobalLoading) {
+          window.showGlobalLoading();
+        }
+
         try {
           const response = await fetch(url, {
             headers: {
@@ -1000,9 +1161,24 @@
             throw new Error(`HTTP 오류: ${response.status}`);
           }
 
-          return await response.json();
+          const data = await response.json();
+
+          // 성공 시 로딩 바 숨김
+          if (showLoading && window.hideGlobalLoading) {
+            window.setLoadingBarType('success');
+            setTimeout(() => window.hideGlobalLoading(), 200);
+          }
+
+          return data;
         } catch (error) {
           log('ERROR', 'API 요청 실패', { url, error: error.message });
+          
+          // 에러 시 로딩 바 숨김
+          if (showLoading && window.hideGlobalLoading) {
+            window.setLoadingBarType('error');
+            setTimeout(() => window.hideGlobalLoading(), 500);
+          }
+          
           throw error;
         }
       }

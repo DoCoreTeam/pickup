@@ -2800,6 +2800,45 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             background-image: url('../../assets/images/icons/yogiyo.png');
         }
 
+        /* 전역 로딩 바 (상단 고정) */
+        .global-loading-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            z-index: 10000;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%);
+            background-size: 200% 100%;
+            animation: loading-shimmer 1.5s ease-in-out infinite;
+            transform: translateY(-100%);
+            transition: transform 0.3s ease-out;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+        }
+
+        .global-loading-bar.active {
+            transform: translateY(0);
+        }
+
+        .global-loading-bar.error {
+            background: linear-gradient(90deg, #ef4444 0%, #dc2626 50%, #ef4444 100%);
+            background-size: 200% 100%;
+        }
+
+        .global-loading-bar.success {
+            background: linear-gradient(90deg, #10b981 0%, #059669 50%, #10b981 100%);
+            background-size: 200% 100%;
+        }
+
+        @keyframes loading-shimmer {
+            0% {
+                background-position: 200% 0;
+            }
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
         /* 로딩 및 에러 상태 스타일 */
         .loading-spinner {
             display: flex;
@@ -3395,6 +3434,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
     </style>
 </head>
 <body>
+    <!-- 전역 로딩 바 -->
+    <div id="globalLoadingBar" class="global-loading-bar"></div>
     <!-- 프로그레스 바 (최상단 고정) -->
     <div id="progressBar" style="position: fixed; top: 0; left: 0; width: 0%; height: 3px; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); z-index: 99999; transition: width 0.3s ease, opacity 0.3s ease; opacity: 0;"></div>
     
@@ -3490,7 +3531,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge">v1.5.32</div>
+                    <div class="version-badge">v1.5.33</div>
                 </div>
                 <a href="/admin/release-notes" class="release-notes-btn">
                     릴리즈 노트
@@ -4641,7 +4682,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             totalPages: 0
         };
         let storeViewMode = 'store';
-        let storeSearchTimer = null;
+        // 검색 함수를 debounce로 래핑
+        const debouncedStoreSearch = debounce(() => {
+            const value = document.getElementById('storeSearchInput')?.value.trim() || '';
+            storeQueryState.keyword = value;
+            storeQueryState.page = 1;
+            loadStoreList();
+        }, 300);
         let ownerGroupedStores = [];
 
         function serializeStoreForSession(store) {
@@ -4811,87 +4858,268 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             showToast(message, toastType);
         }
 
-        // API 요청 함수 (타임아웃 및 재시도 포함)
-        async function apiRequest(url, method = 'GET', data = null, retries = 3) {
-            for (let attempt = 1; attempt <= retries; attempt++) {
-                let controller = null;
-                let timeoutId = null;
-                
-                try {
-                    controller = new AbortController();
-                    timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃
-                    
-                    const options = {
-                        method: method,
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        signal: controller.signal
-                    };
-                    
-                    if (data) {
-                        options.body = JSON.stringify(data);
-                    }
-                    
-                    const response = await fetch(url, options);
-                    
-                    // 타임아웃 정리
-                    if (timeoutId) {
-                        clearTimeout(timeoutId);
-                        timeoutId = null;
-                    }
-                    
-                    const rawText = await response.text();
-                    let payload = null;
-                    
-                    if (rawText) {
-                        try {
-                            payload = JSON.parse(rawText);
-                        } catch (error) {
-                            payload = rawText;
-                        }
-                    }
-                    
-                    if (!response.ok) {
-                        const serverMessage = typeof payload === 'object'
-                            ? payload?.error?.message || payload?.message || payload?.error
-                            : null;
-                        const fallbackMessage = `요청 처리 중 오류가 발생했습니다. (HTTP ${response.status})`;
-                        throw new Error(serverMessage || fallbackMessage);
-                    }
-                    
-                    return payload ?? {};
-                } catch (error) {
-                    // 타임아웃 정리
-                    if (timeoutId) {
-                        clearTimeout(timeoutId);
-                        timeoutId = null;
-                    }
-                    
-                    // AbortError는 요청 취소로 인한 에러이므로 재시도하지 않음
-                    if (error.name === 'AbortError' || error.name === 'AbortedError') {
-                        // 타임아웃으로 인한 취소인 경우
-                        if (attempt === retries) {
-                            console.warn('API 요청이 타임아웃되었습니다:', url);
-                            throw new Error('요청 시간이 초과되었습니다. 네트워크 연결을 확인해주세요.');
-                        }
-                        // 중간 시도에서 취소된 경우 (의도적인 취소일 수 있음)
-                        console.debug(`API 요청 취소됨 (시도 ${attempt}/${retries}):`, url);
-                        continue;
-                    }
-                    
-                    // 일반 에러는 로그 출력 및 재시도
-                    console.error(`API 요청 실패 (시도 ${attempt}/${retries}):`, error);
-                    
-                    if (attempt === retries) {
-                        throw error;
-                    }
-                    
-                    // 재시도 전 잠시 대기
-                    await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        // 전역 로딩 바 관리자
+        (function() {
+            let loadingCount = 0;
+            let loadingBar = null;
+            let minDisplayTime = 300; // 최소 표시 시간 (ms)
+            let hideTimer = null;
+
+            function initLoadingBar() {
+                loadingBar = document.getElementById('globalLoadingBar');
+                if (!loadingBar) {
+                    console.warn('전역 로딩 바 요소를 찾을 수 없습니다.');
                 }
             }
+
+            function showLoadingBar(type = 'default') {
+                if (!loadingBar) initLoadingBar();
+                if (!loadingBar) return;
+
+                loadingCount++;
+                
+                // 최소 표시 시간 타이머 초기화
+                if (hideTimer) {
+                    clearTimeout(hideTimer);
+                    hideTimer = null;
+                }
+
+                // 타입에 따라 클래스 설정
+                loadingBar.className = 'global-loading-bar active';
+                if (type === 'error') {
+                    loadingBar.classList.add('error');
+                } else if (type === 'success') {
+                    loadingBar.classList.add('success');
+                }
+            }
+
+            function hideLoadingBar(force = false) {
+                if (!loadingBar) initLoadingBar();
+                if (!loadingBar) return;
+
+                loadingCount = Math.max(0, loadingCount - 1);
+
+                if (loadingCount === 0) {
+                    const hide = () => {
+                        loadingBar.classList.remove('active', 'error', 'success');
+                    };
+
+                    if (force || minDisplayTime === 0) {
+                        hide();
+                    } else {
+                        // 최소 표시 시간 보장
+                        hideTimer = setTimeout(hide, minDisplayTime);
+                    }
+                }
+            }
+
+            // 전역 함수로 노출
+            window.showGlobalLoading = showLoadingBar;
+            window.hideGlobalLoading = hideLoadingBar;
+            window.setLoadingBarType = function(type) {
+                if (!loadingBar) initLoadingBar();
+                if (!loadingBar) return;
+                
+                loadingBar.classList.remove('error', 'success');
+                if (type === 'error' || type === 'success') {
+                    loadingBar.classList.add(type);
+                }
+            };
+
+            // 초기화
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initLoadingBar);
+            } else {
+                initLoadingBar();
+            }
+        })();
+
+        // API 요청 함수 (타임아웃 및 재시도 포함, 로딩 바 통합)
+        async function apiRequest(url, method = 'GET', data = null, retries = 3, showLoading = true) {
+            // 로딩 바 표시
+            if (showLoading && window.showGlobalLoading) {
+                window.showGlobalLoading();
+            }
+
+            try {
+                for (let attempt = 1; attempt <= retries; attempt++) {
+                    let controller = null;
+                    let timeoutId = null;
+                    
+                    try {
+                        controller = new AbortController();
+                        timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃
+                        
+                        const options = {
+                            method: method,
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            signal: controller.signal
+                        };
+                        
+                        if (data) {
+                            options.body = JSON.stringify(data);
+                        }
+                        
+                        const response = await fetch(url, options);
+                        
+                        // 타임아웃 정리
+                        if (timeoutId) {
+                            clearTimeout(timeoutId);
+                            timeoutId = null;
+                        }
+                        
+                        const rawText = await response.text();
+                        let payload = null;
+                        
+                        if (rawText) {
+                            try {
+                                payload = JSON.parse(rawText);
+                            } catch (error) {
+                                payload = rawText;
+                            }
+                        }
+                        
+                        if (!response.ok) {
+                            const serverMessage = typeof payload === 'object'
+                                ? payload?.error?.message || payload?.message || payload?.error
+                                : null;
+                            const fallbackMessage = `요청 처리 중 오류가 발생했습니다. (HTTP ${response.status})`;
+                            throw new Error(serverMessage || fallbackMessage);
+                        }
+                        
+                        // 성공 시 로딩 바 숨김
+                        if (showLoading && window.hideGlobalLoading) {
+                            window.setLoadingBarType('success');
+                            setTimeout(() => window.hideGlobalLoading(), 200);
+                        }
+                        
+                        return payload ?? {};
+                    } catch (error) {
+                        // 타임아웃 정리
+                        if (timeoutId) {
+                            clearTimeout(timeoutId);
+                            timeoutId = null;
+                        }
+                        
+                        // AbortError는 요청 취소로 인한 에러이므로 재시도하지 않음
+                        if (error.name === 'AbortError' || error.name === 'AbortedError') {
+                            // 타임아웃으로 인한 취소인 경우
+                            if (attempt === retries) {
+                                console.warn('API 요청이 타임아웃되었습니다:', url);
+                                if (showLoading && window.hideGlobalLoading) {
+                                    window.setLoadingBarType('error');
+                                    setTimeout(() => window.hideGlobalLoading(), 500);
+                                }
+                                throw new Error('요청 시간이 초과되었습니다. 네트워크 연결을 확인해주세요.');
+                            }
+                            // 중간 시도에서 취소된 경우 (의도적인 취소일 수 있음)
+                            console.debug(`API 요청 취소됨 (시도 ${attempt}/${retries}):`, url);
+                            continue;
+                        }
+                        
+                        // 일반 에러는 로그 출력 및 재시도
+                        console.error(`API 요청 실패 (시도 ${attempt}/${retries}):`, error);
+                        
+                        if (attempt === retries) {
+                            // 최종 실패 시 에러 상태로 로딩 바 숨김
+                            if (showLoading && window.hideGlobalLoading) {
+                                window.setLoadingBarType('error');
+                                setTimeout(() => window.hideGlobalLoading(), 500);
+                            }
+                            throw error;
+                        }
+                        
+                        // 재시도 전 잠시 대기
+                        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                    }
+                }
+            } catch (error) {
+                // 예외 발생 시 로딩 바 숨김
+                if (showLoading && window.hideGlobalLoading) {
+                    window.setLoadingBarType('error');
+                    setTimeout(() => window.hideGlobalLoading(), 500);
+                }
+                throw error;
+            }
         }
+
+        // Debounce 유틸리티 함수
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Throttle 유틸리티 함수
+        function throttle(func, limit) {
+            let inThrottle;
+            return function executedFunction(...args) {
+                if (!inThrottle) {
+                    func.apply(this, args);
+                    inThrottle = true;
+                    setTimeout(() => inThrottle = false, limit);
+                }
+            };
+        }
+
+        // 이미지 Lazy Loading 구현
+        (function() {
+            const imageObserverOptions = {
+                root: null,
+                rootMargin: '50px',
+                threshold: 0.01
+            };
+
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        const src = img.getAttribute('data-src');
+                        
+                        if (src) {
+                            img.src = src;
+                            img.removeAttribute('data-src');
+                            img.classList.remove('lazy');
+                            img.classList.add('loaded');
+                            observer.unobserve(img);
+                        }
+                    }
+                });
+            }, imageObserverOptions);
+
+            // Lazy loading 초기화 함수
+            window.initLazyLoading = function() {
+                const lazyImages = document.querySelectorAll('img[data-src]');
+                lazyImages.forEach(img => {
+                    imageObserver.observe(img);
+                });
+            };
+
+            // 페이지 로드 시 자동 초기화
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', window.initLazyLoading);
+            } else {
+                window.initLazyLoading();
+            }
+
+            // 동적으로 추가된 이미지도 관찰
+            const originalAppendChild = Node.prototype.appendChild;
+            Node.prototype.appendChild = function(child) {
+                const result = originalAppendChild.call(this, child);
+                if (child.tagName === 'IMG' && child.hasAttribute('data-src')) {
+                    imageObserver.observe(child);
+                }
+                return result;
+            };
+        })();
 
         // 현재 가게 ID 가져오기
         async function getCurrentStoreId() {
@@ -5772,15 +6000,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             ownerModalSubmitBtn.addEventListener('click', handleOwnerModalSubmit);
         }
         function handleStoreSearchInput() {
-            const value = document.getElementById('storeSearchInput').value.trim();
-            if (storeSearchTimer) {
-                clearTimeout(storeSearchTimer);
-            }
-            storeSearchTimer = setTimeout(() => {
-                storeQueryState.keyword = value;
-                storeQueryState.page = 1;
-                loadStoreList();
-            }, 300);
+            debouncedStoreSearch();
         }
 
         function handleStoreStatusFilterChange() {
@@ -9798,14 +10018,15 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             await loadDashboardSummary(scope);
         }
 
+        // 대시보드 검색 함수를 debounce로 래핑
+        const debouncedDashboardSearch = debounce((searchTerm) => {
+            dashboardStoreSearchTerm = searchTerm;
+            loadDashboardStoreMetrics(searchTerm);
+        }, 250);
+
         function handleDashboardStoreSearchInput(event) {
-            dashboardStoreSearchTerm = event.target.value.trim();
-            if (dashboardStoreSearchTimer) {
-                clearTimeout(dashboardStoreSearchTimer);
-            }
-            dashboardStoreSearchTimer = setTimeout(() => {
-                loadDashboardStoreMetrics(dashboardStoreSearchTerm);
-            }, 250);
+            const value = event.target.value.trim();
+            debouncedDashboardSearch(value);
         }
 
         function formatMetricNumber(value) {
