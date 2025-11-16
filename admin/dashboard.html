@@ -11952,6 +11952,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     updateDomainSummaryView(subdomain, currentDomainQrInfo);
                     applyDomainSettingsPermissions(domainSettings);
                     updateDomainQrSection(subdomain, currentDomainQrInfo);
+                    
+                    // 기본 정보 섹션이 활성화되어 있으면 요약도 업데이트
+                    const basicSection = document.getElementById('basic');
+                    if (basicSection && basicSection.style.display !== 'none') {
+                        renderBasicSummary();
+                    }
+                    
                     return; // 캐시에서 가져온 경우 즉시 반환
                 }
 
