@@ -1662,6 +1662,31 @@
         }
       }
 
+      // 빠른 초기 렌더링을 위한 최소 설정 로드 (로고만)
+      async function loadEssentialSettings(storeId) {
+        try {
+          const resolved = await resolveStoreIdentifier(storeId);
+          if (!resolved.storeId) {
+            throw new Error('가게를 찾을 수 없습니다.');
+          }
+          const targetStoreId = resolved.storeId;
+          
+          // 로고 이미지만 먼저 요청 (초기 렌더링에 필수)
+          const settingsData = await apiRequest(`${API_BASE}/settings?storeId=${targetStoreId}&fields=images`);
+          
+          if (settingsData && settingsData.images) {
+            return { images: settingsData.images };
+          } else if (settingsData && settingsData.success && settingsData.data && settingsData.data.images) {
+            return { images: settingsData.data.images };
+          }
+          return { images: {} };
+        } catch (error) {
+          log('WARN', '필수 설정 로드 실패 (무시)', error);
+          return { images: {} };
+        }
+      }
+      
+      // 전체 설정 로드 (백그라운드에서 로드)
       async function loadSettings(storeId) {
         try {
           updateLoadingStep(2); // 2단계: 메뉴 및 설정 불러오는 중
@@ -1902,21 +1927,28 @@
         applyAbTestExperiments();
         attachAbConversionTracking();
 
-        // 동적 섹션 렌더링
-        renderDynamicSections();
+        // 동적 섹션 렌더링 (설정이 완전히 로드된 경우에만)
+        // 초기 렌더링에서는 기본 정보만 표시하고, 
+        // loadSettings 완료 후 renderDynamicSections()가 호출되면 나머지 표시
+        if (settings && (settings.delivery || settings.discount || settings.pickup)) {
+          renderDynamicSections();
+          
+          // DOM이 완전히 렌더링된 후 배달앱 렌더링
+          setTimeout(() => {
+            if (getActiveDeliveryApps().length > 0) {
+              renderDeliveryApps();
+            }
+          }, 100);
+        }
         
-        // DOM이 완전히 렌더링된 후 배달앱 렌더링
-        setTimeout(() => {
-          if (getActiveDeliveryApps().length > 0) {
-            renderDeliveryApps();
-          }
-        }, 500);
-        
-        // 영업시간 렌더링
+        // 영업시간 렌더링 (설정이 있으면 표시)
         const businessHoursSection = document.getElementById('businessHoursSection');
-        if (businessHoursSection) {
+        if (businessHoursSection && settings?.businessHours) {
           businessHoursSection.innerHTML = renderBusinessHours(settings);
         }
+        
+        // 동적 섹션은 loadSettings가 완료된 후 renderDynamicSections에서 렌더링됨
+        // 초기 렌더링에서는 기본 정보만 표시 (빠른 로딩)
       }
 
       function showMenu() {
@@ -2843,30 +2875,71 @@
           }
           
           currentStoreId = storeId;
+          updateLoadingStep(1); // 1단계: 가게 정보 확인 중
           
-          // 가게 정보와 설정 동시 로딩
-          const [storeData] = await Promise.all([
+          // 1단계: 필수 데이터만 먼저 로드 (가게 기본 정보 + 로고)
+          const [storeData, essentialSettings] = await Promise.all([
             loadStoreInfo(storeId),
-            loadSettings(storeId)
+            loadEssentialSettings(storeId)
           ]);
 
           if (currentStore?.id) {
             currentStoreId = currentStore.id;
           }
           
+          // 필수 설정만 먼저 설정 (로고)
+          if (essentialSettings.images) {
+            settings = { images: essentialSettings.images };
+          }
+          
           isLoading = false;
           
-          // 렌더링
+          // 빠른 초기 렌더링 (기본 정보 + 로고만)
           renderStorePage();
-
-          // 페이지 방문 이벤트 기록
+          
+          // 로딩 오버레이 숨기기 (페이지 즉시 표시)
+          hideLoadingOverlay();
+          
+          // 페이지 방문 이벤트 기록 (비동기)
           logEvent('page_view', {
             path: window.location.pathname,
             referrer: document.referrer || ''
-          });
+          }).catch(() => {}); // 에러 무시
           
-          // 로딩 오버레이 숨기기
-          hideLoadingOverlay();
+          log('INFO', '페이지 초기 렌더링 완료');
+          
+          // 2단계: 나머지 설정 백그라운드에서 로드 (점진적 렌더링)
+          updateLoadingStep(2);
+          loadSettings(storeId).then(fullSettings => {
+            if (fullSettings) {
+              // 전체 설정으로 업데이트 (기존 로고 유지)
+              settings = {
+                ...settings,
+                ...fullSettings,
+                images: settings.images || fullSettings.images // 로고 우선 유지
+              };
+              
+              // 영업시간 업데이트
+              const businessHoursSection = document.getElementById('businessHoursSection');
+              if (businessHoursSection && settings?.businessHours) {
+                businessHoursSection.innerHTML = renderBusinessHours(settings);
+              }
+              
+              // 동적 섹션만 다시 렌더링 (전체 페이지 재렌더링 없이)
+              renderDynamicSections();
+              
+              // 배달앱 렌더링
+              setTimeout(() => {
+                if (getActiveDeliveryApps().length > 0) {
+                  renderDeliveryApps();
+                }
+              }, 100);
+              
+              log('INFO', '전체 설정 로드 완료 (점진적 렌더링)');
+            }
+          }).catch(error => {
+            log('WARN', '전체 설정 로드 실패 (무시)', error);
+          });
           
           log('INFO', '페이지 초기화 완료');
         } catch (error) {
