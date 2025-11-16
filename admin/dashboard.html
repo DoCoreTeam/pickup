@@ -5568,9 +5568,10 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         })();
 
         // API 요청 함수 (타임아웃 및 재시도 포함, 로딩 바 통합)
-        async function apiRequest(url, method = 'GET', data = null, retries = 3, showLoading = true, customHeaders = {}) {
+        async function apiRequest(url, method = 'GET', data = null, retries = 3, showLoading = true, customHeaders = {}, timeoutMs = 10000) {
             // 로딩 바는 섹션 레벨에서 관리하므로 여기서는 표시하지 않음
             // showLoading 파라미터는 유지하되 실제로는 사용하지 않음
+            // timeoutMs: 타임아웃 시간 (밀리초), 기본값 10초
 
             try {
                 for (let attempt = 1; attempt <= retries; attempt++) {
