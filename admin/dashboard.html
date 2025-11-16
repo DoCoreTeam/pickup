@@ -5178,6 +5178,10 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             let hideTimer = null;
             let progressTimer = null;
             let currentProgress = 0;
+            let isLoadingActive = false; // 로딩바가 활성화되어 있는지 여부
+            let loadingTasks = []; // 현재 진행 중인 작업 목록
+            let completedTasks = 0; // 완료된 작업 수
+            let totalTasks = 0; // 전체 작업 수
 
             function initLoadingBar() {
                 loadingBar = document.getElementById('globalLoadingBar');
@@ -5200,12 +5204,32 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 }
             }
 
-            function simulateProgress() {
-                // 진행률 시뮬레이션 (최대 90%까지)
-                if (currentProgress < 90) {
-                    const increment = Math.random() * 5 + 2; // 2-7%씩 증가
-                    updateProgress(currentProgress + increment);
-                    progressTimer = setTimeout(simulateProgress, 200);
+            function updateLoadingText(text) {
+                if (sectionLoadingText) {
+                    sectionLoadingText.textContent = text;
+                }
+            }
+
+            function calculateProgress() {
+                // 완료된 작업 수에 따라 진행률 계산
+                if (totalTasks > 0) {
+                    const baseProgress = (completedTasks / totalTasks) * 90; // 최대 90%까지
+                    // 각 작업 내에서도 진행률 시뮬레이션
+                    const taskProgress = 10 / totalTasks; // 나머지 10%는 시뮬레이션
+                    updateProgress(baseProgress + taskProgress);
+                } else {
+                    // 작업 수가 없으면 시뮬레이션으로 진행
+                    if (currentProgress < 90) {
+                        const increment = Math.random() * 3 + 1; // 1-4%씩 증가
+                        updateProgress(Math.min(90, currentProgress + increment));
+                    }
+                }
+            }
+
+            function animateProgress() {
+                if (isLoadingActive) {
+                    calculateProgress();
+                    progressTimer = setTimeout(animateProgress, 150);
                 }
             }
 
@@ -5231,18 +5255,25 @@ body:not(.owner-mode) .menu-section-title.owner-only {
 
                 // 섹션 로딩 모달 표시 (큰 로딩 인디케이터)
                 if (showModal && sectionLoadingModal) {
-                    if (sectionLoadingText) {
-                        sectionLoadingText.textContent = modalText;
+                    // 첫 번째 요청일 때만 모달 표시 및 진행률 초기화
+                    if (!isLoadingActive) {
+                        isLoadingActive = true;
+                        currentProgress = 0;
+                        completedTasks = 0;
+                        totalTasks = 0;
+                        loadingTasks = [];
+                        updateProgress(0);
+                        updateLoadingText(modalText);
+                        sectionLoadingModal.classList.add('active');
+                        // 진행률 애니메이션 시작
+                        if (progressTimer) {
+                            clearTimeout(progressTimer);
+                        }
+                        animateProgress();
+                    } else {
+                        // 이미 로딩 중이면 텍스트만 업데이트
+                        updateLoadingText(modalText);
                     }
-                    // 진행률 초기화
-                    currentProgress = 0;
-                    updateProgress(0);
-                    sectionLoadingModal.classList.add('active');
-                    // 진행률 시뮬레이션 시작
-                    if (progressTimer) {
-                        clearTimeout(progressTimer);
-                    }
-                    simulateProgress();
                 }
             }
 
@@ -5253,13 +5284,17 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 loadingCount = Math.max(0, loadingCount - 1);
 
                 if (loadingCount === 0) {
-                    // 진행률 시뮬레이션 중지
+                    // 진행률 애니메이션 중지
                     if (progressTimer) {
                         clearTimeout(progressTimer);
                         progressTimer = null;
                     }
                     // 진행률을 100%로 설정
                     updateProgress(100);
+                    isLoadingActive = false;
+                    completedTasks = 0;
+                    totalTasks = 0;
+                    loadingTasks = [];
                     
                     const hide = () => {
                         loadingBar.classList.remove('active', 'error', 'success');
@@ -5298,6 +5333,16 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             window.setLoadingProgress = function(percent) {
                 updateProgress(percent);
             };
+            window.setLoadingText = function(text) {
+                updateLoadingText(text);
+            };
+            window.setLoadingTasks = function(total, completed = 0) {
+                totalTasks = total;
+                completedTasks = completed;
+            };
+            window.completeLoadingTask = function() {
+                completedTasks = Math.min(totalTasks, completedTasks + 1);
+            };
 
             // 초기화
             if (document.readyState === 'loading') {
@@ -5309,10 +5354,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
 
         // API 요청 함수 (타임아웃 및 재시도 포함, 로딩 바 통합)
         async function apiRequest(url, method = 'GET', data = null, retries = 3, showLoading = true) {
-            // 로딩 바 표시
-            if (showLoading && window.showGlobalLoading) {
-                window.showGlobalLoading();
-            }
+            // 로딩 바는 섹션 레벨에서 관리하므로 여기서는 표시하지 않음
+            // showLoading 파라미터는 유지하되 실제로는 사용하지 않음
 
             try {
                 for (let attempt = 1; attempt <= retries; attempt++) {
@@ -5362,11 +5405,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             throw new Error(serverMessage || fallbackMessage);
                         }
                         
-                        // 성공 시 로딩 바 숨김
-                        if (showLoading && window.hideGlobalLoading) {
-                            window.setLoadingBarType('success');
-                            setTimeout(() => window.hideGlobalLoading(), 200);
-                        }
+                        // 로딩 바는 섹션 레벨에서 관리하므로 여기서는 숨기지 않음
                         
                         return payload ?? {};
                     } catch (error) {
@@ -5381,10 +5420,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             // 타임아웃으로 인한 취소인 경우
                             if (attempt === retries) {
                                 console.warn('API 요청이 타임아웃되었습니다:', url);
-                                if (showLoading && window.hideGlobalLoading) {
-                                    window.setLoadingBarType('error');
-                                    setTimeout(() => window.hideGlobalLoading(), 500);
-                                }
+                                // 로딩 바는 섹션 레벨에서 관리하므로 여기서는 숨기지 않음
                                 throw new Error('요청 시간이 초과되었습니다. 네트워크 연결을 확인해주세요.');
                             }
                             // 중간 시도에서 취소된 경우 (의도적인 취소일 수 있음)
@@ -5396,11 +5432,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         console.error(`API 요청 실패 (시도 ${attempt}/${retries}):`, error);
                         
                         if (attempt === retries) {
-                            // 최종 실패 시 에러 상태로 로딩 바 숨김
-                            if (showLoading && window.hideGlobalLoading) {
-                                window.setLoadingBarType('error');
-                                setTimeout(() => window.hideGlobalLoading(), 500);
-                            }
+                            // 최종 실패 시 로딩 바는 섹션 레벨에서 관리하므로 여기서는 숨기지 않음
                             throw error;
                         }
                         
@@ -5409,11 +5441,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     }
                 }
             } catch (error) {
-                // 예외 발생 시 로딩 바 숨김
-                if (showLoading && window.hideGlobalLoading) {
-                    window.setLoadingBarType('error');
-                    setTimeout(() => window.hideGlobalLoading(), 500);
-                }
+                // 예외 발생 시 로딩 바는 섹션 레벨에서 관리하므로 여기서는 숨기지 않음
                 throw error;
             }
         }
@@ -10398,6 +10426,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         }
                         
                         await loadDashboardSummary();
+                        // 로딩바는 모든 작업이 완료된 후 한 번만 숨김
                         if (window.hideGlobalLoading) {
                             window.setLoadingBarType('success');
                             setTimeout(() => window.hideGlobalLoading(), 200);
@@ -10425,7 +10454,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             displayBusinessHours();
                             renderBasicSummary(); // 기본 정보 요약 표시
                             window[loadedKey] = true;
-                            // 로딩바 숨김
+                            // 로딩바는 모든 작업이 완료된 후 한 번만 숨김
                             if (window.hideGlobalLoading) {
                                 window.setLoadingBarType('success');
                                 setTimeout(() => window.hideGlobalLoading(), 200);
@@ -10433,7 +10462,6 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         } catch (error) {
                             console.error('기본 정보 로드 실패:', error);
                             showToast('기본 정보를 불러오는데 실패했습니다.', 'error');
-                            // 에러 시 로딩바 숨김
                             if (window.hideGlobalLoading) {
                                 window.setLoadingBarType('error');
                                 setTimeout(() => window.hideGlobalLoading(), 500);
@@ -10459,7 +10487,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             await loadSettings(['sectionOrder']);
                             loadSectionOrder();
                             window[loadedKey] = true;
-                            // 로딩바 숨김
+                            // 로딩바는 모든 작업이 완료된 후 한 번만 숨김
                             if (window.hideGlobalLoading) {
                                 window.setLoadingBarType('success');
                                 setTimeout(() => window.hideGlobalLoading(), 200);
@@ -10467,7 +10495,6 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         } catch (error) {
                             console.error('섹션 순서 로드 실패:', error);
                             showToast('섹션 순서를 불러오는데 실패했습니다.', 'error');
-                            // 에러 시 로딩바 숨김
                             if (window.hideGlobalLoading) {
                                 window.setLoadingBarType('error');
                                 setTimeout(() => window.hideGlobalLoading(), 500);
@@ -10492,7 +10519,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                                 await loadSettings(['delivery']);
                                 await loadDeliveryOrderGrid();
                                 window[loadedKey] = true;
-                                // 로딩바 숨김
+                                // 로딩바는 모든 작업이 완료된 후 한 번만 숨김
                                 if (window.hideGlobalLoading) {
                                     window.setLoadingBarType('success');
                                     setTimeout(() => window.hideGlobalLoading(), 200);
@@ -10500,7 +10527,6 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             } catch (error) {
                                 console.error('배달앱 설정 로드 실패:', error);
                                 showToast('배달앱 설정을 불러오는데 실패했습니다.', 'error');
-                                // 에러 시 로딩바 숨김
                                 if (window.hideGlobalLoading) {
                                     window.setLoadingBarType('error');
                                     setTimeout(() => window.hideGlobalLoading(), 500);
@@ -10524,7 +10550,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             }
                             await loadSettings(['images']);
                             window[loadedKey] = true;
-                            // 로딩바 숨김
+                            // 로딩바는 모든 작업이 완료된 후 한 번만 숨김
                             if (window.hideGlobalLoading) {
                                 window.setLoadingBarType('success');
                                 setTimeout(() => window.hideGlobalLoading(), 200);
@@ -10532,7 +10558,6 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         } catch (error) {
                             console.error('이미지 정보 로드 실패:', error);
                             showToast('이미지 정보를 불러오는데 실패했습니다.', 'error');
-                            // 에러 시 로딩바 숨김
                             if (window.hideGlobalLoading) {
                                 window.setLoadingBarType('error');
                                 setTimeout(() => window.hideGlobalLoading(), 500);
@@ -10553,7 +10578,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             }
                             await loadSettings(['discount', 'pickup']);
                             window[loadedKey] = true;
-                            // 로딩바 숨김
+                            // 로딩바는 모든 작업이 완료된 후 한 번만 숨김
                             if (window.hideGlobalLoading) {
                                 window.setLoadingBarType('success');
                                 setTimeout(() => window.hideGlobalLoading(), 200);
@@ -10561,7 +10586,6 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         } catch (error) {
                             console.error('할인/픽업 정보 로드 실패:', error);
                             showToast('할인/픽업 정보를 불러오는데 실패했습니다.', 'error');
-                            // 에러 시 로딩바 숨김
                             if (window.hideGlobalLoading) {
                                 window.setLoadingBarType('error');
                                 setTimeout(() => window.hideGlobalLoading(), 500);
