@@ -4,6 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>관리자 페이지</title>
+    <!-- 즉시 실행: 점주 계정 메뉴 필터링 (스크립트 로드 전에 실행) -->
+    <script>
+        (function() {
+            try {
+                const userRole = sessionStorage.getItem('user_role');
+                const isOwner = userRole === 'owner' && sessionStorage.getItem('owner_logged_in') === 'true';
+                if (isOwner && document.body) {
+                    document.body.classList.add('owner-mode');
+                }
+            } catch(e) {
+                // sessionStorage 접근 실패 시 무시 (초기 로드 시)
+            }
+        })();
+    </script>
     <!-- SortableJS 라이브러리 -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <!-- 카카오 주소 검색 API -->
@@ -11958,6 +11972,15 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 });
 
                 if (response && response.success) {
+                    // QR 생성 성공 후 캐시 무효화 (최신 데이터 반영)
+                    const currentStoreId = await getCurrentStoreId();
+                    if (currentStoreId) {
+                        const cacheKey = `domain_settings_${currentStoreId}`;
+                        if (window.sessionCache) {
+                            window.sessionCache.clear(cacheKey);
+                        }
+                    }
+                    
                     showToast('QR 코드가 생성되었습니다!', 'success', '생성 완료');
                     // 도메인 설정 다시 로드하여 QR 코드 표시
                     await loadDomainSettings();
