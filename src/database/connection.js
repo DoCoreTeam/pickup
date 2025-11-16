@@ -73,18 +73,105 @@ if (process.env.DATABASE_URL) {
   };
 }
 
-// 연결 풀 설정
+// 연결 풀 설정 (성능 최적화)
 const poolConfig = {
   ...dbConfig,
-  max: 20, // 최대 연결 수
-  idleTimeoutMillis: 30000, // 유휴 연결 타임아웃
-  connectionTimeoutMillis: 2000, // 연결 타임아웃
+  max: parseInt(process.env.DB_POOL_MAX) || 10, // 최대 연결 수 (20 → 10으로 감소, 과도한 연결 방지)
+  min: 2, // 최소 연결 수 (연결 풀 유지)
+  idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT) || 10000, // 유휴 연결 타임아웃 (30초 → 10초로 단축)
+  connectionTimeoutMillis: parseInt(process.env.DB_POOL_CONNECTION_TIMEOUT) || 5000, // 연결 타임아웃 (2초 → 5초로 증가, 안정성 향상)
+  statement_timeout: 30000, // 쿼리 타임아웃 (30초)
+  query_timeout: 30000, // 쿼리 타임아웃
 };
 
 let client = null;
 let pool = null;
 let isConnecting = false;
 let reconnectTimer = null;
+
+// DB 쿼리 통계 추적 (NEON 비용 계산용)
+const dbStats = {
+  totalQueries: 0,
+  totalBytes: 0,
+  queriesByType: {}, // SELECT, INSERT, UPDATE, DELETE 등
+  startTime: Date.now(),
+  reset() {
+    this.totalQueries = 0;
+    this.totalBytes = 0;
+    this.queriesByType = {};
+    this.startTime = Date.now();
+  },
+  // 쿼리 타입 추출 (대략적)
+  getQueryType(text) {
+    const trimmed = text.trim().toUpperCase();
+    if (trimmed.startsWith('SELECT')) return 'SELECT';
+    if (trimmed.startsWith('INSERT')) return 'INSERT';
+    if (trimmed.startsWith('UPDATE')) return 'UPDATE';
+    if (trimmed.startsWith('DELETE')) return 'DELETE';
+    if (trimmed.startsWith('CREATE')) return 'CREATE';
+    if (trimmed.startsWith('ALTER')) return 'ALTER';
+    if (trimmed.startsWith('DROP')) return 'DROP';
+    if (trimmed.startsWith('BEGIN') || trimmed.startsWith('COMMIT') || trimmed.startsWith('ROLLBACK')) return 'TRANSACTION';
+    return 'OTHER';
+  },
+  // 쿼리 크기 추정 (텍스트 + 파라미터)
+  estimateQuerySize(text, params = []) {
+    let size = Buffer.byteLength(text, 'utf8');
+    // 파라미터 크기 추정 (대략적)
+    params.forEach(param => {
+      if (typeof param === 'string') {
+        size += Buffer.byteLength(param, 'utf8');
+      } else if (typeof param === 'number') {
+        size += 8; // 숫자는 대략 8바이트
+      } else if (Buffer.isBuffer(param)) {
+        size += param.length;
+      } else if (param !== null && typeof param === 'object') {
+        size += Buffer.byteLength(JSON.stringify(param), 'utf8');
+      }
+    });
+    return size;
+  },
+  // 응답 크기 추정 (대략적)
+  estimateResponseSize(result) {
+    if (!result || !result.rows) return 0;
+    let size = 0;
+    result.rows.forEach(row => {
+      size += Buffer.byteLength(JSON.stringify(row), 'utf8');
+    });
+    return size;
+  },
+  // 통계 가져오기
+  getStats() {
+    const uptime = Date.now() - this.startTime;
+    const uptimeHours = uptime / (1000 * 60 * 60);
+    const queriesPerHour = uptimeHours > 0 ? this.totalQueries / uptimeHours : 0;
+    
+    // NEON Launch 플랜 기준 비용 계산
+    // - 100 GB public network transfer 포함 (프로젝트당)
+    // - Compute: $0.106 / CU per hour (쿼리 수로 추정 불가, 실제 사용량 필요)
+    // - Storage: $0.35 / GB-month (스토리지 사용량 필요)
+    const includedTransferGB = 100; // Launch 플랜 포함량
+    const totalTransferGB = this.totalBytes / (1024 * 1024 * 1024);
+    const transferOverGB = Math.max(0, totalTransferGB - includedTransferGB);
+    
+    return {
+      totalQueries: this.totalQueries,
+      totalBytes: this.totalBytes,
+      totalTransferGB: totalTransferGB.toFixed(4),
+      includedTransferGB,
+      transferOverGB: transferOverGB.toFixed(4),
+      queriesByType: { ...this.queriesByType },
+      uptimeMs: uptime,
+      uptimeHours: uptimeHours.toFixed(2),
+      queriesPerHour: queriesPerHour.toFixed(2),
+      // NEON 비용 추정 (네트워크 전송량만, 실제 Compute/Storage는 서버에서 확인 필요)
+      estimatedCost: {
+        transferCost: 0, // Launch 플랜에는 100GB 포함되어 있음
+        note: 'Compute 및 Storage 비용은 Neon 대시보드에서 확인하세요'
+      }
+    };
+  }
+};
 
 // 단일 연결 클라이언트
 function getClient() {
@@ -267,7 +354,25 @@ async function query(text, params = []) {
         continue;
       }
       
+      const queryStartTime = Date.now();
       const result = await client.query(text, params);
+      const queryDuration = Date.now() - queryStartTime;
+      
+      // 느린 쿼리 로깅 (1초 이상 소요되는 쿼리)
+      if (queryDuration > 1000) {
+        console.warn(`[느린 쿼리] ${queryDuration}ms 소요:`, text.substring(0, 100), params);
+      }
+      
+      // 통계 추적
+      const queryType = dbStats.getQueryType(text);
+      const querySize = dbStats.estimateQuerySize(text, params);
+      const responseSize = dbStats.estimateResponseSize(result);
+      const totalSize = querySize + responseSize;
+      
+      dbStats.totalQueries++;
+      dbStats.totalBytes += totalSize;
+      dbStats.queriesByType[queryType] = (dbStats.queriesByType[queryType] || 0) + 1;
+      
       return result;
     } catch (error) {
       // 연결 관련 에러 또는 프로토콜 파서 에러인 경우 재연결 시도
@@ -400,5 +505,7 @@ module.exports = {
   transaction,
   healthCheck,
   getClient,
-  getPool
+  getPool,
+  getDbStats: () => dbStats.getStats(),
+  resetDbStats: () => dbStats.reset()
 };

@@ -3190,6 +3190,127 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             opacity: 1;
         }
 
+        /* DB 통계 스타일 */
+        .db-stats-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .db-stats-header h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        .db-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1f2937;
+        }
+        .db-stats-section {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .db-stats-section h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 16px;
+        }
+        .db-stats-table {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .db-stats-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .db-stats-table th,
+        .db-stats-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .db-stats-table th {
+            background: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+        }
+        .db-stats-table tr:last-child td {
+            border-bottom: none;
+        }
+        .db-stats-loading {
+            padding: 20px;
+            text-align: center;
+            color: #6b7280;
+        }
+        .neon-plan-info {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .plan-item {
+            margin-bottom: 20px;
+        }
+        .plan-item:last-child {
+            margin-bottom: 0;
+        }
+        .plan-item strong {
+            display: block;
+            font-size: 16px;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+        .plan-item ul {
+            margin: 8px 0 0 20px;
+            color: #4b5563;
+        }
+        .plan-item li {
+            margin-bottom: 4px;
+        }
+        .plan-warning {
+            background: #fef3c7;
+            border: 1px solid #fbbf24;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 16px;
+        }
+        .plan-warning strong {
+            color: #92400e;
+        }
+        .plan-warning p {
+            margin: 8px 0 0 0;
+            color: #78350f;
+            font-size: 14px;
+        }
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+
         .form-card {
             background: white;
             border-radius: 20px;
@@ -3738,12 +3859,16 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
                     슈퍼어드민
                 </div>
+                <div class="menu-item" data-role="superadmin-only" onclick="showSection('db-stats')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-4"/></svg>
+                    DB 통계 (NEON)
+                </div>
             </div>
             
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge">v1.5.47</div>
+                    <div class="version-badge">v1.5.48</div>
                 </div>
                 <a href="/admin/release-notes" class="release-notes-btn">
                     릴리즈 노트
@@ -4583,6 +4708,82 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 <div class="button-group">
                     <button onclick="updateSuperAdminAccount()" class="btn btn-primary">계정 정보 수정</button>
+                </div>
+            </div>
+
+            <!-- DB 통계 섹션 (슈퍼어드민 전용) -->
+            <div class="admin-section superadmin-only" id="db-stats">
+                <h2 class="section-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-4"/></svg>
+                    DB 통계 (NEON 비용 계산)
+                </h2>
+                
+                <div class="form-card">
+                    <div class="db-stats-header">
+                        <h3>쿼리 통계</h3>
+                        <button onclick="resetDbStats()" class="btn btn-secondary btn-sm">통계 리셋</button>
+                    </div>
+                    
+                    <div class="db-stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">총 쿼리 수</div>
+                            <div class="stat-value" id="dbStatsTotalQueries">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">시간당 쿼리</div>
+                            <div class="stat-value" id="dbStatsQueriesPerHour">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">총 전송량</div>
+                            <div class="stat-value" id="dbStatsTotalBytes">0 B</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">전송량 (GB)</div>
+                            <div class="stat-value" id="dbStatsTotalGB">0.0000 GB</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">서버 가동 시간</div>
+                            <div class="stat-value" id="dbStatsUptime">0시간</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">포함 전송량</div>
+                            <div class="stat-value" id="dbStatsIncludedGB">100 GB</div>
+                        </div>
+                    </div>
+
+                    <div class="db-stats-section">
+                        <h3>쿼리 타입별 통계</h3>
+                        <div class="db-stats-table" id="dbStatsQueriesByType">
+                            <div class="db-stats-loading">통계를 불러오는 중...</div>
+                        </div>
+                    </div>
+
+                    <div class="db-stats-section">
+                        <h3>NEON Launch 플랜 정보</h3>
+                        <div class="neon-plan-info">
+                            <div class="plan-item">
+                                <strong>포함 사항:</strong>
+                                <ul>
+                                    <li>100 GB public network transfer (프로젝트당)</li>
+                                    <li>Autoscale to 16 CU</li>
+                                    <li>Scale to zero after 5 minutes</li>
+                                    <li>Up to 100 projects</li>
+                                </ul>
+                            </div>
+                            <div class="plan-item">
+                                <strong>사용량 기반 요금:</strong>
+                                <ul>
+                                    <li>$0.106 / CU per hour</li>
+                                    <li>$0.35 / GB-month of storage</li>
+                                    <li>$0.20 / GB-month of instant restore</li>
+                                </ul>
+                            </div>
+                            <div class="plan-item plan-warning">
+                                <strong>⚠️ 참고:</strong>
+                                <p>Compute 및 Storage 비용은 Neon 대시보드에서 확인하세요. 이 통계는 네트워크 전송량만 추정합니다.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -6867,7 +7068,11 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 return;
             }
             
-            filteredStores.forEach(store => {
+            // Virtual Scrolling: 한 번에 최대 50개만 렌더링 (성능 최적화)
+            const ITEMS_PER_PAGE = 50;
+            const visibleStores = filteredStores.slice(0, ITEMS_PER_PAGE);
+            
+            visibleStores.forEach(store => {
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-store-id', store.id);
                 tr.style.borderBottom = '1px solid #e2e8f0';
@@ -6949,6 +7154,18 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 tbody.appendChild(tr);
             });
+            
+            // Virtual Scrolling: 나머지 항목이 있으면 표시
+            if (filteredStores.length > ITEMS_PER_PAGE) {
+                const moreCount = filteredStores.length - ITEMS_PER_PAGE;
+                const moreRow = document.createElement('tr');
+                moreRow.innerHTML = `
+                    <td colspan="6" style="padding: 16px; text-align: center; color: #64748b; background: #f8fafc;">
+                        <strong>${moreCount}개</strong>의 추가 가게가 있습니다. 검색을 사용하여 찾아보세요.
+                    </td>
+                `;
+                tbody.appendChild(moreRow);
+            }
         }
         
         // JSON 내보내기
@@ -10402,6 +10619,16 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     return;
                 }
                 
+                // DB 통계 섹션
+                if (sectionId === 'db-stats') {
+                    if (!IS_SUPERADMIN) {
+                        showToast('접근 권한이 없습니다.', 'error');
+                        return;
+                    }
+                    loadDbStats();
+                    return;
+                }
+                
                 // 내 계정 섹션인 경우 계정 정보 로드
                 if (sectionId === 'owner-account') {
                     populateOwnerAccountSection();
@@ -10954,6 +11181,80 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
         }
         // 활동 로그 로드
+        // DB 통계 로드
+        async function loadDbStats() {
+            try {
+                const response = await apiRequest(`${API_BASE}/db-stats`, 'GET', null, 3, false);
+                if (response && response.success && response.data) {
+                    const stats = response.data;
+                    
+                    // 통계 업데이트
+                    document.getElementById('dbStatsTotalQueries').textContent = stats.totalQueries.toLocaleString();
+                    document.getElementById('dbStatsQueriesPerHour').textContent = `${stats.queriesPerHour} /시간`;
+                    document.getElementById('dbStatsTotalBytes').textContent = formatBytes(stats.totalBytes);
+                    document.getElementById('dbStatsTotalGB').textContent = `${stats.totalTransferGB} GB`;
+                    document.getElementById('dbStatsUptime').textContent = `${stats.uptimeHours}시간`;
+                    document.getElementById('dbStatsIncludedGB').textContent = `${stats.includedTransferGB} GB`;
+                    
+                    // 쿼리 타입별 통계 테이블
+                    const queriesByTypeEl = document.getElementById('dbStatsQueriesByType');
+                    if (queriesByTypeEl) {
+                        const queriesByType = stats.queriesByType || {};
+                        const entries = Object.entries(queriesByType).sort((a, b) => b[1] - a[1]);
+                        
+                        if (entries.length === 0) {
+                            queriesByTypeEl.innerHTML = '<div class="db-stats-loading">쿼리 데이터가 없습니다.</div>';
+                        } else {
+                            queriesByTypeEl.innerHTML = `
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>쿼리 타입</th>
+                                            <th>실행 횟수</th>
+                                            <th>비율</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${entries.map(([type, count]) => {
+                                            const percentage = ((count / stats.totalQueries) * 100).toFixed(1);
+                                            return `
+                                                <tr>
+                                                    <td><strong>${type}</strong></td>
+                                                    <td>${count.toLocaleString()}</td>
+                                                    <td>${percentage}%</td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            `;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('DB 통계 로드 실패:', error);
+                showToast('DB 통계를 불러오는데 실패했습니다.', 'error');
+            }
+        }
+
+        // DB 통계 리셋
+        async function resetDbStats() {
+            if (!confirm('DB 통계를 리셋하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+                return;
+            }
+            
+            try {
+                const response = await apiRequest(`${API_BASE}/db-stats/reset`, 'POST', null, 3, false);
+                if (response && response.success) {
+                    showToast('DB 통계가 리셋되었습니다.', 'success');
+                    loadDbStats(); // 통계 다시 로드
+                }
+            } catch (error) {
+                console.error('DB 통계 리셋 실패:', error);
+                showToast('DB 통계 리셋에 실패했습니다.', 'error');
+            }
+        }
+
         async function loadActivityLogs() {
             try {
                 const response = await fetch(`${API_BASE}/activity-logs`);

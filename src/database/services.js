@@ -2140,6 +2140,38 @@ async function ensureHistoryTables() {
     await db.query(`CREATE INDEX IF NOT EXISTS idx_seo_settings_history_store ON seo_settings_history(store_id, version DESC)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_ab_settings_history_store ON ab_test_settings_history(store_id, version DESC)`);
 
+    // 성능 최적화: 주요 쿼리에 인덱스 추가
+    try {
+      // stores 테이블 인덱스
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_stores_status ON stores(status)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_stores_subdomain ON stores(subdomain) WHERE subdomain IS NOT NULL`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_stores_created_at ON stores(created_at DESC)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_stores_name_lower ON stores(LOWER(name))`);
+      
+      // store_owner_links 테이블 인덱스
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_store_owner_links_store_id ON store_owner_links(store_id)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_store_owner_links_owner_id ON store_owner_links(owner_id)`);
+      
+      // store_owners 테이블 인덱스
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_store_owners_status ON store_owners(status)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_store_owners_email ON store_owners(email)`);
+      
+      // store_settings 테이블 인덱스
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_store_settings_store_id ON store_settings(store_id)`);
+      
+      // activity_logs 테이블 인덱스 (존재하는 경우)
+      try {
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_activity_logs_store_id ON activity_logs(store_id)`);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at DESC)`);
+      } catch (e) {
+        // activity_logs 테이블이 없을 수 있음
+      }
+      
+      console.log('[DB] 성능 최적화 인덱스 생성 완료');
+    } catch (error) {
+      console.warn('[DB] 인덱스 생성 실패 (권한 문제일 수 있음):', error.message);
+    }
+
     historyTablesEnsured = true;
   } catch (error) {
     if (error?.code === '42501') {

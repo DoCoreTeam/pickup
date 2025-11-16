@@ -15,6 +15,7 @@ const { v4: uuidv4 } = require('uuid');
 const mime = require('mime-types');
 const QRCode = require('qrcode');
 const OpenAI = require('openai');
+const zlib = require('zlib');
 
 // 데이터베이스 서비스 import
 const dbServices = require('../database/services');
@@ -77,10 +78,34 @@ function setCorsHeaders(res) {
   res.setHeader('Access-Control-Max-Age', '86400');
 }
 
-// JSON 응답 전송
-function sendJsonResponse(res, statusCode, data) {
-  res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
-  res.end(JSON.stringify(data, null, 2));
+// JSON 응답 전송 (Gzip 압축 지원)
+function sendJsonResponse(res, statusCode, data, compress = true) {
+  const jsonString = JSON.stringify(data, null, 2);
+  const jsonBuffer = Buffer.from(jsonString, 'utf8');
+  
+  // Accept-Encoding 헤더 확인 및 압축 (1KB 이상인 경우만)
+  const acceptEncoding = res.req?.headers['accept-encoding'] || '';
+  const shouldCompress = compress && jsonBuffer.length > 1024 && acceptEncoding.includes('gzip');
+  
+  if (shouldCompress) {
+    zlib.gzip(jsonBuffer, (err, compressed) => {
+      if (err) {
+        // 압축 실패 시 원본 전송
+        res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(jsonBuffer);
+        return;
+      }
+      res.writeHead(statusCode, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Encoding': 'gzip',
+        'Content-Length': compressed.length
+      });
+      res.end(compressed);
+    });
+  } else {
+    res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(jsonBuffer);
+  }
 }
 
 // 에러 응답 전송
@@ -261,6 +286,21 @@ function validatePhoneNumber(raw) {
 
 function sanitizeAddressSegment(value) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+// 쿠키 파싱 함수
+function parseCookies(cookieHeader) {
+  const cookies = {};
+  if (!cookieHeader) return cookies;
+  
+  cookieHeader.split(';').forEach(cookie => {
+    const parts = cookie.trim().split('=');
+    if (parts.length === 2) {
+      cookies[parts[0].trim()] = decodeURIComponent(parts[1].trim());
+    }
+  });
+  
+  return cookies;
 }
 
 /**
@@ -448,6 +488,12 @@ class APIRouter {
     
     // GET /api/superadmin/info - 슈퍼어드민 정보 조회
     this.routes.set('GET /api/superadmin/info', this.getSuperAdminInfo.bind(this));
+    
+    // GET /api/db-stats - DB 통계 조회 (슈퍼어드민 전용)
+    this.routes.set('GET /api/db-stats', this.getDbStats.bind(this));
+    
+    // POST /api/db-stats/reset - DB 통계 리셋 (슈퍼어드민 전용)
+    this.routes.set('POST /api/db-stats/reset', this.resetDbStats.bind(this));
     
     // GET /api/users/ - 가게별 사용자 조회 (동적 라우팅)
     this.routes.set('GET /api/users/', this.getUsersByStore.bind(this));
@@ -824,9 +870,22 @@ class APIRouter {
 
       if (handler) {
         // API 핸들러 실행
-        await handler(req, res, parsedUrl);
-        const responseTime = Date.now() - startTime;
-        logRequest(method, pathname, 200, responseTime);
+        try {
+          await handler(req, res, parsedUrl);
+          const responseTime = Date.now() - startTime;
+          // 느린 API 응답 로깅 (500ms 이상)
+          if (responseTime > 500) {
+            log('WARN', `느린 API 응답: ${method} ${pathname}`, { responseTime });
+          }
+          logRequest(method, pathname, res.statusCode || 200, responseTime);
+        } catch (error) {
+          const responseTime = Date.now() - startTime;
+          log('ERROR', `API 핸들러 실행 실패: ${method} ${pathname}`, { error: error.message, responseTime });
+          if (!res.headersSent) {
+            sendErrorResponse(res, 500, 'Internal Server Error');
+          }
+          logRequest(method, pathname, 500, responseTime);
+        }
         return;
       }
 
@@ -1647,6 +1706,53 @@ class APIRouter {
     } catch (error) {
       log('ERROR', '릴리즈 노트 조회 실패', error);
       sendErrorResponse(res, 500, '릴리즈 노트 조회 실패');
+    }
+  }
+
+  // DB 통계 조회 (슈퍼어드민 전용)
+  async getDbStats(req, res, parsedUrl) {
+    try {
+      // 슈퍼어드민 권한 확인 (쿠키 기반)
+      const cookies = parseCookies(req.headers.cookie || '');
+      const isSuperAdmin = cookies.is_superadmin === 'true';
+      
+      if (!isSuperAdmin) {
+        sendErrorResponse(res, 403, '슈퍼어드민 권한이 필요합니다.');
+        return;
+      }
+
+      const stats = db.getDbStats();
+      sendJsonResponse(res, 200, {
+        success: true,
+        data: stats
+      });
+    } catch (error) {
+      log('ERROR', 'DB 통계 조회 실패', error);
+      sendErrorResponse(res, 500, 'DB 통계 조회 실패');
+    }
+  }
+
+  // DB 통계 리셋 (슈퍼어드민 전용)
+  async resetDbStats(req, res, parsedUrl) {
+    try {
+      // 슈퍼어드민 권한 확인 (쿠키 기반)
+      const cookies = parseCookies(req.headers.cookie || '');
+      const isSuperAdmin = cookies.is_superadmin === 'true';
+      
+      if (!isSuperAdmin) {
+        sendErrorResponse(res, 403, '슈퍼어드민 권한이 필요합니다.');
+        return;
+      }
+
+      db.resetDbStats();
+      log('INFO', 'DB 통계 리셋됨');
+      sendJsonResponse(res, 200, {
+        success: true,
+        message: 'DB 통계가 리셋되었습니다.'
+      });
+    } catch (error) {
+      log('ERROR', 'DB 통계 리셋 실패', error);
+      sendErrorResponse(res, 500, 'DB 통계 리셋 실패');
     }
   }
 
