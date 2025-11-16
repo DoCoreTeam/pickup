@@ -11514,31 +11514,65 @@ body:not(.owner-mode) .menu-section-title.owner-only {
 
                 const role = IS_SUPERADMIN ? 'superadmin' : (IS_STORE_OWNER ? 'owner' : 'admin');
 
-                await apiRequest(`${API_BASE}/store/${currentStoreId}/domain-settings`, 'POST', {
+                const response = await apiRequest(`${API_BASE}/store/${currentStoreId}/domain-settings`, 'POST', {
                     subdomain: subdomainValue,
                     customDomain,
                     role,
                     updatedAt: new Date().toISOString()
                 });
 
-                if (subdomainInput) {
-                    subdomainInput.value = subdomainValue;
+                // 저장 성공 후 캐시 무효화 (즉시 최신 데이터 반영)
+                const cacheKey = `domain_settings_${currentStoreId}`;
+                if (window.sessionCache) {
+                    window.sessionCache.clear(cacheKey);
                 }
-                updateCurrentDomainInfo(subdomainValue);
+
+                // 백엔드 캐시도 무효화
+                if (dbServices && typeof dbServices.clearCache === 'function') {
+                    dbServices.clearCache('storeSettings', currentStoreId);
+                }
+
+                // API 응답에서 최신 데이터 가져오기
+                const savedData = response?.data || response || {};
+                const savedSubdomain = savedData.subdomain || subdomainValue;
+
+                // 모든 input 필드 업데이트
+                if (subdomainInput) {
+                    subdomainInput.value = savedSubdomain;
+                }
+                const domainSubdomainInput = document.getElementById('domainSubdomain');
+                if (domainSubdomainInput) {
+                    domainSubdomainInput.value = savedSubdomain;
+                }
+
+                // QR 정보 업데이트
+                currentDomainQrInfo = {
+                    url: savedData.qrCode?.url || '',
+                    domainUrl: savedData.qrCode?.domainUrl || ''
+                };
+                
+                // 도메인 설정 UI 전체 업데이트 (updateDomainQrSection이 모든 UI 요소를 업데이트함)
+                updateDomainSummaryView(savedSubdomain, currentDomainQrInfo);
+                applyDomainSettingsPermissions(savedData);
+                updateDomainQrSection(savedSubdomain, currentDomainQrInfo);
+                
+                updateCurrentDomainInfo(savedSubdomain);
 
                 await logActivity('도메인 설정 저장', {
-                    subdomain: subdomainValue
+                    subdomain: savedSubdomain
                 });
 
                 if (!suppressToast) {
                     showToast('도메인 설정이 저장되었습니다!', 'success', '저장 완료');
                 }
 
+                // skipReload가 false일 때만 다시 로드 (이미 위에서 UI 업데이트 완료)
                 if (!skipReload) {
+                    // 캐시 무효화 후 최신 데이터 로드
                     await loadDomainSettings();
                 }
 
-                return { success: true, subdomain: subdomainValue };
+                return { success: true, subdomain: savedSubdomain, data: savedData };
             } catch (error) {
                 console.error('도메인 설정 저장 실패:', error);
                 if (!suppressToast) {
