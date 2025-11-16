@@ -3743,7 +3743,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge">v1.5.42</div>
+                    <div class="version-badge">v1.5.43</div>
                 </div>
                 <a href="/admin/release-notes" class="release-notes-btn">
                     릴리즈 노트
@@ -10321,14 +10321,23 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 if (domainQrSection) {
                     domainQrSection.style.display = 'block';
                 }
-                // 도메인 설정 로드 (로딩 모달 표시)
-                if (window.showGlobalLoading) {
-                    window.showGlobalLoading('default', true, '도메인 설정을 불러오는 중...');
+                
+                // 캐시 확인 후 필요할 때만 로딩바 표시
+                const currentStoreId = getCurrentStoreId();
+                const domainCacheKey = `domain_settings_${currentStoreId}`;
+                const domainCached = window.sessionCache?.get(domainCacheKey);
+                
+                if (!domainCached) {
+                    // 캐시에 없을 때만 로딩 모달 표시
+                    if (window.showGlobalLoading) {
+                        window.showGlobalLoading('default', true, '도메인 설정을 불러오는 중...');
+                    }
                 }
+                
                 try {
                     await loadDomainSettings();
-                    // 로딩바 숨김
-                    if (window.hideGlobalLoading) {
+                    // 로딩바는 loadDomainSettings 내부에서 캐시 확인하므로 여기서는 필요시에만 숨김
+                    if (!domainCached && window.hideGlobalLoading) {
                         window.setLoadingBarType('success');
                         setTimeout(() => window.hideGlobalLoading(), 200);
                     }
