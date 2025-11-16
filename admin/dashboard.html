@@ -10482,6 +10482,20 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 // 기본 정보 섹션인 경우 기본 정보와 영업시간만 로드
                 if (sectionId === 'basic' || sectionId === 'basic-info') {
                     const loadedKey = `basicSectionLoaded_${currentStoreId}`;
+                    const cacheKey = `settings_${currentStoreId}_basic,businessHours`;
+                    const cached = window.sessionCache?.get(cacheKey);
+                    
+                    // 캐시에 있으면 즉시 표시 (로딩바 없이)
+                    if (cached) {
+                        console.log('✅ [캐시] 기본 정보 즉시 표시');
+                        window.currentSettings = cached;
+                        displayBusinessHours();
+                        renderBasicSummary();
+                        window[loadedKey] = true;
+                        return; // 즉시 반환
+                    }
+                    
+                    // 캐시에 없을 때만 API 호출
                     if (!window[loadedKey]) {
                         try {
                             // 로딩 모달 표시
@@ -10489,6 +10503,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                                 window.showGlobalLoading('default', true, '기본 정보를 불러오는 중...');
                             }
                             await loadSettings(['basic', 'businessHours']);
+                            // loadSettings가 완료된 후 UI 업데이트
                             displayBusinessHours();
                             renderBasicSummary(); // 기본 정보 요약 표시
                             window[loadedKey] = true;
