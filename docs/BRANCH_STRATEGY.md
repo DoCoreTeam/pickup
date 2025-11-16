@@ -47,6 +47,13 @@ git pull origin main
 
 # staging 브랜치를 main에 머지
 git merge staging
+
+# ⚠️ 중요: 버전 배지에서 -staging 접미사 제거
+# admin/dashboard.html에서 v1.5.XX-staging → v1.5.XX로 변경
+# 예: v1.5.84-staging → v1.5.84
+
+git add admin/dashboard.html
+git commit -m "chore(prod) [v1.5.XX]: 버전 배지 프로덕션 형식으로 변경"
 git push origin main
 ```
 
@@ -99,13 +106,17 @@ git push origin staging
 
 1. **절대 main 브랜치에 직접 커밋하지 않기**
    - 모든 변경사항은 staging에서 테스트 후 main으로 머지
+   - 메인 반영 후 다시 고쳐지는 것도 staging에서 작업
 
 2. **환경 변수 분리**
    - 스테이징과 프로덕션은 서로 다른 데이터베이스 사용
    - 민감한 정보는 각 환경에 맞게 설정
 
-3. **버전 관리**
+3. **버전 배지 관리 규칙** ⭐
+   - **staging 브랜치**: `v1.5.XX-staging` 형식 (예: `v1.5.84-staging`)
+   - **main 브랜치**: `v1.5.XX` 형식 (예: `v1.5.84`)
    - 버전 배지는 항상 업데이트 (작업 후 기본 정책)
+   - 메인으로 머지할 때는 `-staging` 접미사 제거
    - 프로덕션 배포 시 태그 생성 권장
 
 4. **테스트 필수**
