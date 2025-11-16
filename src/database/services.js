@@ -1690,26 +1690,48 @@ async function getEventSummary({ storeId = null, from = null, to = null }) {
   const rangeEnd = new Date(toDate);
   rangeEnd.setHours(23, 59, 59, 999);
 
-  const totalsResult = await db.query(
-    `SELECT event_type, COUNT(*)::int AS count
-       FROM store_events
-      WHERE ($1::varchar IS NULL OR store_id = $1)
-        AND created_at BETWEEN $2 AND $3
-      GROUP BY event_type`,
-    [storeId, rangeStart, rangeEnd]
-  );
-
-  const dailyResult = await db.query(
-    `SELECT date_trunc('day', created_at) AS day,
-            event_type,
-            COUNT(*)::int AS count
+  // 두 쿼리를 하나로 통합하여 성능 최적화 (단일 스캔)
+  const combinedResult = await db.query(
+    `WITH event_data AS (
+       SELECT 
+         date_trunc('day', created_at) AS day,
+         event_type,
+         COUNT(*)::int AS count
        FROM store_events
       WHERE ($1::varchar IS NULL OR store_id = $1)
         AND created_at BETWEEN $2 AND $3
       GROUP BY day, event_type
-      ORDER BY day ASC`,
+     )
+     SELECT 
+       day,
+       event_type,
+       count,
+       SUM(count) OVER (PARTITION BY event_type) AS total_count
+     FROM event_data
+     ORDER BY day ASC, event_type`,
     [storeId, rangeStart, rangeEnd]
   );
+
+  // 결과를 totals와 daily로 분리
+  const totals = {};
+  const daily = {};
+  
+  combinedResult.rows.forEach(row => {
+    const dayKey = row.day.toISOString().split('T')[0];
+    const eventType = row.event_type;
+    const count = row.count;
+    
+    // Daily 집계
+    if (!daily[dayKey]) {
+      daily[dayKey] = {};
+    }
+    daily[dayKey][eventType] = count;
+    
+    // Totals 집계 (중복 제거: 첫 번째 행만 사용)
+    if (!totals[eventType]) {
+      totals[eventType] = row.total_count;
+    }
+  });
 
   const totals = {};
   totalsResult.rows.forEach(row => {

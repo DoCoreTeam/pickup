@@ -11559,6 +11559,30 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
 
             if (sectionId === 'dashboard') {
+                    // 대시보드 캐시 확인 (로딩바 표시 전에 확인)
+                    const scope = IS_SUPERADMIN ? dashboardScope : 'store';
+                    const cacheKey = `dashboard_summary_${scope}`;
+                    const cachedSummary = window.sessionCache?.get(cacheKey);
+                    
+                    // 캐시가 있으면 즉시 렌더링 (로딩바 없이)
+                    if (cachedSummary && scope === 'store') {
+                        const currentStoreId = await getCurrentStoreId();
+                        if (currentStoreId && cachedSummary.storeId === currentStoreId) {
+                            console.log('✅ [캐시] 대시보드 데이터 즉시 표시');
+                            renderDashboardSummary(cachedSummary);
+                            
+                            // 백그라운드에서 최신 데이터 확인 (5분 이상 지난 경우만)
+                            const cacheAge = Date.now() - (cachedSummary._cacheTime || 0);
+                            if (cacheAge > 5 * 60 * 1000) { // 5분
+                                loadDashboardSummary().catch(err => {
+                                    console.warn('대시보드 백그라운드 업데이트 실패:', err);
+                                });
+                            }
+                            return; // 즉시 반환
+                        }
+                    }
+                    
+                    // 캐시가 없거나 전체 현황인 경우 로딩바 표시
                     if (window.showGlobalLoading) {
                         window.showGlobalLoading('default', true, '대시보드 데이터를 불러오는 중...');
                     }
@@ -11568,32 +11592,53 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     initializeDashboardControls();
                     updateDashboardScopeUI();
                             
-                            // 대시보드 섹션에서만 통계용 가게 목록 로드 (필요할 때만, 캐싱 활용)
-                            // allStores가 이미 있으면 재사용 (초기 로드에서 가져온 것)
-                            if (!allStores || allStores.length === 0) {
-                                // 세션 캐시 확인
-                                const cacheKey = 'dashboard_all_stores';
-                                const cached = window.sessionCache?.get(cacheKey);
-                                
-                                if (cached) {
-                                    console.log('✅ [캐시] 대시보드용 가게 목록 캐시에서 로드:', cached.length);
-                                    allStores = cached;
-                                } else {
-                                    // 캐시에 없으면 API 호출 (최소한의 데이터만)
-                                    const allStoresQuery = new URLSearchParams({
-                                        page: '1',
-                                        pageSize: '50', // 10000에서 50으로 대폭 감소 (통계용으로는 충분)
-                                        sortBy: 'createdAt',
-                                        sortOrder: 'desc'
-                                    });
-                                    const allStoresResponse = await apiRequest(`${API_BASE}/stores?${allStoresQuery.toString()}`, 'GET', null, 3, false);
-                                    allStores = normalizeStoreListResponse(allStoresResponse);
+                            // 전체 현황일 때만 가게 목록 로드 (캐싱 활용)
+                            if (dashboardScope === 'all') {
+                                if (!allStores || allStores.length === 0) {
+                                    // 세션 캐시 확인
+                                    const storesCacheKey = 'dashboard_all_stores';
+                                    const cached = window.sessionCache?.get(storesCacheKey);
                                     
-                                    // 캐시에 저장
-                                    if (window.sessionCache) {
-                                        window.sessionCache.set(cacheKey, allStores);
+                                    if (cached) {
+                                        console.log('✅ [캐시] 대시보드용 가게 목록 캐시에서 로드:', cached.length);
+                                        allStores = cached;
+                                    } else {
+                                        // 캐시에 없으면 백그라운드에서 로드 (대시보드 로드 병렬)
+                                        Promise.all([
+                                            loadDashboardSummary(),
+                                            (async () => {
+                                                const allStoresQuery = new URLSearchParams({
+                                                    page: '1',
+                                                    pageSize: '50',
+                                                    sortBy: 'createdAt',
+                                                    sortOrder: 'desc'
+                                                });
+                                                const allStoresResponse = await apiRequest(`${API_BASE}/stores?${allStoresQuery.toString()}`, 'GET', null, 3, false);
+                                                allStores = normalizeStoreListResponse(allStoresResponse);
+                                                if (window.sessionCache) {
+                                                    window.sessionCache.set(storesCacheKey, allStores);
+                                                }
+                                                console.log('✅ [통계] 대시보드용 가게 목록 로드 완료:', allStores.length);
+                                            })()
+                                        ]).then(() => {
+                                            if (dashboardScope === 'all') {
+                                                loadDashboardStoreMetrics(dashboardStoreSearchTerm).catch(err => {
+                                                    console.warn('가게별 메트릭 로드 실패:', err);
+                                                });
+                                            }
+                                            if (window.hideGlobalLoading) {
+                                                window.setLoadingBarType('success');
+                                                setTimeout(() => window.hideGlobalLoading(), 200);
+                                            }
+                                        }).catch(error => {
+                                            console.error('대시보드 로드 실패:', error);
+                                            if (window.hideGlobalLoading) {
+                                                window.setLoadingBarType('error');
+                                                setTimeout(() => window.hideGlobalLoading(), 500);
+                                            }
+                                        });
+                                        return; // 병렬 처리 중
                                     }
-                                    console.log('✅ [통계] 대시보드용 가게 목록 로드 완료:', allStores.length);
                                 }
                             }
                         }
@@ -11879,14 +11924,32 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     }
 
                     window.currentStoreId = targetStoreId;
-                    await updateSelectedStoreCard(targetStoreId);
-                    updateSelectedStoreVisual(targetStoreId);
+                    
+                    // 선택된 가게 카드 업데이트 최적화 (캐시 확인)
+                    const storeCardCacheKey = `store_card_${targetStoreId}`;
+                    const cachedStoreCard = window.sessionCache?.get(storeCardCacheKey);
+                    if (!cachedStoreCard) {
+                        // 캐시가 없을 때만 API 호출
+                        await updateSelectedStoreCard(targetStoreId);
+                    } else {
+                        // 캐시가 있으면 즉시 시각적 업데이트만 수행
+                        updateSelectedStoreVisual(targetStoreId);
+                    }
 
                     const query = new URLSearchParams({
                         storeId: targetStoreId
                     });
 
                     const summary = await apiRequest(`${API_BASE}/dashboard/summary?${query.toString()}`, 'GET');
+                    
+                    // 캐시에 저장 (5분 TTL)
+                    const cacheKey = `dashboard_summary_${scope}`;
+                    if (summary && window.sessionCache) {
+                        summary._cacheTime = Date.now();
+                        summary.storeId = targetStoreId;
+                        window.sessionCache.set(cacheKey, summary, 5 * 60 * 1000); // 5분
+                    }
+                    
                     renderDashboardSummary(summary);
                 } else {
                     const query = new URLSearchParams({
@@ -11894,9 +11957,21 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     });
 
                     const summary = await apiRequest(`${API_BASE}/dashboard/summary?${query.toString()}`, 'GET');
+                    
+                    // 캐시에 저장 (5분 TTL)
+                    const cacheKey = `dashboard_summary_${scope}`;
+                    if (summary && window.sessionCache) {
+                        summary._cacheTime = Date.now();
+                        window.sessionCache.set(cacheKey, summary, 5 * 60 * 1000); // 5분
+                    }
+                    
                     renderDashboardSummary(summary);
+                    
+                    // 가게별 메트릭은 백그라운드에서 로드 (대시보드 로드와 병렬)
                     if (IS_SUPERADMIN) {
-                        await loadDashboardStoreMetrics(dashboardStoreSearchTerm);
+                        loadDashboardStoreMetrics(dashboardStoreSearchTerm).catch(err => {
+                            console.warn('가게별 메트릭 로드 실패:', err);
+                        });
                     }
                 }
             } catch (error) {
