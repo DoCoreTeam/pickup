@@ -11789,14 +11789,23 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
             
             try {
+                // 저장 전에 캐시 무효화 (저장 후 즉시 반영되도록)
+                const currentStoreId = getCurrentStoreId();
+                if (currentStoreId) {
+                    const cacheKey = `domain_settings_${currentStoreId}`;
+                    if (window.sessionCache) {
+                        window.sessionCache.clear(cacheKey);
+                    }
+                }
+                
                 const result = await saveDomainSettings({ 
                     subdomain: subdomainValue,
-                    suppressToast: true  // 중복 토스트 방지
+                    suppressToast: true,  // 중복 토스트 방지
+                    skipReload: true      // saveDomainSettings에서 이미 UI 업데이트 완료
                 });
                 
                 if (result && result.success) {
-                    // 저장 성공 후 도메인 설정 다시 로드
-                    await loadDomainSettings();
+                    // 저장 성공 - saveDomainSettings에서 이미 UI 업데이트 완료
                     showToast('서브도메인이 저장되었습니다!', 'success', '저장 완료');
                 } else {
                     showToast('도메인 저장에 실패했습니다.', 'error', '저장 실패');
