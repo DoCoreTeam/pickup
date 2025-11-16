@@ -12048,16 +12048,84 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             if (!IS_SUPERADMIN) return;
             if (scope !== 'all' && scope !== 'store') return;
 
-            if (dashboardScope !== scope) {
-                dashboardScope = scope;
-                updateDashboardScopeUI();
+            // 즉시 UI 업데이트 (사용자에게 즉각적인 피드백)
+            const previousScope = dashboardScope;
+            dashboardScope = scope;
+            updateDashboardScopeUI();
+            
+            // 스코프 힌트 텍스트 즉시 업데이트
+            const scopeHint = document.getElementById('dashboardScopeHint');
+            if (scopeHint) {
+                scopeHint.textContent = scope === 'all'
+                    ? '전체 가게 기준 주요 지표입니다.'
+                    : '선택된 가게 기준 주요 지표입니다.';
             }
 
-            if (scope === 'all') {
-                await loadDashboardStoreMetrics(dashboardStoreSearchTerm);
+            // 캐시된 데이터가 있으면 즉시 표시
+            const cacheKey = `dashboard_summary_${scope}`;
+            const cachedSummary = window.sessionCache?.get(cacheKey);
+            
+            if (cachedSummary) {
+                // 캐시된 데이터가 있고, 선택된 가게 모드인 경우 가게 ID 확인
+                if (scope === 'store') {
+                    const currentStoreId = await getCurrentStoreId();
+                    if (currentStoreId && cachedSummary.storeId === currentStoreId) {
+                        console.log('✅ [대시보드] 캐시된 데이터 즉시 표시');
+                        renderDashboardSummary(cachedSummary);
+                        // 백그라운드에서 최신 데이터 확인 (5분 이상 지난 경우만)
+                        const cacheAge = Date.now() - (cachedSummary._cacheTime || 0);
+                        if (cacheAge > 5 * 60 * 1000) {
+                            loadDashboardSummary(scope).catch(err => {
+                                console.warn('대시보드 백그라운드 업데이트 실패:', err);
+                            });
+                        }
+                        return; // 즉시 반환
+                    }
+                } else {
+                    // 전체 현황 모드: 캐시된 데이터 즉시 표시
+                    console.log('✅ [대시보드] 캐시된 전체 현황 데이터 즉시 표시');
+                    renderDashboardSummary(cachedSummary);
+                    // 백그라운드에서 최신 데이터 확인
+                    const cacheAge = Date.now() - (cachedSummary._cacheTime || 0);
+                    if (cacheAge > 5 * 60 * 1000) {
+                        loadDashboardSummary(scope).catch(err => {
+                            console.warn('대시보드 백그라운드 업데이트 실패:', err);
+                        });
+                    }
+                    // 가게별 메트릭도 백그라운드에서 로드
+                    if (scope === 'all') {
+                        loadDashboardStoreMetrics(dashboardStoreSearchTerm).catch(err => {
+                            console.warn('가게별 메트릭 로드 실패:', err);
+                        });
+                    }
+                    return; // 즉시 반환
+                }
             }
 
-            await loadDashboardSummary(scope);
+            // 캐시가 없으면 로딩바 표시 후 데이터 로드
+            if (window.showGlobalLoading) {
+                window.showGlobalLoading('default', true, scope === 'all' ? '전체 현황을 불러오는 중...' : '가게 현황을 불러오는 중...');
+            }
+
+            try {
+                await loadDashboardSummary(scope);
+                
+                if (scope === 'all') {
+                    await loadDashboardStoreMetrics(dashboardStoreSearchTerm);
+                }
+                
+                if (window.hideGlobalLoading) {
+                    window.setLoadingBarType('success');
+                    setTimeout(() => window.hideGlobalLoading(), 200);
+                }
+            } catch (error) {
+                console.error('대시보드 스코프 전환 실패:', error);
+                if (window.hideGlobalLoading) {
+                    window.setLoadingBarType('error');
+                    setTimeout(() => window.hideGlobalLoading(), 500);
+                }
+                showToast('대시보드 데이터를 불러오지 못했습니다.', 'error');
+            }
         }
 
         // 대시보드 검색 함수를 debounce로 래핑
