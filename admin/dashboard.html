@@ -11699,11 +11699,25 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         window.sessionCache.set(cacheKey, domainSettings);
                     }
                 } else {
-                    document.getElementById('subdomain').value = '';
-                    currentDomainQrInfo = { url: '', domainUrl: '' };
-                    updateDomainSummaryView('', null);
-                    applyDomainSettingsPermissions({});
-                    updateDomainQrSection('', null);
+                    // 응답이 없거나 실패한 경우에도 QR 정보 확인 (qrCode 필드 직접 확인)
+                    const qrInfo = response?.data?.qrCode || response?.qrCode || {};
+                    if (qrInfo && qrInfo.url) {
+                        // QR 코드가 있으면 표시
+                        const subdomain = (response?.data?.subdomain || document.getElementById('subdomain')?.value || '').trim();
+                        currentDomainQrInfo = {
+                            url: qrInfo.url || '',
+                            domainUrl: qrInfo.domainUrl || ''
+                        };
+                        updateDomainSummaryView(subdomain, currentDomainQrInfo);
+                        applyDomainSettingsPermissions(response?.data || {});
+                        updateDomainQrSection(subdomain, currentDomainQrInfo);
+                    } else {
+                        document.getElementById('subdomain').value = '';
+                        currentDomainQrInfo = { url: '', domainUrl: '' };
+                        updateDomainSummaryView('', null);
+                        applyDomainSettingsPermissions({});
+                        updateDomainQrSection('', null);
+                    }
                 }
             } catch (error) {
                 console.error('도메인 설정 로드 실패:', error);
