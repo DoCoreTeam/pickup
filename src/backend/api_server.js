@@ -1442,16 +1442,15 @@ class APIRouter {
       const storeId = parsedUrl.query.storeId;
       
       if (storeId) {
-        // 특정 가게 설정 조회 - 병렬로 실행하여 성능 최적화
-        const [store, settings] = await Promise.all([
-          dbServices.getStoreById(storeId),
-          dbServices.getStoreSettings(storeId)
-        ]);
+        // 특정 가게 설정 조회 - 하나의 쿼리로 최적화
+        const storeData = await dbServices.getStoreSettingsOptimized(storeId);
         
-        if (!store) {
+        if (!storeData) {
           sendErrorResponse(res, 404, '가게를 찾을 수 없습니다.');
           return;
         }
+        
+        const { settings } = storeData;
         
         // QR 코드 파일 존재 여부 확인
         let qrCode = settings.qrCode || {
@@ -1476,14 +1475,14 @@ class APIRouter {
           }
         }
         
-        // 기본 정보는 store에서, 나머지는 settings에서 가져오기
-        const storeData = {
-          id: store.id,
+        // 응답 데이터 구성
+        const responseData = {
+          id: storeData.id,
           basic: {
-            storeName: store.name,
-            storeSubtitle: store.subtitle,
-            storePhone: store.phone,
-            storeAddress: store.address,
+            storeName: storeData.name,
+            storeSubtitle: storeData.subtitle,
+            storePhone: storeData.phone,
+            storeAddress: storeData.address,
           },
           discount: settings.discount || {
             title: '',
@@ -1511,11 +1510,11 @@ class APIRouter {
           qrCode: qrCode,
           seoSettings: settings.seoSettings || {},
           abTestSettings: settings.abTestSettings || {},
-          createdAt: store.createdAt,
-          updatedAt: store.lastModified,
+          createdAt: storeData.createdAt,
+          updatedAt: storeData.updatedAt,
         };
         
-        sendJsonResponse(res, 200, storeData);
+        sendJsonResponse(res, 200, responseData);
       } else {
         // 전체 설정 조회 (기존 방식)
         const data = await dbServices.getAllData();

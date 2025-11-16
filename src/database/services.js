@@ -829,6 +829,62 @@ async function getStoreSettings(storeId) {
   };
 }
 
+// 가게 설정 조회 최적화 버전 (stores와 store_settings를 하나의 쿼리로 조회)
+async function getStoreSettingsOptimized(storeId) {
+  const result = await db.query(`
+    SELECT 
+      s.id,
+      s.name,
+      s.subtitle,
+      s.phone,
+      s.address,
+      s.created_at,
+      s.last_modified,
+      ss.basic,
+      ss.discount,
+      ss.delivery,
+      ss.pickup,
+      ss.images,
+      ss.business_hours,
+      ss.section_order,
+      ss.qr_code,
+      ss.seo_settings,
+      ss.ab_test_settings
+    FROM stores s
+    LEFT JOIN store_settings ss ON s.id = ss.store_id
+    WHERE s.id = $1
+  `, [storeId]);
+  
+  if (result.rows.length === 0) {
+    return null;
+  }
+  
+  const row = result.rows[0];
+  const settings = {
+    basic: row.basic || {},
+    discount: row.discount || {},
+    delivery: row.delivery || {},
+    pickup: row.pickup || {},
+    images: row.images || {},
+    businessHours: row.business_hours || {},
+    sectionOrder: row.section_order || [],
+    qrCode: row.qr_code || {},
+    seoSettings: row.seo_settings || {},
+    abTestSettings: row.ab_test_settings || {}
+  };
+  
+  return {
+    id: row.id,
+    name: row.name,
+    subtitle: row.subtitle,
+    phone: row.phone,
+    address: row.address,
+    createdAt: row.created_at,
+    updatedAt: row.last_modified,
+    settings
+  };
+}
+
 // 현재 가게 ID 조회
 async function getCurrentStoreId() {
   const result = await db.query(`
@@ -3040,6 +3096,7 @@ module.exports = {
   getStoreById,
   getStoreBySubdomain,
   getStoreSettings,
+  getStoreSettingsOptimized,
   updateStoreSettings,
   updateStoreSubdomain,
   getCurrentStoreId,

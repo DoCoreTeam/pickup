@@ -8,6 +8,28 @@
 
 ## 📋 버전 목록
 
+### v1.5.29 (2025-01-13) - ⚡ 설정 조회 쿼리 최적화 (실제 성능 개선)
+**상태**: ✅ 개발 완료
+
+**주요 개선사항**:
+- ⚡ `/api/settings` 엔드포인트 쿼리 수 대폭 감소 (3개 → 1개)
+- 🚀 stores와 store_settings를 하나의 JOIN 쿼리로 통합
+- 🗑️ 불필요한 owners 조회 제거 (settings에서는 불필요)
+- 📊 실제 데이터베이스 부하 감소로 응답 시간 단축
+
+**해결된 문제**:
+- ✅ `/api/settings` API 타임아웃 문제 (근본 원인 해결)
+- ✅ 불필요한 쿼리 실행으로 인한 성능 저하
+- ✅ 디버그 로그 속도와 유사한 빠른 응답 시간 달성
+
+**기술적 변경**:
+- `getStoreSettingsOptimized` 함수 추가: stores와 store_settings를 하나의 쿼리로 JOIN
+- `/api/settings` 엔드포인트에서 최적화된 함수 사용
+- 기존: `getStoreById` (stores 조회 + owners 조회) + `getStoreSettings` (store_settings 조회) = 3개 쿼리
+- 변경: `getStoreSettingsOptimized` (stores + store_settings JOIN) = 1개 쿼리
+
+---
+
 ### v1.5.28 (2025-01-13) - ⚡ 설정 조회 성능 최적화 및 QR 코드 파일 검증
 **상태**: ✅ 개발 완료
 
