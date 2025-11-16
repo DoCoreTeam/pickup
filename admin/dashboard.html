@@ -9724,6 +9724,21 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 await apiRequest(`${API_BASE}/store/${currentStoreId}/settings`, 'POST', oldSettings);
                 
+                // 캐시 무효화 (최신 데이터 반영)
+                const cacheKey = `settings_${currentStoreId}`;
+                if (window.sessionCache) {
+                    window.sessionCache.clear(cacheKey);
+                }
+                // 백엔드 캐시도 무효화
+                if (window.dbServices && window.dbServices.clearCache) {
+                    window.dbServices.clearCache('storeSettings', currentStoreId);
+                }
+                
+                // 현재 설정 업데이트 (즉시 반영)
+                if (window.currentSettings) {
+                    window.currentSettings.pickup = oldSettings.pickup;
+                }
+                
                 // 토글 상태에 따라 폼 표시/숨김
                 const pickupForm = document.getElementById('pickupForm');
                 if (oldSettings.pickup.enabled) {
@@ -9753,10 +9768,10 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     });
                 }
                 
-                showStatus('픽업 설정이 저장되었습니다!', 'success');
+                showToast('픽업 설정이 저장되었습니다!', 'success', '저장 완료');
             } catch (error) {
                 console.error('픽업 설정 저장 실패:', error);
-                showStatus('픽업 설정 저장에 실패했습니다.', 'error');
+                showToast('픽업 설정 저장에 실패했습니다.', 'error', '저장 실패');
             }
         }
         
