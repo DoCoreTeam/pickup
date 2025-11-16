@@ -4191,15 +4191,77 @@ class APIRouter {
     return;
   }
 
-  try {
-    await db.connect();
-    log('INFO', 'PostgreSQL 데이터베이스 연결이 완료되었습니다.');
-  } catch (error) {
-    log('ERROR', 'PostgreSQL 데이터베이스 연결에 실패했습니다.', { error: error.message });
-    process.exit(1);
+  // DB 연결 상태 플래그
+  let dbConnected = false;
+  let dbConnectionAttempts = 0;
+  const MAX_DB_RETRY_ATTEMPTS = 5;
+  const DB_RETRY_INTERVAL = 30000; // 30초
+
+  // DB 연결 시도 함수
+  async function attemptDbConnection() {
+    try {
+      await db.connect();
+      dbConnected = true;
+      dbConnectionAttempts = 0;
+      log('INFO', 'PostgreSQL 데이터베이스 연결이 완료되었습니다.');
+      return true;
+    } catch (error) {
+      dbConnected = false;
+      dbConnectionAttempts++;
+      const errorMessage = error.message || '알 수 없는 오류';
+      
+      // 데이터 전송 할당량 초과 에러인 경우 특별 처리
+      if (errorMessage.includes('data transfer quota') || errorMessage.includes('exceeded')) {
+        log('ERROR', 'PostgreSQL 데이터베이스 연결 실패: 데이터 전송 할당량 초과', { 
+          error: errorMessage,
+          hint: 'Neon DB 플랜을 업그레이드하거나 할당량이 리셋될 때까지 대기하세요.'
+        });
+      } else {
+        log('ERROR', 'PostgreSQL 데이터베이스 연결에 실패했습니다.', { error: errorMessage });
+      }
+      
+      // 최대 재시도 횟수 초과 시에도 서버는 계속 실행
+      if (dbConnectionAttempts >= MAX_DB_RETRY_ATTEMPTS) {
+        log('WARN', `DB 연결 재시도 횟수 초과 (${MAX_DB_RETRY_ATTEMPTS}회). 백그라운드 재연결을 계속 시도합니다.`);
+      }
+      
+      return false;
+    }
+  }
+
+  // 초기 DB 연결 시도
+  await attemptDbConnection();
+
+  // 백그라운드 재연결 로직 (연결이 실패한 경우에만)
+  let reconnectTimer = null;
+  function scheduleReconnect() {
+    if (dbConnected) {
+      return; // 이미 연결되어 있으면 재연결 불필요
+    }
+    
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+    }
+    
+    reconnectTimer = setTimeout(async () => {
+      log('INFO', 'DB 재연결 시도 중...');
+      const connected = await attemptDbConnection();
+      if (!connected) {
+        scheduleReconnect(); // 실패 시 다시 스케줄링
+      }
+    }, DB_RETRY_INTERVAL);
+  }
+
+  // 연결 실패 시 백그라운드 재연결 시작
+  if (!dbConnected) {
+    scheduleReconnect();
   }
 
   const router = new APIRouter();
+  
+  // DB 연결 상태를 라우터에 주입 (API 핸들러에서 사용 가능하도록)
+  router.dbConnected = () => dbConnected;
+  
   const server = http.createServer((req, res) => {
     router.handleRequest(req, res).catch(error => {
       log('ERROR', '요청 처리 중 예외 발생', { error: error.message, stack: error.stack });
@@ -4213,9 +4275,17 @@ class APIRouter {
 
   const gracefulShutdown = async signal => {
     log('INFO', `${signal} 신호 수신, 서버 종료를 준비합니다.`);
+    
+    // 재연결 타이머 정리
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+    }
+    
     server.close(async () => {
       try {
-        await db.disconnect();
+        if (dbConnected) {
+          await db.disconnect();
+        }
       } catch (error) {
         log('ERROR', '데이터베이스 연결 해제 중 오류가 발생했습니다.', { error: error.message });
       } finally {
@@ -4229,6 +4299,9 @@ class APIRouter {
 
   server.listen(PORT, () => {
     log('INFO', `API 서버가 포트 ${PORT}에서 실행 중입니다.`);
+    if (!dbConnected) {
+      log('WARN', '⚠️ DB 연결이 실패했지만 서버는 계속 실행됩니다. DB가 필요한 API는 에러를 반환합니다.');
+    }
   });
 })();
 
