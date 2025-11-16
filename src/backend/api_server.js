@@ -1226,6 +1226,8 @@ class APIRouter {
       const result = await dbServices.authenticateSuperAdmin(username, password);
       
       if (result.success) {
+        // 슈퍼어드민 쿠키 설정 (DB 통계 등 권한 확인용)
+        res.setHeader('Set-Cookie', `is_superadmin=true; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}`); // 7일
         sendJsonResponse(res, 200, {
           success: true,
           token: result.token,
@@ -1561,7 +1563,7 @@ class APIRouter {
                name: requestData.storeName || ownerDetail.ownerName || ownerDetail.email,
                address: requestData.storeAddress || '',
                phone: ownerDetail.phone || '',
-               status: 'active'
+               status: 'pending' // 점주 승인 전까지는 pending 상태
              });
              resolvedStoreId = storeRecord.id;
              break;

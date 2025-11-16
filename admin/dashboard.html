@@ -6248,6 +6248,23 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 } else {
                     renderOwnerAccounts();
                 }
+                
+                // 가게 목록도 업데이트 (승인된 점주와 연결된 가게 상태 변경 반영)
+                const storesSection = document.getElementById('stores');
+                if (storesSection && storesSection.style.display !== 'none') {
+                    // 가게 관리 섹션이 열려있으면 목록 새로고침
+                    const cacheKey = 'stores_list';
+                    if (window.sessionCache) {
+                        window.sessionCache.clear(cacheKey);
+                    }
+                    await loadStoreList();
+                }
+                
+                // 로딩 숨김
+                if (window.hideGlobalLoading) {
+                    window.setLoadingBarType('success');
+                    setTimeout(() => window.hideGlobalLoading(), 200);
+                }
 
                 const passwordSource = response.passwordSource || 'generated';
                 const tempPassword = response.tempPassword;
@@ -6290,6 +6307,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             } catch (error) {
                 console.error('계정 승인 실패:', error);
                 showToast(error.message || '계정 승인에 실패했습니다.', 'error');
+                
+                // 에러 시 로딩 숨김
+                if (window.hideGlobalLoading) {
+                    window.setLoadingBarType('error');
+                    setTimeout(() => window.hideGlobalLoading(), 500);
+                }
+                
                 submitBtn.disabled = false;
                 submitBtn.textContent = '승인하기';
                 submitBtn.setAttribute('data-mode', 'approve');
@@ -6740,6 +6764,33 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
         }
 
+        // 가게 상태 결정 함수: 점주 상태를 고려하여 실제 상태 반환
+        function determineStoreStatus(store) {
+            // 일시정지 상태는 우선순위가 가장 높음
+            if (store.status === 'paused') {
+                return 'paused';
+            }
+            
+            // 점주가 연결되어 있는 경우 점주 상태 확인
+            const owners = Array.isArray(store?.owners) ? store.owners : [];
+            if (owners.length > 0) {
+                // 모든 점주가 승인(active) 상태인지 확인
+                const allOwnersActive = owners.every(owner => owner?.status === OWNER_STATUS.ACTIVE);
+                // 하나라도 승인 대기(pending) 상태인 점주가 있으면 가게도 pending
+                const hasPendingOwner = owners.some(owner => owner?.status === OWNER_STATUS.PENDING);
+                
+                if (hasPendingOwner || !allOwnersActive) {
+                    return 'pending';
+                }
+            } else {
+                // 점주가 없으면 pending 상태
+                return 'pending';
+            }
+            
+            // 기본적으로 DB의 상태 반환 (active 또는 기타)
+            return store.status || 'pending';
+        }
+
         function buildStoreStatusBadge(status) {
             if (status === 'paused') {
                 return '<span style="display:inline-block;padding:4px 12px;background:#fef3c7;color:#92400e;border-radius:12px;font-size:12px;font-weight:600;">일시정지</span>';
@@ -6800,7 +6851,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
 
             const groupCardsHtml = ownerGroupedStores.map(group => {
                 const storeItems = group.stores.map(store => {
-                    const statusBadge = buildStoreStatusBadge(store.status);
+                    const actualStatus = determineStoreStatus(store);
+                    const statusBadge = buildStoreStatusBadge(actualStatus);
                     const storeName = store?.basic?.storeName || store?.name || '이름 없음';
                     const phone = store?.basic?.storePhone || store?.phone || '-';
                     const subdomain = store?.subdomain ? `${window.location.origin}/${store.subdomain}` : '';
