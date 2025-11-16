@@ -10099,15 +10099,19 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
         }
 
-        // 동영상 미리보기 업데이트 함수
+        // 동영상 미리보기 업데이트 함수 (기존 함수와 통합)
         function updateVideoPreview(videoType, videoInfo) {
+            const videoPreview = document.getElementById('promoVideoPreview');
+            const dragText = document.getElementById('promoVideoDragText');
+            const videoMeta = document.getElementById('promoVideoMeta');
+            const uploadArea = document.getElementById('promoVideoArea');
+
             if (!videoInfo || !videoInfo.src) {
-                const videoPreview = document.getElementById('promoVideoPreview');
-                const dragText = document.getElementById('promoVideoDragText');
-                const videoMeta = document.getElementById('promoVideoMeta');
+                // 비디오 정보가 없으면 초기 상태로 복원
                 if (videoPreview) {
                     videoPreview.style.display = 'none';
                     videoPreview.src = '';
+                    videoPreview.pause();
                 }
                 if (dragText) {
                     dragText.style.display = 'flex';
@@ -10118,20 +10122,22 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 return;
             }
 
-            const videoPreview = document.getElementById('promoVideoPreview');
-            const dragText = document.getElementById('promoVideoDragText');
-            const videoMeta = document.getElementById('promoVideoMeta');
-
+            // 비디오 정보가 있으면 미리보기 표시
             if (videoPreview) {
-                videoPreview.src = videoInfo.src;
+                // videoInfo가 객체인 경우 src 속성 사용, 문자열인 경우 직접 사용
+                const videoSrc = typeof videoInfo === 'string' ? videoInfo : (videoInfo.src || videoInfo);
+                videoPreview.src = videoSrc;
                 videoPreview.style.display = 'block';
+                videoPreview.load(); // 비디오 로드
             }
             if (dragText) {
                 dragText.style.display = 'none';
             }
             if (videoMeta) {
-                const sizeMB = (videoInfo.size / (1024 * 1024)).toFixed(1);
-                videoMeta.innerHTML = `파일명: ${videoInfo.filename || '동영상'} ㆍ 길이: ${videoInfo.duration || 0}초 ㆍ 크기: ${sizeMB} MB`;
+                const sizeMB = videoInfo.size ? (videoInfo.size / (1024 * 1024)).toFixed(1) : '0';
+                const filename = videoInfo.filename || '동영상';
+                const duration = videoInfo.duration || 0;
+                videoMeta.innerHTML = `파일명: ${filename} ㆍ 길이: ${duration}초 ㆍ 크기: ${sizeMB} MB`;
                 videoMeta.style.display = 'block';
             }
         }
@@ -10258,47 +10264,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 uploadArea.classList.remove('has-image');
             }
         }
-        function updateVideoPreview(videoType, videoData) {
-            const preview = document.getElementById(`${videoType}Preview`);
-            const uploadArea = document.getElementById(`${videoType}Area`);
-            const meta = document.getElementById(`${videoType}Meta`);
-
-            if (!preview || !uploadArea) {
-                return;
-            }
-
-            if (videoData) {
-                const src = typeof videoData === 'string' ? videoData : videoData.src;
-                preview.src = src || '';
-                preview.style.display = 'block';
-                preview.load();
-
-                const info = typeof videoData === 'string' ? null : videoData;
-                if (meta) {
-                    if (info) {
-                        meta.style.display = 'block';
-                        meta.textContent = `파일명: ${info.filename || '-'} · 길이: ${(info.duration || 0).toFixed(1)}초 · 크기: ${formatBytes(info.size || 0)}`;
-                    } else {
-                        meta.style.display = 'none';
-                        meta.textContent = '';
-                    }
-                }
-
-                uploadArea.classList.add('has-image');
-            } else {
-                preview.pause();
-                preview.removeAttribute('src');
-                preview.load();
-                preview.style.display = 'none';
-
-                if (meta) {
-                    meta.style.display = 'none';
-                    meta.textContent = '';
-                }
-
-                uploadArea.classList.remove('has-image');
-            }
-        }
+        // updateVideoPreview 함수는 위에서 이미 정의됨 (중복 제거)
 
         function formatBytes(bytes) {
             if (!bytes || bytes <= 0) return '0 B';
