@@ -10222,6 +10222,24 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     // 이미지 미리보기 업데이트
                     updateImagePreview(imageType, imageData);
                     
+                    // 사이드바 즉시 업데이트 (로고 변경 시 바로 반영)
+                    if (imageType === 'mainLogo') {
+                        // 즉시 사이드바 로고 업데이트 (API 호출 없이 현재 이미지 데이터 사용)
+                        const logoElement = document.getElementById('selectedStoreLogo');
+                        if (logoElement) {
+                            const logoImg = logoElement.querySelector('.store-logo-img');
+                            if (logoImg) {
+                                logoImg.src = imageData;
+                                logoImg.alt = `${document.getElementById('selectedStoreName')?.textContent || '가게'} 로고`;
+                            }
+                        }
+                        
+                        // 백그라운드에서 최신 데이터로 사이드바 업데이트 (최신 상태 유지)
+                        updateSelectedStoreCard(currentStoreId).catch(err => 
+                            console.warn('사이드바 업데이트 실패 (백그라운드):', err)
+                        );
+                    }
+                    
                     showToast(`${imageType === 'mainLogo' ? '로고' : '메뉴판'} 이미지가 업로드되어 저장되었습니다!`, 'success', '저장 완료');
                 } catch (error) {
                     console.error('이미지 저장 오류:', error);
@@ -11908,6 +11926,26 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
             
             // QR 섹션 표시/숨김 (QR 코드 이미지가 있을 때만 표시)
+            if (qrSection) {
+                qrSection.style.display = hasQr ? 'block' : 'none';
+            }
+            
+            // QR 코드 이미지 업데이트
+            if (qrCodeDisplay && hasQr) {
+                const qrUrl = resolveQrUrl(qrInfo.url);
+                console.log('🔍 [DEBUG] QR 코드 표시:', { qrUrl, hasQr, qrInfo });
+                qrCodeDisplay.src = qrUrl;
+                qrCodeDisplay.alt = 'QR 코드';
+                qrCodeDisplay.style.display = 'block';
+            } else if (qrCodeDisplay) {
+                qrCodeDisplay.style.display = 'none';
+            }
+            
+            // QR 다운로드 버튼 표시/숨김
+            if (domainQrDownloadBtn) {
+                domainQrDownloadBtn.style.display = hasQr ? 'inline-flex' : 'none';
+                domainQrDownloadBtn.disabled = !hasQr;
+            }
             if (qrSection) {
                 qrSection.style.display = hasQr ? 'block' : 'none';
             }
