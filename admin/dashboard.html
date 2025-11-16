@@ -12942,13 +12942,21 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         const settingsResponse = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
                         const fetchedSettings = settingsResponse?.data || settingsResponse || {};
                         settings = fetchedSettings;
-                        // window.currentSettings 초기화 (없을 때만)
-                        if (!window.currentSettings) {
-                            window.currentSettings = settings;
-                        }
+                        // window.currentSettings 초기화 (항상 최신 데이터로 업데이트)
+                        window.currentSettings = settings;
+                        console.log('✅ [설정 가이드] API에서 설정 로드 및 저장:', { 
+                            hasDiscount: Boolean(settings.discount),
+                            hasPickup: Boolean(settings.pickup),
+                            discountEnabled: settings.discount?.enabled,
+                            pickupEnabled: settings.pickup?.enabled,
+                            hasImages: Boolean(settings.images)
+                        });
                     } catch (error) {
                         console.warn('설정 로드 실패 (기본값 사용):', error);
                         settings = settings || {};
+                        if (!window.currentSettings) {
+                            window.currentSettings = settings;
+                        }
                     }
                 } else {
                     // window.currentSettings가 있으면 사용 (저장된 최신 설정)
@@ -12957,13 +12965,31 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         hasDiscount: Boolean(settings.discount),
                         hasPickup: Boolean(settings.pickup),
                         discountEnabled: settings.discount?.enabled,
-                        pickupEnabled: settings.pickup?.enabled
+                        pickupEnabled: settings.pickup?.enabled,
+                        hasImages: Boolean(settings.images)
                     });
                 }
                 
+                // 도메인 설정 로드 (캐시 확인 후 필요시 API 호출)
                 try {
-                    const domainResponse = await apiRequest(`${API_BASE}/store/${currentStoreId}/domain-settings`);
-                    domainSettings = domainResponse?.data || domainResponse || {};
+                    const domainCacheKey = `domain_settings_${currentStoreId}`;
+                    const cachedDomainSettings = window.sessionCache?.get(domainCacheKey);
+                    
+                    if (cachedDomainSettings) {
+                        // 캐시에서 가져온 도메인 설정 사용
+                        domainSettings = cachedDomainSettings;
+                        console.log('✅ [설정 가이드] 캐시된 도메인 설정 사용');
+                    } else {
+                        // 캐시가 없으면 API 호출
+                        const domainResponse = await apiRequest(`${API_BASE}/store/${currentStoreId}/domain-settings`);
+                        domainSettings = domainResponse?.data || domainResponse || {};
+                        
+                        // 캐시에 저장 (5분 TTL)
+                        if (window.sessionCache && domainSettings) {
+                            window.sessionCache.set(domainCacheKey, domainSettings);
+                        }
+                        console.log('✅ [설정 가이드] API에서 도메인 설정 로드');
+                    }
                 } catch (error) {
                     console.warn('도메인 설정 로드 실패 (기본값 사용):', error);
                     domainSettings = {};
@@ -13245,6 +13271,14 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             if (setupGuideSection && setupGuideSection.style.display !== 'none') {
                 // 설정 가이드가 보이는 상태면 자동 갱신
                 try {
+                    // 도메인 설정도 최신 상태로 갱신 (캐시 무효화)
+                    const currentStoreId = await getCurrentStoreId();
+                    if (currentStoreId) {
+                        const domainCacheKey = `domain_settings_${currentStoreId}`;
+                        if (window.sessionCache) {
+                            window.sessionCache.clear(domainCacheKey);
+                        }
+                    }
                     await renderSetupGuide();
                 } catch (error) {
                     console.warn('설정 가이드 자동 갱신 실패:', error);
