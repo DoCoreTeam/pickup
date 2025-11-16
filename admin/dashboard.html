@@ -12688,20 +12688,73 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
         }
         
-        // 설정 상태 체크
+        // 설정 상태 체크 (안전한 타입 체크)
         function checkSetupStatus(store, settings, domainSettings) {
-            return {
-                subtitle: Boolean(store?.subtitle && store.subtitle.trim()),
-                phone: Boolean(store?.phone && store.phone.trim()),
-                address: Boolean(store?.address && store.address.trim()),
-                subdomain: Boolean(domainSettings?.subdomain && domainSettings.subdomain.trim()),
-                qrCode: Boolean(domainSettings?.qrCode?.url || domainSettings?.qrCode?.base64),
-                logo: Boolean(settings?.images?.mainLogo && settings.images.mainLogo.trim()),
-                menuImage: Boolean(settings?.images?.menuImage && settings.images.menuImage.trim()),
-                video: Boolean(settings?.images?.promoVideo && settings.images.promoVideo.trim()),
-                discount: Boolean(settings?.discount?.enabled && settings.discount.description && settings.discount.description.trim()),
-                pickup: Boolean(settings?.pickup?.enabled && settings.pickup.description && settings.pickup.description.trim())
-            };
+            try {
+                // 문자열 안전 체크 헬퍼
+                const hasString = (value) => {
+                    if (!value) return false;
+                    if (typeof value === 'string') return value.trim().length > 0;
+                    return false;
+                };
+                
+                // 이미지 안전 체크 헬퍼 (문자열 또는 객체)
+                const hasImage = (value) => {
+                    if (!value) return false;
+                    if (typeof value === 'string') return value.trim().length > 0;
+                    if (typeof value === 'object' && value.src) return hasString(value.src);
+                    return false;
+                };
+                
+                // 동영상 안전 체크 헬퍼 (객체 형태)
+                const hasVideo = (value) => {
+                    if (!value) return false;
+                    if (typeof value === 'object' && value.src) {
+                        return hasString(value.src);
+                    }
+                    if (typeof value === 'string') {
+                        return value.trim().length > 0;
+                    }
+                    return false;
+                };
+                
+                return {
+                    subtitle: hasString(store?.subtitle),
+                    phone: hasString(store?.phone),
+                    address: hasString(store?.address),
+                    subdomain: hasString(domainSettings?.subdomain),
+                    qrCode: Boolean(
+                        (domainSettings?.qrCode?.url && hasString(domainSettings.qrCode.url)) ||
+                        (domainSettings?.qrCode?.base64 && hasString(domainSettings.qrCode.base64))
+                    ),
+                    logo: hasImage(settings?.images?.mainLogo),
+                    menuImage: hasImage(settings?.images?.menuImage),
+                    video: hasVideo(settings?.images?.promoVideo),
+                    discount: Boolean(
+                        settings?.discount?.enabled && 
+                        hasString(settings.discount.description)
+                    ),
+                    pickup: Boolean(
+                        settings?.pickup?.enabled && 
+                        hasString(settings.pickup.description)
+                    )
+                };
+            } catch (error) {
+                console.error('설정 상태 체크 실패:', error);
+                // 에러 발생 시 모든 항목을 false로 반환 (안전한 기본값)
+                return {
+                    subtitle: false,
+                    phone: false,
+                    address: false,
+                    subdomain: false,
+                    qrCode: false,
+                    logo: false,
+                    menuImage: false,
+                    video: false,
+                    discount: false,
+                    pickup: false
+                };
+            }
         }
         
         // 진행률 계산
