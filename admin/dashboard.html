@@ -11173,6 +11173,35 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 return;
             }
 
+            // 설정 가이드 섹션
+            if (sectionId === 'setup-guide') {
+                if (!checkStoreSelected()) {
+                    showToast('가게를 먼저 선택해주세요.', 'error', '가게 선택 필요');
+                    return;
+                }
+                
+                // 모든 섹션 숨기기
+                const sections = document.querySelectorAll('.admin-section');
+                sections.forEach(section => {
+                    section.style.display = 'none';
+                });
+                
+                // 설정 가이드 섹션 표시
+                const setupGuideSection = document.getElementById('setup-guide');
+                if (setupGuideSection) {
+                    setupGuideSection.style.display = 'block';
+                }
+                
+                // 메뉴 활성화 제거 (설정 가이드는 메뉴가 아님)
+                const menuItems = document.querySelectorAll('.menu-item');
+                menuItems.forEach(item => item.classList.remove('active'));
+                
+                // 설정 가이드 렌더링
+                await renderSetupGuide();
+                
+                return;
+            }
+            
             // 슈퍼어드민 전용 섹션들 (가게 선택 불필요)
             if (sectionId === 'stores' || sectionId === 'domain-settings' || sectionId === 'domain-qr' || sectionId === 'accounts' || sectionId === 'db-stats' || sectionId === 'activity-logs' || sectionId === 'superadmin') {
                 // 권한 확인
@@ -12728,7 +12757,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         <p style="margin-bottom: 16px; color: #374151; font-size: 14px; line-height: 1.6;">
                             가게 페이지의 섹션 순서를 변경하여 고객이 원하는 정보를 먼저 볼 수 있도록 설정하세요.
                         </p>
-                        <button onclick="showSection('ui-order'); openSetupGuide();" class="setup-guide-item-action">
+                        <button onclick="showSection('ui-order')" class="setup-guide-item-action">
                             UI 순서 변경하러 가기
                         </button>
                     </div>
