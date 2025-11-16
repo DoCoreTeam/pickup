@@ -8895,10 +8895,11 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         // 배달앱 표시 순서 그리드 로드
         async function loadDeliveryOrderGrid() {
             try {
-                const currentStoreId = await getCurrentStoreId();
+                const currentStoreId = getCurrentStoreId(); // 동기 함수로 변경
                 if (!currentStoreId) return;
                 
-                const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
+                // 캐시에서 설정 가져오기 (이미 loadSettings에서 가져왔으므로)
+                const settings = window.currentSettings || {};
                 const deliveryOrder = settings.delivery?.deliveryOrder || ['ttaeng', 'baemin', 'coupang', 'yogiyo'];
                 
                 const appConfigs = {
@@ -8911,34 +8912,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 const gridContainer = document.getElementById('deliveryOrderGrid');
                 if (!gridContainer) return;
                 
-                // 로딩 상태 표시
-                gridContainer.innerHTML = '<div class="loading-spinner">로딩 중...</div>';
-                
-                // 아이콘 이미지들을 미리 로드
-                const iconPromises = deliveryOrder.map(appId => {
-                    const config = appConfigs[appId];
-                    if (!config) return Promise.resolve();
-                    
-                    return new Promise((resolve) => {
-                        const img = new Image();
-                        img.onload = () => resolve();
-                        img.onerror = () => resolve(); // 실패해도 계속 진행
-                        
-                        // 아이콘 파일 경로 설정
-                        const iconPath = `../../assets/images/icons/${
-                            appId === 'ttaeng' ? 'dgy.svg' :
-                            appId === 'baemin' ? 'bm.svg' :
-                            appId === 'coupang' ? 'cpeat.png' :
-                            'yogiyo.png'
-                        }`;
-                        img.src = iconPath;
-                    });
-                });
-                
-                // 모든 아이콘이 로드될 때까지 대기
-                await Promise.all(iconPromises);
-                
-                // 그리드 내용 생성
+                // 그리드 내용 즉시 생성 (이미지 로딩 대기하지 않음)
                 gridContainer.innerHTML = '';
                 
                 deliveryOrder.forEach((appId, index) => {
@@ -10562,31 +10536,42 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 // 배달앱 설정 섹션인 경우 배달앱 설정만 로드
                 if (sectionId === 'delivery') {
                     const loadedKey = `deliverySectionLoaded_${currentStoreId}`;
+                    const cacheKey = `settings_${currentStoreId}_delivery`;
+                    const cached = window.sessionCache?.get(cacheKey);
+                    
+                    // 캐시에 있으면 즉시 표시 (로딩바 없이)
+                    if (cached && window[loadedKey]) {
+                        console.log('✅ [캐시] 배달앱 설정 즉시 표시');
+                        window.currentSettings = { ...window.currentSettings, delivery: cached.delivery || {} };
+                        await loadDeliveryOrderGrid(); // 그리드만 업데이트
+                        return; // 즉시 반환
+                    }
+                    
+                    // 캐시에 없을 때만 API 호출
                     if (!window[loadedKey]) {
-                        // 로딩 모달 표시
-                        if (window.showGlobalLoading) {
-                            window.showGlobalLoading('default', true, '배달앱 설정을 불러오는 중...');
-                        }
-                        setTimeout(async () => {
-                            try {
-                                await loadSettings(['delivery']);
-                                await loadDeliveryOrderGrid();
-                                window[loadedKey] = true;
-                                // 로딩바는 모든 작업이 완료된 후 한 번만 숨김
-                                if (window.hideGlobalLoading) {
-                                    window.setLoadingBarType('success');
-                                    setTimeout(() => window.hideGlobalLoading(), 200);
-                                }
-                            } catch (error) {
-                                console.error('배달앱 설정 로드 실패:', error);
-                                showToast('배달앱 설정을 불러오는데 실패했습니다.', 'error');
-                                if (window.hideGlobalLoading) {
-                                    window.setLoadingBarType('error');
-                                    setTimeout(() => window.hideGlobalLoading(), 500);
-                                }
+                        try {
+                            // 로딩 모달 표시
+                            if (window.showGlobalLoading) {
+                                window.showGlobalLoading('default', true, '배달앱 설정을 불러오는 중...');
                             }
-                        }, 200);
+                            await loadSettings(['delivery']);
+                            await loadDeliveryOrderGrid();
+                            window[loadedKey] = true;
+                            // 로딩바는 모든 작업이 완료된 후 한 번만 숨김
+                            if (window.hideGlobalLoading) {
+                                window.setLoadingBarType('success');
+                                setTimeout(() => window.hideGlobalLoading(), 200);
+                            }
+                        } catch (error) {
+                            console.error('배달앱 설정 로드 실패:', error);
+                            showToast('배달앱 설정을 불러오는데 실패했습니다.', 'error');
+                            if (window.hideGlobalLoading) {
+                                window.setLoadingBarType('error');
+                                setTimeout(() => window.hideGlobalLoading(), 500);
+                            }
+                        }
                     } else {
+                        // 이미 로드된 경우 그리드만 업데이트
                         await loadDeliveryOrderGrid();
                     }
                     return;
@@ -11139,7 +11124,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         async function loadDomainSettings() {
             try {
                 updateCurrentDomain();
-                const currentStoreId = await getCurrentStoreId();
+                const currentStoreId = getCurrentStoreId(); // 동기 함수로 변경
                 if (!currentStoreId) {
                     document.getElementById('subdomain').value = '';
                     currentDomainQrInfo = { url: '', domainUrl: '' };
@@ -11149,6 +11134,26 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     return;
                 }
 
+                // 캐시 확인
+                const cacheKey = `domain_settings_${currentStoreId}`;
+                const cached = window.sessionCache?.get(cacheKey);
+                
+                if (cached) {
+                    console.log('✅ [캐시] 도메인 설정 즉시 표시');
+                    const domainSettings = cached;
+                    const subdomain = domainSettings.subdomain || '';
+                    document.getElementById('subdomain').value = subdomain;
+                    currentDomainQrInfo = {
+                        url: domainSettings.qrCode?.url || '',
+                        domainUrl: domainSettings.qrCode?.domainUrl || ''
+                    };
+                    updateDomainSummaryView(subdomain, currentDomainQrInfo);
+                    applyDomainSettingsPermissions(domainSettings);
+                    updateDomainQrSection(subdomain, currentDomainQrInfo);
+                    return; // 캐시에서 가져온 경우 즉시 반환
+                }
+
+                // 캐시에 없을 때만 API 호출
                 const response = await apiRequest(`${API_BASE}/store/${currentStoreId}/domain-settings`);
                 if (response && response.success && response.data) {
                     const domainSettings = response.data;
@@ -11161,6 +11166,11 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     updateDomainSummaryView(subdomain, currentDomainQrInfo);
                     applyDomainSettingsPermissions(domainSettings);
                     updateDomainQrSection(subdomain, currentDomainQrInfo);
+                    
+                    // 캐시에 저장
+                    if (window.sessionCache) {
+                        window.sessionCache.set(cacheKey, domainSettings);
+                    }
                 } else {
                     document.getElementById('subdomain').value = '';
                     currentDomainQrInfo = { url: '', domainUrl: '' };
