@@ -11899,8 +11899,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         };
 
         function generateDomainQR() {
-            if (!IS_SUPERADMIN) {
-                showToast('QR 생성은 슈퍼어드민만 가능합니다.', 'error', '권한 부족');
+            // 슈퍼어드민 또는 점주 계정만 QR 생성 가능
+            if (!IS_SUPERADMIN && !IS_STORE_OWNER) {
+                showToast('QR 생성 권한이 없습니다.', 'error', '권한 부족');
                 return;
             }
             if (domainPermissionState.qrLocked) {
