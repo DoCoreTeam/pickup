@@ -6354,14 +6354,25 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     if (window.sessionCache) {
                         cacheKeys.forEach(key => window.sessionCache.clear(key));
                     }
-                    // 백엔드 캐시도 무효화 (가게 정보 캐시)
-                    if (dbServices && typeof dbServices.clearCache === 'function') {
-                        // 백엔드 캐시는 API 호출로 무효화할 수 없으므로 프론트엔드에서만 처리
+                    
+                    // Incremental update: 승인된 점주와 연결된 가게만 업데이트
+                    const approvedStoreId = response.store?.id || owner.storeId;
+                    if (approvedStoreId) {
+                        setTimeout(async () => {
+                            try {
+                                await incrementalUpdateStoreList([approvedStoreId]);
+                            } catch (err) {
+                                console.error('가게 목록 incremental update 실패:', err);
+                                // 실패 시 전체 목록 다시 로드
+                                await loadStoreList();
+                            }
+                        }, 300); // 약간의 지연을 두어 DB 트랜잭션이 완료된 후 로드
+                    } else {
+                        // 가게 ID가 없으면 전체 목록 다시 로드
+                        setTimeout(() => {
+                            loadStoreList().catch(err => console.error('가게 목록 새로고침 실패:', err));
+                        }, 500);
                     }
-                    // 비동기로 로드 (UI 블로킹 방지)
-                    setTimeout(() => {
-                        loadStoreList().catch(err => console.error('가게 목록 새로고침 실패:', err));
-                    }, 500); // 약간의 지연을 두어 DB 트랜잭션이 완료된 후 로드
                 }
                 
                 // 점주 목록 즉시 업데이트
@@ -7664,7 +7675,12 @@ body:not(.owner-mode) .menu-section-title.owner-only {
 
                 // 통계 재계산 (항상 allStores 기준)
                 recalculateStoreStatsFrom(allStores);
-                document.getElementById('filteredStoresCount').textContent = storePagination.total;
+                
+                // 통계 숫자와 목록 숫자 동기화
+                const filteredCount = filteredStores.length;
+                const totalCount = allStores.length;
+                document.getElementById('filteredStoresCount').textContent = filteredCount;
+                document.getElementById('totalStoresCount').textContent = totalCount;
                 await renderStoreView();
                 updateStorePaginationControls();
                 
@@ -8110,7 +8126,112 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             addNewStore(storeName);
         }
 
-        // 새 가게 추가 (수정된 버전)
+        // Incremental update: 변경된 가게만 가져와서 목록에 추가/업데이트
+        async function incrementalUpdateStoreList(storeIds) {
+            try {
+                if (!storeIds || storeIds.length === 0) return;
+                
+                log('INFO', 'Incremental update 시작', { storeIds });
+                
+                // 변경된 가게만 조회 (배치 API 또는 개별 조회)
+                const updatedStores = [];
+                for (const storeId of storeIds) {
+                    try {
+                        const response = await apiRequest(`${API_BASE}/stores/${storeId}`);
+                        const store = response?.data || response;
+                        if (store) {
+                            updatedStores.push(store);
+                        }
+                    } catch (error) {
+                        console.warn(`가게 ${storeId} 조회 실패:`, error);
+                    }
+                }
+                
+                if (updatedStores.length === 0) return;
+                
+                // 목록에 추가/업데이트 (로컬에서만)
+                updatedStores.forEach(store => {
+                    const normalizedStore = normalizeStore(store);
+                    const existingIndex = allStores.findIndex(s => s.id === normalizedStore.id);
+                    
+                    if (existingIndex >= 0) {
+                        // 기존 가게 업데이트
+                        allStores[existingIndex] = normalizedStore;
+                        log('INFO', '가게 업데이트 (로컬)', { storeId: normalizedStore.id, name: normalizedStore.name });
+                    } else {
+                        // 새 가게 추가
+                        allStores.push(normalizedStore);
+                        log('INFO', '가게 추가 (로컬)', { storeId: normalizedStore.id, name: normalizedStore.name });
+                    }
+                });
+                
+                // 필터링된 목록 재계산 (현재 필터 조건 적용)
+                filteredStores = allStores.filter(store => {
+                    // 상태 필터
+                    if (storeQueryState.status && storeQueryState.status !== '') {
+                        const storeStatus = (store.status || '').toLowerCase();
+                        if (storeStatus !== storeQueryState.status.toLowerCase()) {
+                            return false;
+                        }
+                    }
+                    
+                    // 검색 키워드 필터
+                    if (storeQueryState.keyword) {
+                        const keyword = storeQueryState.keyword.toLowerCase();
+                        const name = (store.name || '').toLowerCase();
+                        const phone = (store.phone || '').toLowerCase();
+                        const address = (store.address || '').toLowerCase();
+                        if (!name.includes(keyword) && !phone.includes(keyword) && !address.includes(keyword)) {
+                            return false;
+                        }
+                    }
+                    
+                    // 점주 필터
+                    if (storeQueryState.ownerId === '__unassigned') {
+                        const owners = Array.isArray(store.owners) ? store.owners : [];
+                        if (owners.length > 0) {
+                            return false;
+                        }
+                    } else if (storeQueryState.ownerId && storeQueryState.ownerId !== '__unassigned') {
+                        const owners = Array.isArray(store.owners) ? store.owners : [];
+                        if (!owners.some(owner => owner.id === storeQueryState.ownerId)) {
+                            return false;
+                        }
+                    }
+                    
+                    // 생성일 필터
+                    if (storeQueryState.createdDate) {
+                        const filterDate = storeQueryState.createdDate === 'today' 
+                            ? new Date().toISOString().split('T')[0]
+                            : storeQueryState.createdDate;
+                        if (!store.createdAt) {
+                            return false;
+                        }
+                        const createdDate = new Date(store.createdAt).toISOString().split('T')[0];
+                        if (createdDate !== filterDate) {
+                            return false;
+                        }
+                    }
+                    
+                    return true;
+                });
+                
+                // 통계 재계산
+                recalculateStoreStatsFrom(allStores);
+                
+                // 화면 재렌더링 (전체 목록 다시 로드 없이)
+                await renderStoreView();
+                updateStorePaginationControls();
+                
+                log('INFO', 'Incremental update 완료', { updatedCount: updatedStores.length });
+            } catch (error) {
+                console.error('Incremental update 실패:', error);
+                // 실패 시 전체 목록 다시 로드
+                await loadStoreList();
+            }
+        }
+        
+        // 새 가게 추가 (Incremental update 적용)
         async function addNewStore(storeName) {
             try {
                 const newStore = {
@@ -8123,23 +8244,23 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 // 개별 가게 객체를 POST로 전송
                 const result = await apiRequest(`${API_BASE}/stores`, 'POST', newStore);
                 console.log('가게 추가 결과:', result);
-                console.log('result.store:', result.store);
-                console.log('result.store.id:', result.store?.id);
                 
                 // 새로 추가된 가게를 현재 선택된 가게로 설정
                 if (result && result.store && result.store.id) {
                     console.log('새 가게 자동 선택 시작:', result.store.id);
                     await selectStore(result.store.id);
                     console.log('새 가게 자동 선택 완료');
+                    
+                    // Incremental update: 새 가게만 가져와서 목록에 추가
+                    await incrementalUpdateStoreList([result.store.id]);
+                    
                     showToast(`"${storeName}" 가게가 추가되고 선택되었습니다!`, 'success', '성공');
                 } else {
                     console.log('새 가게 자동 선택 실패 - 응답 구조:', result);
                     showToast(`"${storeName}" 가게가 추가되었습니다!`, 'success', '성공');
+                    // 전체 목록 다시 로드
+                    await loadStoreList();
                 }
-                
-                // 전체 목록을 다시 가져와서 통계 재계산
-                window.shouldReloadAllStores = true;
-                await loadStoreList();
             } catch (error) {
                 console.error('가게 추가 실패:', error);
                 showToast('가게 추가에 실패했습니다.', 'error', '오류');

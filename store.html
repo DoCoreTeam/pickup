@@ -58,44 +58,6 @@
         min-height: 100vh;
       }
 
-      /* 전역 로딩 바 (상단 고정) */
-      .global-loading-bar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 3px;
-        z-index: 10000;
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%);
-        background-size: 200% 100%;
-        animation: loading-shimmer 1.5s ease-in-out infinite;
-        transform: translateY(-100%);
-        transition: transform 0.3s ease-out;
-        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
-      }
-
-      .global-loading-bar.active {
-        transform: translateY(0);
-      }
-
-      .global-loading-bar.error {
-        background: linear-gradient(90deg, #ef4444 0%, #dc2626 50%, #ef4444 100%);
-        background-size: 200% 100%;
-      }
-
-      .global-loading-bar.success {
-        background: linear-gradient(90deg, #10b981 0%, #059669 50%, #10b981 100%);
-        background-size: 200% 100%;
-      }
-
-      @keyframes loading-shimmer {
-        0% {
-          background-position: 200% 0;
-        }
-        100% {
-          background-position: -200% 0;
-        }
-      }
 
       /* 로딩 스피너 */
       .loading-overlay {
@@ -1035,8 +997,6 @@
     </style>
   </head>
   <body>
-    <!-- 전역 로딩 바 -->
-    <div id="globalLoadingBar" class="global-loading-bar"></div>
     <!-- 로딩 오버레이 (초기 데이터가 있으면 숨김) -->
     <div id="loadingOverlay" class="loading-overlay" style="display: none;">
       <div class="loading-content">
@@ -1112,70 +1072,7 @@
       }
 
       // 전역 로딩 바 관리자
-      (function() {
-        let loadingCount = 0;
-        let loadingBar = null;
-        let minDisplayTime = 300;
-        let hideTimer = null;
-
-        function initLoadingBar() {
-          loadingBar = document.getElementById('globalLoadingBar');
-        }
-
-        function showLoadingBar(type = 'default') {
-          if (!loadingBar) initLoadingBar();
-          if (!loadingBar) return;
-
-          loadingCount++;
-          if (hideTimer) {
-            clearTimeout(hideTimer);
-            hideTimer = null;
-          }
-
-          loadingBar.className = 'global-loading-bar active';
-          if (type === 'error') {
-            loadingBar.classList.add('error');
-          } else if (type === 'success') {
-            loadingBar.classList.add('success');
-          }
-        }
-
-        function hideLoadingBar(force = false) {
-          if (!loadingBar) initLoadingBar();
-          if (!loadingBar) return;
-
-          loadingCount = Math.max(0, loadingCount - 1);
-
-          if (loadingCount === 0) {
-            const hide = () => {
-              loadingBar.classList.remove('active', 'error', 'success');
-            };
-
-            if (force || minDisplayTime === 0) {
-              hide();
-            } else {
-              hideTimer = setTimeout(hide, minDisplayTime);
-            }
-          }
-        }
-
-        window.showGlobalLoading = showLoadingBar;
-        window.hideGlobalLoading = hideLoadingBar;
-        window.setLoadingBarType = function(type) {
-          if (!loadingBar) initLoadingBar();
-          if (!loadingBar) return;
-          loadingBar.classList.remove('error', 'success');
-          if (type === 'error' || type === 'success') {
-            loadingBar.classList.add(type);
-          }
-        };
-
-        if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', initLoadingBar);
-        } else {
-          initLoadingBar();
-        }
-      })();
+      // Global loading bar 제거됨 (중복 로딩 화면 제거)
 
       // 이미지 Lazy Loading 구현
       (function() {
