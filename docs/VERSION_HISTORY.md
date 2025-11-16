@@ -8,6 +8,28 @@
 
 ## 📋 버전 목록
 
+### v1.5.84-staging (2025-01-13) - 🐛 설정 가이드 실시간 현행화 개선
+**상태**: 🧪 스테이징 테스트 중
+**브랜치**: `staging`
+
+**주요 개선사항**:
+- 🐛 설정 가이드 실시간 현행화 문제 해결
+- 📝 renderSetupGuide에서 window.currentSettings 항상 업데이트
+- 💾 도메인 설정 캐시 활용으로 성능 개선
+- 🔄 refreshSetupGuideIfVisible에서 도메인 캐시 무효화
+
+**해결된 문제**:
+- ✅ 점주 계정으로 로그인 시 설정 가이드 현행화 안 되는 문제
+- ✅ 설정 저장 후 설정 가이드에 즉시 반영되지 않는 문제
+- ✅ 도메인 설정 변경 시 설정 가이드에 반영되지 않는 문제
+
+**기술적 변경**:
+- `renderSetupGuide()`: API에서 설정 로드 시 `window.currentSettings` 항상 업데이트
+- `renderSetupGuide()`: 도메인 설정 캐시 확인 및 활용
+- `refreshSetupGuideIfVisible()`: 도메인 설정 캐시 무효화 추가
+
+---
+
 ### v1.5.83-staging (2025-01-13) - 🧪 스테이징 환경 분리 및 테스트
 **상태**: 🧪 스테이징 테스트 중
 **브랜치**: `staging`
