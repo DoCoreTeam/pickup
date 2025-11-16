@@ -2842,10 +2842,23 @@ class APIRouter {
       const fileName = `domain-${storeId}-${Date.now()}.png`;
       const filePath = path.join(qrDir, fileName);
 
+      // QR 코드 파일 생성
       await QRCode.toFile(filePath, domainUrl, {
         width: 512,
         margin: 2
       });
+
+      // 파일이 실제로 생성되었는지 확인
+      if (!fs.existsSync(filePath)) {
+        throw new Error('QR 코드 파일 생성에 실패했습니다.');
+      }
+
+      // 파일 크기 확인 (빈 파일인지 체크)
+      const stats = fs.statSync(filePath);
+      if (stats.size === 0) {
+        fs.unlinkSync(filePath); // 빈 파일 삭제
+        throw new Error('QR 코드 파일이 비어있습니다.');
+      }
 
       const qrCodeUrl = `/qr/${fileName}`;
 
@@ -2860,6 +2873,7 @@ class APIRouter {
         sectionOrder: currentSettings.sectionOrder || [],
         qrCode: {
           url: qrCodeUrl,
+          filepath: filePath, // 파일 경로도 저장하여 나중에 확인 가능하도록
           domainUrl,
           subdomain: normalizedSubdomain,
           storeId,
@@ -2867,20 +2881,33 @@ class APIRouter {
         }
       };
 
-      await dbServices.updateStoreSettings(storeId, mergedSettings);
-      await dbServices.updateStoreSubdomain(storeId, {
-        subdomain: normalizedSubdomain,
-        status: 'locked'
-      });
-
-      if (store.subdomain !== normalizedSubdomain) {
-        await dbServices.updateStore(storeId, {
-          name: store.name,
-          subtitle: store.subtitle,
-          phone: store.phone,
-          address: store.address,
-          subdomain: normalizedSubdomain
+      try {
+        // DB 저장 시도
+        await dbServices.updateStoreSettings(storeId, mergedSettings);
+        await dbServices.updateStoreSubdomain(storeId, {
+          subdomain: normalizedSubdomain,
+          status: 'locked'
         });
+
+        if (store.subdomain !== normalizedSubdomain) {
+          await dbServices.updateStore(storeId, {
+            name: store.name,
+            subtitle: store.subtitle,
+            phone: store.phone,
+            address: store.address,
+            subdomain: normalizedSubdomain
+          });
+        }
+      } catch (dbError) {
+        // DB 저장 실패 시 생성된 파일 삭제 (롤백)
+        try {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        } catch (deleteError) {
+          log('WARN', 'QR 파일 삭제 실패', deleteError);
+        }
+        throw new Error(`DB 저장 실패: ${dbError.message}`);
       }
 
       await this.logActivity(
