@@ -316,22 +316,48 @@ async function transaction(callback) {
       await client.query('COMMIT');
       return result;
     } catch (error) {
-      // 롤백 시도
-      if (client && !client._ending) {
+      // 롤백 시도 (에러가 발생해도 롤백은 시도)
+      if (client) {
         try {
-          await client.query('ROLLBACK');
+          // 클라이언트가 살아있고 연결되어 있으면 롤백 시도
+          if (!client._ending && !client._connectionError) {
+            await client.query('ROLLBACK').catch(() => {
+              // 롤백 실패는 무시 (이미 연결이 끊어진 경우)
+            });
+          }
         } catch (rollbackError) {
-          console.error('[DB] 롤백 실패:', rollbackError.message);
+          // 롤백 실패는 무시 (연결이 끊어진 경우)
+          console.error('[DB] 롤백 실패 (무시됨):', rollbackError.message);
         }
       }
       
-      // 연결 관련 에러인 경우 재연결 시도
-      if ((error.code === 'ECONNRESET' || 
-           error.code === 'EPIPE' || 
-           error.message.includes('terminated') ||
-           error.message.includes('Connection')) && retries < maxRetries - 1) {
-        console.error(`[DB] 트랜잭션 실행 실패 (연결 에러, 재시도 ${retries + 1}/${maxRetries}):`, error.message);
+      // 연결 관련 에러 또는 프로토콜 파서 에러인 경우 재연결 시도
+      const isConnectionError = error.code === 'ECONNRESET' || 
+                                error.code === 'EPIPE' || 
+                                error.message?.includes('terminated') ||
+                                error.message?.includes('Connection') ||
+                                error.message?.includes('pg-protocol') ||
+                                error.message?.includes('Parser') ||
+                                error.severity === 'ERROR';
+      
+      if (isConnectionError && retries < maxRetries - 1) {
+        console.error(`[DB] 트랜잭션 실행 실패 (에러 코드: ${error.code}, 재시도 ${retries + 1}/${maxRetries}):`, error.message);
         retries++;
+        
+        // 클라이언트 정리 후 재연결
+        if (client) {
+          try {
+            client.removeAllListeners('error');
+            client.removeAllListeners('end');
+            if (!client._ending) {
+              await client.end().catch(() => {});
+            }
+          } catch (cleanupError) {
+            // 정리 실패는 무시
+          }
+          client = null;
+        }
+        
         await attemptReconnect();
         await new Promise(resolve => setTimeout(resolve, 1000));
         continue;
