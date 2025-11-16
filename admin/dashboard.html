@@ -6239,18 +6239,14 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             submitBtn.textContent = '승인 중...';
 
             try {
-                // 로딩 표시
-                if (window.showGlobalLoading) {
-                    window.showGlobalLoading('default', true, '점주 계정을 승인하는 중...');
-                }
-                
                 // 슈퍼어드민 권한 헤더 추가
                 const headers = {};
                 if (IS_SUPERADMIN) {
                     headers['X-Superadmin-Auth'] = 'true';
                 }
                 
-                const response = await apiRequest(`${API_BASE}/owners/${currentOwnerApprovalId}/approve`, 'POST', {}, 3, false, headers);
+                // 간단한 작업이므로 로딩바 없이 빠르게 처리
+                const response = await apiRequest(`${API_BASE}/owners/${currentOwnerApprovalId}/approve`, 'POST', {}, 1, false, headers);
                 const owner = ownerAccounts.find(item => item.id === currentOwnerApprovalId);
                 if (owner) {
                     owner.status = OWNER_STATUS.ACTIVE; // 상수 사용
@@ -6280,12 +6276,6 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 // 점주 목록 즉시 업데이트
                 await loadOwnerAccounts(OWNER_STATUS.ACTIVE);
-                
-                // 로딩 숨김
-                if (window.hideGlobalLoading) {
-                    window.setLoadingBarType('success');
-                    setTimeout(() => window.hideGlobalLoading(), 200);
-                }
 
                 const passwordSource = response.passwordSource || 'generated';
                 const tempPassword = response.tempPassword;

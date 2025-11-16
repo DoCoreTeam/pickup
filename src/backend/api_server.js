@@ -1517,44 +1517,15 @@ class APIRouter {
   async approveOwnerAccount(ownerId, req, res, parsedUrl) {
      try {
       // 중복 승인 방지: 이미 승인된 계정인지 확인
-      let existingOwner;
-      try {
-        existingOwner = await dbServices.getOwnerAccountDetail(ownerId);
-        if (existingOwner && existingOwner.status === 'active') {
-          sendErrorResponse(res, 400, '이미 승인된 계정입니다.');
-          return;
-        }
-      } catch (error) {
-        // 계정을 찾을 수 없으면 계속 진행
+      const existingOwner = await dbServices.getOwnerAccountDetail(ownerId);
+      if (existingOwner && existingOwner.status === 'active') {
+        sendErrorResponse(res, 400, '이미 승인된 계정입니다.');
+        return;
       }
       
       const body = await parseRequestBody(req);
       const { storeId: manualStoreId = null, password } = body || {};
-
-       // 연결 재시도 로직 포함하여 점주 정보 조회
-       let ownerDetail;
-       let retries = 0;
-       const maxRetries = 3;
-       
-       while (retries < maxRetries) {
-         try {
-           ownerDetail = await dbServices.getOwnerAccountDetail(ownerId);
-           break;
-         } catch (error) {
-           if ((error.code === 'ECONNRESET' || error.code === 'EPIPE' || error.message.includes('terminated')) && retries < maxRetries - 1) {
-             retries++;
-             console.log(`[점주 승인] 연결 에러, 재시도 ${retries}/${maxRetries}...`);
-             await new Promise(resolve => setTimeout(resolve, 1000));
-             continue;
-           }
-           throw error;
-         }
-       }
-       
-       if (!ownerDetail) {
-         sendErrorResponse(res, 404, '입점 요청 정보를 찾을 수 없습니다.');
-         return;
-       }
+      const ownerDetail = existingOwner;
 
       const manualPassword = typeof password === 'string' ? password.trim() : '';
       if (manualPassword && manualPassword.length < 8) {
@@ -1562,84 +1533,57 @@ class APIRouter {
         return;
       }
 
-       let resolvedStoreId = manualStoreId || ownerDetail.storeId || null;
-       let storeRecord = null;
+      // 가게 ID 결정: 수동 입력 > 기존 연결 > 요청 데이터로 찾기/생성
+      let resolvedStoreId = manualStoreId || ownerDetail.storeId || null;
 
       if (!resolvedStoreId) {
-         const requestData = ownerDetail.requestData || {};
-         const storeName = requestData.storeName || ownerDetail.ownerName || ownerDetail.email;
-         const storeAddress = requestData.storeAddress || '';
-         const storePhone = ownerDetail.phone || '';
-         
-         // 먼저 기존 가게 확인 (중복 생성 방지) - 정확한 SQL 쿼리로 찾기
-         if (storeName && storeAddress) {
-           try {
-             const matchedStore = await dbServices.findStoreByNameAndAddress(
-               storeName,
-               storeAddress,
-               storePhone || null
-             );
-             
-             if (matchedStore) {
-               console.log(`[점주 승인] 기존 가게 발견 및 연결: ${matchedStore.id} (${matchedStore.name})`);
-               storeRecord = await dbServices.getStoreById(matchedStore.id);
-               resolvedStoreId = matchedStore.id;
-             }
-           } catch (error) {
-             console.warn('[점주 승인] 기존 가게 확인 실패, 새로 생성 시도:', error.message);
-           }
-         }
-         
-         // 기존 가게가 없으면 새로 생성
-         if (!resolvedStoreId) {
-           retries = 0;
-           while (retries < maxRetries) {
-             try {
-               storeRecord = await dbServices.createStore({
-                 name: storeName,
-                 address: storeAddress,
-                 phone: storePhone,
-                 status: 'pending' // 점주 승인 전까지는 pending 상태
-               });
-               resolvedStoreId = storeRecord.id;
-               break;
-             } catch (error) {
-               // 중복 가게 에러: 이미 확인했지만 다시 확인
-               if (error.message && error.message.includes('동일한 가게가 이미 존재합니다')) {
-                 // 다시 한번 정확한 SQL 쿼리로 찾기 시도
-                 try {
-                   const matchedStore = await dbServices.findStoreByNameAndAddress(
-                     storeName,
-                     storeAddress,
-                     storePhone || null
-                   );
-                   
-                   if (matchedStore) {
-                     console.log(`[점주 승인] 중복 체크 후 기존 가게 연결: ${matchedStore.id}`);
-                     storeRecord = await dbServices.getStoreById(matchedStore.id);
-                     resolvedStoreId = matchedStore.id;
-                     break;
-                   }
-                 } catch (findError) {
-                   console.error('[점주 승인] 가게 찾기 실패:', findError);
-                 }
-                 
-                 // 가게를 찾지 못한 경우 에러 반환
-                 throw new Error(`동일한 가게가 존재하지만 연결할 수 없습니다: ${storeName}`);
-               }
-               
-               if ((error.code === 'ECONNRESET' || error.code === 'EPIPE' || error.message.includes('terminated')) && retries < maxRetries - 1) {
-                 retries++;
-                 console.log(`[점주 승인] 가게 생성 연결 에러, 재시도 ${retries}/${maxRetries}...`);
-                 await new Promise(resolve => setTimeout(resolve, 1000));
-                 continue;
-               }
-               throw error;
-             }
-           }
-         }
+        const requestData = ownerDetail.requestData || {};
+        const storeName = requestData.storeName || ownerDetail.ownerName || ownerDetail.email;
+        const storeAddress = requestData.storeAddress || '';
+        const storePhone = ownerDetail.phone || '';
+        
+        // 기존 가게 찾기 (한 번만)
+        if (storeName && storeAddress) {
+          const matchedStore = await dbServices.findStoreByNameAndAddress(
+            storeName,
+            storeAddress,
+            storePhone || null
+          );
+          
+          if (matchedStore) {
+            resolvedStoreId = matchedStore.id;
+          } else {
+            // 기존 가게가 없으면 새로 생성
+            try {
+              const newStore = await dbServices.createStore({
+                name: storeName,
+                address: storeAddress,
+                phone: storePhone,
+                status: 'pending'
+              });
+              resolvedStoreId = newStore.id;
+            } catch (error) {
+              // 중복 가게 에러: 다시 한번 찾기 시도
+              if (error.message && error.message.includes('동일한 가게가 이미 존재합니다')) {
+                const retryStore = await dbServices.findStoreByNameAndAddress(
+                  storeName,
+                  storeAddress,
+                  storePhone || null
+                );
+                if (retryStore) {
+                  resolvedStoreId = retryStore.id;
+                } else {
+                  throw new Error(`동일한 가게가 존재하지만 연결할 수 없습니다: ${storeName}`);
+                }
+              } else {
+                throw error;
+              }
+            }
+          }
+        }
       }
 
+      // 비밀번호 처리
       const storedHash = ownerDetail.passwordHash || '';
       const hashPattern = /^[0-9a-f]{64}$/i;
       let passwordSource = 'request';
@@ -1655,7 +1599,6 @@ class APIRouter {
           finalPasswordHash = storedHash;
           passwordSource = 'request';
         } else {
-          // 기존에 저장된 비밀번호가 해시가 아닐 경우 보안을 위해 해시 후 저장
           plainPasswordForNotice = storedHash;
           finalPasswordHash = dbServices.hashPassword(storedHash);
           passwordSource = 'request';
@@ -1671,46 +1614,19 @@ class APIRouter {
         return;
       }
 
-       // 승인 작업 (트랜잭션으로 처리됨)
-       retries = 0;
-       let updatedOwner;
-       while (retries < maxRetries) {
-         try {
-           updatedOwner = await dbServices.approveOwnerAccount(ownerId, {
-             storeId: resolvedStoreId,
-             passwordHash: finalPasswordHash
-           });
-           break;
-         } catch (error) {
-           if ((error.code === 'ECONNRESET' || error.code === 'EPIPE' || error.message.includes('terminated')) && retries < maxRetries - 1) {
-             retries++;
-             console.log(`[점주 승인] 승인 작업 연결 에러, 재시도 ${retries}/${maxRetries}...`);
-             await new Promise(resolve => setTimeout(resolve, 1000));
-             continue;
-           }
-           throw error;
-         }
-       }
+      // 승인 작업 (트랜잭션으로 처리됨) - 간단하고 빠르게
+      const updatedOwner = await dbServices.approveOwnerAccount(ownerId, {
+        storeId: resolvedStoreId,
+        passwordHash: finalPasswordHash
+      });
 
-       // 가게 정보 조회 (필요시)
-       if (!storeRecord && resolvedStoreId) {
-         retries = 0;
-         while (retries < maxRetries) {
-           try {
-             storeRecord = await dbServices.getStoreById(resolvedStoreId);
-             break;
-           } catch (error) {
-             if ((error.code === 'ECONNRESET' || error.code === 'EPIPE' || error.message.includes('terminated')) && retries < maxRetries - 1) {
-               retries++;
-               console.log(`[점주 승인] 가게 정보 조회 연결 에러, 재시도 ${retries}/${maxRetries}...`);
-               await new Promise(resolve => setTimeout(resolve, 1000));
-               continue;
-             }
-             storeRecord = null;
-             break;
-           }
-         }
-       }
+      // 가게 정보 조회 (트랜잭션 내에서 이미 조회됨, 필요시에만 추가 조회)
+      let storeRecord = null;
+      if (resolvedStoreId && updatedOwner.stores && updatedOwner.stores.length > 0) {
+        storeRecord = updatedOwner.stores[0];
+      } else if (resolvedStoreId) {
+        storeRecord = await dbServices.getStoreById(resolvedStoreId);
+      }
 
        const responseStore = storeRecord ? {
          id: storeRecord.id || resolvedStoreId,
