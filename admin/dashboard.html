@@ -4460,15 +4460,15 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 <div class="form-group">
                     <label for="promoVideo">동영상 삽입 (10초 이하)</label>
                     <div class="image-upload-area" id="promoVideoArea" ondrop="handleVideoDrop(event, 'promoVideo')" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
-                        <div class="drag-drop-text">
+                        <div class="drag-drop-text" id="promoVideoDragText" onclick="handlePromoVideoAreaClick(event)" style="cursor: pointer;">
                             <span>🎥</span>
                             <p>동영상을 드래그하여 놓거나 클릭하여 선택하세요</p>
                             <small style="color:#94a3b8;">mp4, webm, ogg 지원</small>
                             <small style="color:#dc2626; font-weight: 600;">10초 이하 영상만 업로드 가능합니다.</small>
                         </div>
-                        <video id="promoVideoPreview" class="current-video" style="display: none;" muted playsinline loop controls></video>
+                        <video id="promoVideoPreview" class="current-video" style="display: none;" muted playsinline loop controls onclick="event.stopPropagation();"></video>
                         <div id="promoVideoMeta" style="display:none; margin-top: 12px; font-size: 13px; color: #4b5563;"></div>
-                        <input type="file" id="promoVideo" class="file-input" accept="video/mp4,video/webm,video/ogg" onchange="handleVideoUpload('promoVideo', 'promoVideo')">
+                        <input type="file" id="promoVideo" class="file-input" accept="video/mp4,video/webm,video/ogg" onchange="handleVideoUpload('promoVideo', 'promoVideo')" style="display: none;">
                     </div>
                 </div>
             </div>
@@ -10080,6 +10080,59 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             const promoVideoInput = document.getElementById('promoVideo');
             if (promoVideoInput) {
                 promoVideoInput.click();
+            }
+        }
+
+        // 동영상 영역 클릭 처리: 비디오가 있으면 재생, 없으면 파일 선택
+        function handlePromoVideoAreaClick(event) {
+            const videoPreview = document.getElementById('promoVideoPreview');
+            if (videoPreview && videoPreview.style.display !== 'none' && videoPreview.src) {
+                // 비디오가 있으면 재생/일시정지 토글
+                if (videoPreview.paused) {
+                    videoPreview.play();
+                } else {
+                    videoPreview.pause();
+                }
+            } else {
+                // 비디오가 없으면 파일 선택 다이얼로그 열기
+                triggerPromoVideoUpload();
+            }
+        }
+
+        // 동영상 미리보기 업데이트 함수
+        function updateVideoPreview(videoType, videoInfo) {
+            if (!videoInfo || !videoInfo.src) {
+                const videoPreview = document.getElementById('promoVideoPreview');
+                const dragText = document.getElementById('promoVideoDragText');
+                const videoMeta = document.getElementById('promoVideoMeta');
+                if (videoPreview) {
+                    videoPreview.style.display = 'none';
+                    videoPreview.src = '';
+                }
+                if (dragText) {
+                    dragText.style.display = 'flex';
+                }
+                if (videoMeta) {
+                    videoMeta.style.display = 'none';
+                }
+                return;
+            }
+
+            const videoPreview = document.getElementById('promoVideoPreview');
+            const dragText = document.getElementById('promoVideoDragText');
+            const videoMeta = document.getElementById('promoVideoMeta');
+
+            if (videoPreview) {
+                videoPreview.src = videoInfo.src;
+                videoPreview.style.display = 'block';
+            }
+            if (dragText) {
+                dragText.style.display = 'none';
+            }
+            if (videoMeta) {
+                const sizeMB = (videoInfo.size / (1024 * 1024)).toFixed(1);
+                videoMeta.innerHTML = `파일명: ${videoInfo.filename || '동영상'} ㆍ 길이: ${videoInfo.duration || 0}초 ㆍ 크기: ${sizeMB} MB`;
+                videoMeta.style.display = 'block';
             }
         }
 

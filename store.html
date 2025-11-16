@@ -1494,15 +1494,14 @@
             const resolved = await resolveStoreIdentifier(subdomain);
             resolvedStoreId = resolved.storeId;
             store = resolved.store || null;
-            if (!store) {
+            if (!store && resolvedStoreId) {
               // 개별 가게 조회 API 사용 (데이터 전송량 절감)
               try {
-                store = await apiRequest(`${API_BASE}/stores/${resolvedStoreId}`);
+                const storeResponse = await apiRequest(`${API_BASE}/stores/${resolvedStoreId}`);
+                store = storeResponse?.data || storeResponse;
               } catch (error) {
-                log('WARN', '개별 가게 조회 실패, 목록에서 검색 시도', { storeId: resolvedStoreId });
-                const response = await apiRequest(`${API_BASE}/stores?page=1&pageSize=50`);
-                const stores = response?.data || response || [];
-                store = stores.find(s => s.id === resolvedStoreId);
+                log('WARN', '개별 가게 조회 실패', { storeId: resolvedStoreId, error: error.message });
+                throw error;
               }
             }
           } else {
@@ -1512,15 +1511,13 @@
             store = resolved.store || null;
             
             // 개별 가게 조회 API 사용 (데이터 전송량 절감)
-            try {
-              store = await apiRequest(`${API_BASE}/stores/${resolvedStoreId}`);
-            } catch (error) {
-              log('WARN', '개별 가게 조회 실패, 목록에서 검색 시도', { storeId: resolvedStoreId });
-              const response = await apiRequest(`${API_BASE}/stores?page=1&pageSize=50`);
-              const stores = response?.data || response || [];
-              store = stores.find(s => s.id === resolvedStoreId);
-              if (!store) {
-                throw new Error('가게 데이터가 없습니다');
+            if (!store && resolvedStoreId) {
+              try {
+                const storeResponse = await apiRequest(`${API_BASE}/stores/${resolvedStoreId}`);
+                store = storeResponse?.data || storeResponse;
+              } catch (error) {
+                log('WARN', '개별 가게 조회 실패', { storeId: resolvedStoreId, error: error.message });
+                throw error;
               }
             }
           }
@@ -1554,10 +1551,12 @@
           }
           const targetStoreId = resolved.storeId;
           log('INFO', '설정 로딩 시작', { storeId: targetStoreId });
-          const settingsData = await apiRequest(`${API_BASE}/settings?storeId=${targetStoreId}`);
+          
+          // 필요한 필드만 요청 (이미지, 기본 정보, 배달앱 설정만)
+          const settingsData = await apiRequest(`${API_BASE}/settings?storeId=${targetStoreId}&fields=images,basic,delivery,businessHours`);
           
           // API 응답이 직접 설정 데이터인 경우
-          if (settingsData && (settingsData.images || settingsData.pickupTitle)) {
+          if (settingsData && (settingsData.images || settingsData.basic)) {
             settings = settingsData;
             log('INFO', '설정 로딩 완료', settings);
             return settings;
