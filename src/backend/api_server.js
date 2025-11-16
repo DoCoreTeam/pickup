@@ -742,9 +742,43 @@ class APIRouter {
         handler = this.routes.get(routeKey);
       }
 
-      // /qr/ 경로로 접근하는 경우 정적 파일 서빙 (QR 코드 이미지)
+      // /qr/ 경로로 접근하는 경우 DB에서 Base64 데이터를 읽어서 이미지로 반환 (Railway 환경 대응)
       if (!handler && pathname.startsWith('/qr/')) {
-        const fileName = pathname.replace('/qr/', '');
+        const fileName = pathname.replace('/qr/', '').split('?')[0]; // 쿼리 파라미터 제거
+        
+        // 파일명에서 storeId 추출 (예: domain-store_xxx-timestamp.png)
+        const match = fileName.match(/^domain-(.+?)-(\d+)\.png$/);
+        if (match) {
+          const storeId = match[1];
+          
+          try {
+            // DB에서 QR 코드 정보 조회
+            const settings = await dbServices.getStoreSettings(storeId);
+            const qrCode = settings.qrCode || {};
+            
+            if (qrCode.base64) {
+              // Base64 데이터를 이미지로 반환
+              const base64Data = qrCode.base64.replace(/^data:image\/png;base64,/, '');
+              const imageBuffer = Buffer.from(base64Data, 'base64');
+              
+              setCorsHeaders(res);
+              res.setHeader('Content-Type', 'image/png');
+              res.setHeader('Content-Length', imageBuffer.length);
+              res.setHeader('Cache-Control', 'public, max-age=31536000'); // 1년 캐시
+              
+              res.writeHead(200);
+              res.end(imageBuffer);
+              
+              const responseTime = Date.now() - startTime;
+              logRequest(method, pathname, 200, responseTime);
+              return;
+            }
+          } catch (error) {
+            log('WARN', 'QR 코드 DB 조회 실패', { fileName, storeId, error: error.message });
+          }
+        }
+        
+        // 파일 시스템에서도 시도 (하위 호환성)
         const qrDir = path.join(__dirname, '../../qr');
         const filePath = path.join(qrDir, fileName);
         if (serveStaticFile(req, res, filePath)) {
@@ -752,6 +786,10 @@ class APIRouter {
           logRequest(method, pathname, 200, responseTime);
           return;
         }
+        
+        // 둘 다 실패하면 404
+        sendErrorResponse(res, 404, 'QR 코드를 찾을 수 없습니다.');
+        return;
       }
 
       if (handler) {
@@ -1452,15 +1490,19 @@ class APIRouter {
         
         const { settings } = storeData;
         
-        // QR 코드 파일 존재 여부 확인
+        // QR 코드 정보 확인 (Base64 우선, Railway 환경 대응)
         let qrCode = settings.qrCode || {
           url: '',
           filepath: '',
           createdAt: null,
         };
         
-        // QR 코드 URL이나 filepath가 있는 경우 파일 존재 여부 확인
-        if (qrCode.url || qrCode.filepath) {
+        // Base64 데이터가 있으면 그대로 사용 (Railway 환경에서 안전)
+        if (qrCode.base64 && qrCode.base64.startsWith('data:image/png;base64,')) {
+          // Base64 데이터가 있으면 그대로 사용
+          // URL은 유지하여 프론트엔드 호환성 유지
+        } else if (qrCode.url || qrCode.filepath) {
+          // Base64가 없고 파일 경로만 있는 경우 (구버전 호환)
           const qrDir = path.join(__dirname, '../../qr');
           let fileName = '';
           
@@ -2834,32 +2876,29 @@ class APIRouter {
         || `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host || `localhost:${PORT}`}`;
       const domainUrl = `${origin.replace(/\/+$/, '')}/${normalizedSubdomain}`;
 
-      const qrDir = path.join(__dirname, '../../qr');
-      if (!fs.existsSync(qrDir)) {
-        fs.mkdirSync(qrDir, { recursive: true });
+      // Railway 환경 대응: QR 코드를 Base64로 변환하여 DB에 저장
+      // 파일 시스템은 컨테이너 재시작 시 초기화되므로 DB에 저장하는 것이 안전함
+      const qrCodeBase64 = await QRCode.toDataURL(domainUrl, {
+        width: 512,
+        margin: 2,
+        type: 'image/png'
+      });
+
+      if (!qrCodeBase64 || !qrCodeBase64.startsWith('data:image/png;base64,')) {
+        throw new Error('QR 코드 생성에 실패했습니다.');
+      }
+
+      // Base64 데이터만 추출 (data:image/png;base64, 제거)
+      const base64Data = qrCodeBase64.replace(/^data:image\/png;base64,/, '');
+
+      // Base64 데이터 크기 확인 (약 200KB 제한)
+      const base64Size = base64Data.length;
+      const estimatedSize = (base64Size * 3) / 4; // Base64는 원본보다 약 33% 큼
+      if (estimatedSize > 200 * 1024) {
+        throw new Error('QR 코드 크기가 너무 큽니다.');
       }
 
       const fileName = `domain-${storeId}-${Date.now()}.png`;
-      const filePath = path.join(qrDir, fileName);
-
-      // QR 코드 파일 생성
-      await QRCode.toFile(filePath, domainUrl, {
-        width: 512,
-        margin: 2
-      });
-
-      // 파일이 실제로 생성되었는지 확인
-      if (!fs.existsSync(filePath)) {
-        throw new Error('QR 코드 파일 생성에 실패했습니다.');
-      }
-
-      // 파일 크기 확인 (빈 파일인지 체크)
-      const stats = fs.statSync(filePath);
-      if (stats.size === 0) {
-        fs.unlinkSync(filePath); // 빈 파일 삭제
-        throw new Error('QR 코드 파일이 비어있습니다.');
-      }
-
       const qrCodeUrl = `/qr/${fileName}`;
 
       const nowIso = new Date().toISOString();
@@ -2873,7 +2912,7 @@ class APIRouter {
         sectionOrder: currentSettings.sectionOrder || [],
         qrCode: {
           url: qrCodeUrl,
-          filepath: filePath, // 파일 경로도 저장하여 나중에 확인 가능하도록
+          base64: qrCodeBase64, // Base64 데이터 저장 (Railway 환경 대응)
           domainUrl,
           subdomain: normalizedSubdomain,
           storeId,
@@ -2881,33 +2920,21 @@ class APIRouter {
         }
       };
 
-      try {
-        // DB 저장 시도
-        await dbServices.updateStoreSettings(storeId, mergedSettings);
-        await dbServices.updateStoreSubdomain(storeId, {
-          subdomain: normalizedSubdomain,
-          status: 'locked'
-        });
+      // DB 저장
+      await dbServices.updateStoreSettings(storeId, mergedSettings);
+      await dbServices.updateStoreSubdomain(storeId, {
+        subdomain: normalizedSubdomain,
+        status: 'locked'
+      });
 
-        if (store.subdomain !== normalizedSubdomain) {
-          await dbServices.updateStore(storeId, {
-            name: store.name,
-            subtitle: store.subtitle,
-            phone: store.phone,
-            address: store.address,
-            subdomain: normalizedSubdomain
-          });
-        }
-      } catch (dbError) {
-        // DB 저장 실패 시 생성된 파일 삭제 (롤백)
-        try {
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-          }
-        } catch (deleteError) {
-          log('WARN', 'QR 파일 삭제 실패', deleteError);
-        }
-        throw new Error(`DB 저장 실패: ${dbError.message}`);
+      if (store.subdomain !== normalizedSubdomain) {
+        await dbServices.updateStore(storeId, {
+          name: store.name,
+          subtitle: store.subtitle,
+          phone: store.phone,
+          address: store.address,
+          subdomain: normalizedSubdomain
+        });
       }
 
       await this.logActivity(
