@@ -8181,9 +8181,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     // 검색 키워드 필터
                     if (storeQueryState.keyword) {
                         const keyword = storeQueryState.keyword.toLowerCase();
-                        const name = (store.name || '').toLowerCase();
-                        const phone = (store.phone || '').toLowerCase();
-                        const address = (store.address || '').toLowerCase();
+                        const name = (store.basic?.storeName || store.name || '').toLowerCase();
+                        const phone = (store.basic?.storePhone || store.phone || '').toLowerCase();
+                        const address = (store.basic?.storeAddress || store.address || '').toLowerCase();
                         if (!name.includes(keyword) && !phone.includes(keyword) && !address.includes(keyword)) {
                             return false;
                         }
