@@ -2879,6 +2879,31 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             text-align: center;
         }
 
+        .section-loading-progress {
+            width: 300px;
+            max-width: 90%;
+            height: 6px;
+            background: #e5e7eb;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .section-loading-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 3px;
+        }
+
+        .section-loading-percent {
+            font-size: 14px;
+            font-weight: 600;
+            color: #667eea;
+            margin-top: 8px;
+        }
+
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
@@ -3620,6 +3645,10 @@ body:not(.owner-mode) .menu-section-title.owner-only {
     <div id="sectionLoadingModal" class="section-loading-modal">
         <div class="section-loading-spinner"></div>
         <div class="section-loading-text" id="sectionLoadingText">데이터를 불러오는 중...</div>
+        <div class="section-loading-progress">
+            <div class="section-loading-progress-bar" id="sectionLoadingProgressBar"></div>
+        </div>
+        <div class="section-loading-percent" id="sectionLoadingPercent">0%</div>
     </div>
     
     <div class="admin-container">
@@ -5082,21 +5111,101 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             showToast(message, toastType);
         }
 
-        // 전역 로딩 바 관리자 (로딩 모달 포함)
+        // 세션 스토리지 캐싱 유틸리티
+        (function() {
+            const CACHE_PREFIX = 'pickup_cache_';
+            const CACHE_TTL = 5 * 60 * 1000; // 5분
+
+            window.sessionCache = {
+                set: function(key, data) {
+                    try {
+                        const cacheData = {
+                            data: data,
+                            timestamp: Date.now()
+                        };
+                        sessionStorage.setItem(CACHE_PREFIX + key, JSON.stringify(cacheData));
+                    } catch (error) {
+                        console.warn('세션 캐시 저장 실패:', error);
+                    }
+                },
+                get: function(key) {
+                    try {
+                        const cached = sessionStorage.getItem(CACHE_PREFIX + key);
+                        if (!cached) return null;
+                        
+                        const cacheData = JSON.parse(cached);
+                        const age = Date.now() - cacheData.timestamp;
+                        
+                        if (age > CACHE_TTL) {
+                            sessionStorage.removeItem(CACHE_PREFIX + key);
+                            return null;
+                        }
+                        
+                        return cacheData.data;
+                    } catch (error) {
+                        console.warn('세션 캐시 읽기 실패:', error);
+                        return null;
+                    }
+                },
+                clear: function(key) {
+                    try {
+                        if (key) {
+                            sessionStorage.removeItem(CACHE_PREFIX + key);
+                        } else {
+                            // 모든 캐시 삭제
+                            Object.keys(sessionStorage).forEach(k => {
+                                if (k.startsWith(CACHE_PREFIX)) {
+                                    sessionStorage.removeItem(k);
+                                }
+                            });
+                        }
+                    } catch (error) {
+                        console.warn('세션 캐시 삭제 실패:', error);
+                    }
+                }
+            };
+        })();
+
+        // 전역 로딩 바 관리자 (로딩 모달 포함, 진행률 표시)
         (function() {
             let loadingCount = 0;
             let loadingBar = null;
             let sectionLoadingModal = null;
             let sectionLoadingText = null;
+            let sectionLoadingProgressBar = null;
+            let sectionLoadingPercent = null;
             let minDisplayTime = 300; // 최소 표시 시간 (ms)
             let hideTimer = null;
+            let progressTimer = null;
+            let currentProgress = 0;
 
             function initLoadingBar() {
                 loadingBar = document.getElementById('globalLoadingBar');
                 sectionLoadingModal = document.getElementById('sectionLoadingModal');
                 sectionLoadingText = document.getElementById('sectionLoadingText');
+                sectionLoadingProgressBar = document.getElementById('sectionLoadingProgressBar');
+                sectionLoadingPercent = document.getElementById('sectionLoadingPercent');
                 if (!loadingBar) {
                     console.warn('전역 로딩 바 요소를 찾을 수 없습니다.');
+                }
+            }
+
+            function updateProgress(percent) {
+                currentProgress = Math.min(100, Math.max(0, percent));
+                if (sectionLoadingProgressBar) {
+                    sectionLoadingProgressBar.style.width = currentProgress + '%';
+                }
+                if (sectionLoadingPercent) {
+                    sectionLoadingPercent.textContent = Math.round(currentProgress) + '%';
+                }
+            }
+
+            function simulateProgress() {
+                // 진행률 시뮬레이션 (최대 90%까지)
+                if (currentProgress < 90) {
+                    const increment = Math.random() * 5 + 2; // 2-7%씩 증가
+                    updateProgress(currentProgress + increment);
+                    progressTimer = setTimeout(simulateProgress, 200);
                 }
             }
 
@@ -5125,7 +5234,15 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     if (sectionLoadingText) {
                         sectionLoadingText.textContent = modalText;
                     }
+                    // 진행률 초기화
+                    currentProgress = 0;
+                    updateProgress(0);
                     sectionLoadingModal.classList.add('active');
+                    // 진행률 시뮬레이션 시작
+                    if (progressTimer) {
+                        clearTimeout(progressTimer);
+                    }
+                    simulateProgress();
                 }
             }
 
@@ -5136,12 +5253,23 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 loadingCount = Math.max(0, loadingCount - 1);
 
                 if (loadingCount === 0) {
+                    // 진행률 시뮬레이션 중지
+                    if (progressTimer) {
+                        clearTimeout(progressTimer);
+                        progressTimer = null;
+                    }
+                    // 진행률을 100%로 설정
+                    updateProgress(100);
+                    
                     const hide = () => {
                         loadingBar.classList.remove('active', 'error', 'success');
                         // 섹션 로딩 모달도 숨김
                         if (sectionLoadingModal) {
                             sectionLoadingModal.classList.remove('active');
                         }
+                        // 진행률 초기화
+                        currentProgress = 0;
+                        updateProgress(0);
                     };
 
                     if (force || minDisplayTime === 0) {
@@ -5166,6 +5294,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 if (type === 'error' || type === 'success') {
                     loadingBar.classList.add(type);
                 }
+            };
+            window.setLoadingProgress = function(percent) {
+                updateProgress(percent);
             };
 
             // 초기화
@@ -7912,7 +8043,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 return '알 수 없는 가게';
             }
         }
-        // 설정 로드 (필드 선택적 로딩 지원)
+        // 설정 로드 (필드 선택적 로딩 지원, 세션 캐싱)
         async function loadSettings(fields = null) {
             try {
                 const currentStoreId = getCurrentStoreId();
@@ -7921,6 +8052,17 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 if (!currentStoreId) {
                     showStatus('가게를 먼저 선택해주세요.', 'error');
                     return;
+                }
+
+                // 캐시 키 생성
+                const cacheKey = `settings_${currentStoreId}_${fields ? fields.join(',') : 'all'}`;
+                
+                // 세션 캐시에서 확인
+                const cached = window.sessionCache?.get(cacheKey);
+                if (cached) {
+                    console.log('✅ [캐시] 세션 캐시에서 설정 로드:', cacheKey);
+                    window.currentSettings = cached;
+                    return cached;
                 }
                 
                 // fields 파라미터가 있으면 해당 필드만 요청
@@ -7934,6 +8076,12 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 // 전역 설정 저장
                 window.currentSettings = settings;
+                
+                // 세션 캐시에 저장
+                if (window.sessionCache) {
+                    window.sessionCache.set(cacheKey, settings);
+                    console.log('✅ [캐시] 세션 캐시에 설정 저장:', cacheKey);
+                }
                 
                 // 기본 정보
                 const storeNameEl = document.getElementById('storeName');
@@ -12491,54 +12639,42 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             initializeDashboardControls();
             populateOwnerAccountSection();
             
+            // 초기 로드 최소화: 홈 페이지만 표시하고 나머지는 필요할 때만 로드
             try {
+                // 가게 목록만 로드 (최소한의 데이터)
                 await loadStoreList();
-                // 초기 로드 시에는 설정을 로드하지 않음 (섹션 클릭 시에만 로드)
+                
+                // 슈퍼어드민인 경우에만 최소한의 정보 로드
                 if (IS_SUPERADMIN && allStores.length === 0) {
                     initializeSidebarStoreInfo();
                     showNoStoreGuide();
                 }
-                if (IS_SUPERADMIN) {
-                    await loadSuperAdminInfo();
-                    await loadActivityLogs();
-                    await loadOwnerAccounts(ownerStatusFilter);
-                }
                 
-                // 현재 선택된 가게의 사용자 정보 로드
-                const currentStoreId = await getCurrentStoreId();
+                // 현재 선택된 가게 ID만 복원 (데이터는 로드하지 않음)
+                const currentStoreId = getCurrentStoreId();
                 if (currentStoreId) {
-                    // window.currentStoreId 설정
                     window.currentStoreId = currentStoreId;
                     console.log('✅ [DEBUG] window.currentStoreId 복원:', currentStoreId);
-                    
-                    console.log('🔄 [DEBUG] 페이지 로드 시 사용자 정보 로딩 시작');
-                    await loadUserInfo(currentStoreId);
-                    console.log('✅ [DEBUG] 페이지 로드 시 사용자 정보 로딩 완료');
-                    
-                    await updateSelectedStoreCard(currentStoreId);
-                    
-                    // 현재 선택된 가게의 시각적 표시 업데이트
-                    console.log('🎨 [DEBUG] 페이지 로드 시 선택된 가게 시각적 표시 업데이트');
+                    // 시각적 표시만 업데이트 (데이터 로드는 하지 않음)
                     updateSelectedStoreVisual(currentStoreId);
                 } else {
-                    // 가게가 선택되지 않은 경우 사이드바 초기화
                     initializeSidebarStoreInfo();
-                    
-                    // 모든 테이블 행 초기화
-                    console.log('🎨 [DEBUG] 선택된 가게가 없으므로 모든 행 초기화');
                     updateSelectedStoreVisual(null);
                 }
                 
-                // 배달앱 URL 입력 필드 이벤트 리스너 추가
+                // 이벤트 리스너만 설정 (데이터 로드 없음)
                 setupDeliveryUrlEventListeners();
-                
-                // 전화번호 자동 포맷팅 설정
                 setupPhoneFormatting();
                 
-                // URL 해시에서 섹션 복원 (새로고침 시 현재 섹션 유지)
-                const hash = window.location.hash.substring(1); // '#' 제거
-                const sectionToShow = hash || (IS_STORE_OWNER ? 'dashboard' : 'stores');
-                showSection(sectionToShow);
+                // URL 해시가 있으면 해당 섹션으로 이동 (데이터는 showSection에서 로드)
+                const hash = window.location.hash.substring(1);
+                if (hash && hash !== 'home') {
+                    // 해시가 있으면 해당 섹션으로 이동 (데이터 로드 포함)
+                    showSection(hash);
+                } else {
+                    // 해시가 없으면 홈 페이지 유지 (데이터 로드 없음)
+                    // 이미 홈 페이지가 표시되어 있음
+                }
             } catch (error) {
                 console.error('초기화 오류:', error);
                 showStatus('페이지 초기화에 실패했습니다.', 'error');
