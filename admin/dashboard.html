@@ -12145,17 +12145,42 @@ body:not(.owner-mode) .menu-section-title.owner-only {
 
                 if (response && response.success) {
                     // QR 생성 성공 후 캐시 무효화 (최신 데이터 반영)
-                    const currentStoreId = await getCurrentStoreId();
                     if (currentStoreId) {
                         const cacheKey = `domain_settings_${currentStoreId}`;
                         if (window.sessionCache) {
                             window.sessionCache.clear(cacheKey);
                         }
+                        // 백엔드 캐시도 무효화
+                        if (window.dbServices && window.dbServices.clearCache) {
+                            window.dbServices.clearCache('storeSettings', currentStoreId);
+                        }
+                    }
+                    
+                    // QR 정보 즉시 업데이트 (응답에서 직접 가져오기)
+                    const qrData = response.data?.qrCode || response.qrCode || {};
+                    if (qrData && qrData.url) {
+                        currentDomainQrInfo = {
+                            url: qrData.url || '',
+                            domainUrl: qrData.domainUrl || ''
+                        };
+                        // 즉시 UI 업데이트
+                        updateDomainSummaryView(subdomainValue, currentDomainQrInfo);
+                        updateDomainQrSection(subdomainValue, currentDomainQrInfo);
+                        
+                        // 캐시에 저장
+                        if (window.sessionCache && currentStoreId) {
+                            const cacheKey = `domain_settings_${currentStoreId}`;
+                            window.sessionCache.set(cacheKey, {
+                                subdomain: subdomainValue,
+                                qrCode: currentDomainQrInfo
+                            });
+                        }
+                    } else {
+                        // 응답에 QR 정보가 없으면 도메인 설정 다시 로드
+                        await loadDomainSettings();
                     }
                     
                     showToast('QR 코드가 생성되었습니다!', 'success', '생성 완료');
-                    // 도메인 설정 다시 로드하여 QR 코드 표시
-                    await loadDomainSettings();
                 } else {
                     throw new Error(response?.message || 'QR 코드 생성 실패');
                 }
