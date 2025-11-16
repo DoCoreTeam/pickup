@@ -788,6 +788,248 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             margin-bottom: 12px;
         }
         
+        /* 설정 가이드 스타일 */
+        .setup-guide-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        
+        .setup-guide-step {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border: 2px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+        
+        .setup-guide-step.completed {
+            border-color: #10b981;
+            background: #f0fdf4;
+        }
+        
+        .setup-guide-step.active {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+        
+        .setup-guide-step-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        
+        .setup-guide-step-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #1f2937;
+        }
+        
+        .setup-guide-step-number {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #3b82f6;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+        }
+        
+        .setup-guide-step.completed .setup-guide-step-number {
+            background: #10b981;
+        }
+        
+        .setup-guide-step-status {
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        .setup-guide-step-status.required {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+        
+        .setup-guide-step-status.optional {
+            background: #f0f9ff;
+            color: #0284c7;
+        }
+        
+        .setup-guide-step-status.completed {
+            background: #f0fdf4;
+            color: #16a34a;
+        }
+        
+        .setup-guide-step-content {
+            margin-bottom: 16px;
+        }
+        
+        .setup-guide-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            background: white;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .setup-guide-item.completed {
+            background: #f0fdf4;
+            border-color: #10b981;
+        }
+        
+        .setup-guide-item-checkbox {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 2px solid #d1d5db;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .setup-guide-item.completed .setup-guide-item-checkbox {
+            background: #10b981;
+            border-color: #10b981;
+            color: white;
+        }
+        
+        .setup-guide-item-label {
+            flex: 1;
+            font-size: 14px;
+            color: #374151;
+        }
+        
+        .setup-guide-item-label strong {
+            color: #1f2937;
+            font-weight: 600;
+        }
+        
+        .setup-guide-item-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .setup-guide-item-badge.required {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .setup-guide-item-badge.optional {
+            background: #dbeafe;
+            color: #0284c7;
+        }
+        
+        .setup-guide-item-action {
+            padding: 6px 12px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .setup-guide-item-action:hover {
+            background: #2563eb;
+        }
+        
+        .setup-guide-example {
+            margin-top: 8px;
+            padding: 12px;
+            background: #f9fafb;
+            border-radius: 6px;
+            border-left: 3px solid #3b82f6;
+            font-size: 13px;
+            color: #6b7280;
+        }
+        
+        .setup-guide-example strong {
+            color: #1f2937;
+        }
+        
+        .setup-guide-step-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+        
+        .setup-guide-preview {
+            margin-top: 16px;
+            padding: 16px;
+            background: #f9fafb;
+            border-radius: 8px;
+            border: 1px dashed #d1d5db;
+        }
+        
+        .setup-guide-preview iframe {
+            width: 100%;
+            height: 600px;
+            border: none;
+            border-radius: 8px;
+        }
+        
+        .setup-guide-progress {
+            margin-bottom: 24px;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        
+        .setup-guide-progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 999px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+        
+        .setup-guide-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #10b981);
+            transition: width 0.3s ease;
+        }
+        
+        .setup-guide-progress-text {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .setup-guide-progress-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .setup-guide-progress-percent {
+            font-size: 14px;
+            font-weight: 600;
+            color: #3b82f6;
+        }
+
         .version-badge {
             display: inline-block;
             background: rgba(255,255,255,0.1);
@@ -3943,7 +4185,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge">v1.5.75</div>
+                    <div class="version-badge">v1.5.76</div>
                 </div>
                 <a href="/admin/release-notes" class="release-notes-btn">
                     릴리즈 노트
@@ -3963,6 +4205,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     <a href="/admin/bulk-management" id="bulkManagementBtn" class="btn btn-primary" style="display: none; margin-right: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;">
                         대량 가게 관리
                     </a>
+                    <button onclick="openSetupGuide()" class="btn btn-primary" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border: none; margin-right: 10px;">
+                        📋 설정 가이드
+                    </button>
                     <a href="javascript:void(0)" onclick="openMainPage()" class="btn btn-primary">페이지 보기</a>
                     <button onclick="openLogoutModal()" class="btn btn-secondary">로그아웃</button>
                 </div>
@@ -4006,6 +4251,22 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     <div class="home-stores-list" id="homeStoresList">
                         <div class="home-loading">가게 목록을 불러오는 중...</div>
                     </div>
+                </div>
+            </div>
+
+            <!-- 설정 가이드 섹션 -->
+            <div class="admin-section" id="setup-guide" style="display:none;">
+                <h2 class="section-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                        <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                    설정 가이드
+                </h2>
+                <p class="section-description">필수 및 선택 설정을 단계별로 완료하여 가게 페이지를 쉽게 설정하세요.</p>
+                
+                <div class="setup-guide-container" id="setupGuideContainer">
+                    <!-- 단계별 가이드가 동적으로 생성됩니다 -->
                 </div>
             </div>
 
@@ -12311,6 +12572,242 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         window.generateDomainQRFromSection = function generateDomainQRFromSection() {
             generateDomainQR();
         };
+
+        // 설정 가이드 열기
+        async function openSetupGuide() {
+            const currentStoreId = await getCurrentStoreId();
+            if (!currentStoreId) {
+                showToast('가게를 먼저 선택해주세요.', 'error', '가게 선택 필요');
+                return;
+            }
+            
+            showSection('setup-guide');
+            await renderSetupGuide();
+        }
+        
+        // 설정 가이드 렌더링
+        async function renderSetupGuide() {
+            const container = document.getElementById('setupGuideContainer');
+            if (!container) return;
+            
+            const currentStoreId = await getCurrentStoreId();
+            if (!currentStoreId) return;
+            
+            try {
+                // 가게 정보 및 설정 로드
+                const [storeResponse, settingsResponse, domainResponse] = await Promise.all([
+                    apiRequest(`${API_BASE}/stores/${currentStoreId}`),
+                    apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`),
+                    apiRequest(`${API_BASE}/store/${currentStoreId}/domain-settings`).catch(() => ({ data: {} }))
+                ]);
+                
+                const store = normalizeStoreDetailResponse(storeResponse, currentStoreId);
+                const settings = settingsResponse?.data || settingsResponse || {};
+                const domainSettings = domainResponse?.data || domainResponse || {};
+                
+                // 각 항목 완료 상태 체크
+                const checkStatus = checkSetupStatus(store, settings, domainSettings);
+                
+                // 진행률 계산
+                const progress = calculateSetupProgress(checkStatus);
+                
+                // 가이드 렌더링
+                container.innerHTML = `
+                    <div class="setup-guide-progress">
+                        <div class="setup-guide-progress-text">
+                            <span class="setup-guide-progress-label">설정 완료도</span>
+                            <span class="setup-guide-progress-percent">${progress}%</span>
+                        </div>
+                        <div class="setup-guide-progress-bar">
+                            <div class="setup-guide-progress-fill" style="width: ${progress}%"></div>
+                        </div>
+                    </div>
+                    
+                    ${renderSetupStep(1, '기본 정보', [
+                        { label: '하단 텍스트', key: 'subtitle', required: false },
+                        { label: '전화번호', key: 'phone', required: true },
+                        { label: '주소', key: 'address', required: true },
+                        { label: '도메인', key: 'subdomain', required: true, hasExample: true },
+                        { label: 'QR 생성', key: 'qrCode', required: true }
+                    ], checkStatus, store, settings, domainSettings, 'basic')}
+                    
+                    ${renderSetupStep(2, '이미지/동영상', [
+                        { label: '로고', key: 'logo', required: true },
+                        { label: '메뉴 이미지', key: 'menuImage', required: true },
+                        { label: '동영상', key: 'video', required: false }
+                    ], checkStatus, store, settings, domainSettings, 'images')}
+                    
+                    ${renderSetupStep(3, '추가 설정', [
+                        { label: '할인 이벤트', key: 'discount', required: false },
+                        { label: '픽업 안내', key: 'pickup', required: false }
+                    ], checkStatus, store, settings, domainSettings, 'discount')}
+                    
+                    ${renderSetupStep(4, '가게 페이지 미리보기', [], checkStatus, store, settings, domainSettings, 'preview')}
+                    
+                    ${renderSetupStep(5, 'UI 순서 변경', [], checkStatus, store, settings, domainSettings, 'ui-order')}
+                `;
+                
+                // 미리보기 iframe 설정
+                const previewIframe = container.querySelector('#setupGuidePreview');
+                if (previewIframe && store.subdomain) {
+                    const origin = window.location.origin;
+                    previewIframe.src = `${origin}/${store.subdomain}`;
+                }
+            } catch (error) {
+                console.error('설정 가이드 렌더링 실패:', error);
+                container.innerHTML = '<div style="padding: 24px; text-align: center; color: #ef4444;">설정 가이드를 불러오는데 실패했습니다.</div>';
+            }
+        }
+        
+        // 설정 상태 체크
+        function checkSetupStatus(store, settings, domainSettings) {
+            return {
+                subtitle: Boolean(store?.subtitle && store.subtitle.trim()),
+                phone: Boolean(store?.phone && store.phone.trim()),
+                address: Boolean(store?.address && store.address.trim()),
+                subdomain: Boolean(domainSettings?.subdomain && domainSettings.subdomain.trim()),
+                qrCode: Boolean(domainSettings?.qrCode?.url || domainSettings?.qrCode?.base64),
+                logo: Boolean(settings?.images?.mainLogo && settings.images.mainLogo.trim()),
+                menuImage: Boolean(settings?.images?.menuImage && settings.images.menuImage.trim()),
+                video: Boolean(settings?.images?.promoVideo && settings.images.promoVideo.trim()),
+                discount: Boolean(settings?.discount?.enabled && settings.discount.description && settings.discount.description.trim()),
+                pickup: Boolean(settings?.pickup?.enabled && settings.pickup.description && settings.pickup.description.trim())
+            };
+        }
+        
+        // 진행률 계산
+        function calculateSetupProgress(checkStatus) {
+            const required = ['phone', 'address', 'subdomain', 'qrCode', 'logo', 'menuImage'];
+            const optional = ['subtitle', 'video', 'discount', 'pickup'];
+            
+            const requiredCompleted = required.filter(key => checkStatus[key]).length;
+            const optionalCompleted = optional.filter(key => checkStatus[key]).length;
+            
+            // 필수 항목 70%, 선택 항목 30%
+            const requiredProgress = (requiredCompleted / required.length) * 70;
+            const optionalProgress = (optionalCompleted / optional.length) * 30;
+            
+            return Math.round(requiredProgress + optionalProgress);
+        }
+        
+        // 설정 단계 렌더링
+        function renderSetupStep(stepNumber, title, items, checkStatus, store, settings, domainSettings, sectionId) {
+            const isCompleted = items.length === 0 || items.every(item => {
+                if (item.required) {
+                    return checkStatus[item.key];
+                }
+                return true; // 선택 항목은 완료 체크에 포함하지 않음
+            });
+            
+            const isActive = stepNumber === 1 || (stepNumber > 1 && renderSetupStep.previousCompleted !== false);
+            renderSetupStep.previousCompleted = isCompleted;
+            
+            let contentHtml = '';
+            
+            // 4단계: 가게 페이지 미리보기
+            if (stepNumber === 4) {
+                contentHtml = `
+                    <div class="setup-guide-preview">
+                        <p style="margin-bottom: 12px; color: #6b7280; font-size: 14px;">
+                            가게 페이지를 미리보고, 설정이 제대로 반영되었는지 확인하세요.
+                        </p>
+                        ${store?.subdomain ? `
+                            <iframe id="setupGuidePreview" src="" style="width: 100%; height: 600px; border: none; border-radius: 8px; background: white;"></iframe>
+                        ` : `
+                            <div style="padding: 40px; text-align: center; color: #94a3b8;">
+                                도메인을 먼저 설정해야 미리보기를 사용할 수 있습니다.
+                            </div>
+                        `}
+                    </div>
+                `;
+            }
+            // 5단계: UI 순서 변경
+            else if (stepNumber === 5) {
+                contentHtml = `
+                    <div style="padding: 20px; background: #f9fafb; border-radius: 8px; border: 1px dashed #d1d5db;">
+                        <p style="margin-bottom: 16px; color: #374151; font-size: 14px; line-height: 1.6;">
+                            가게 페이지의 섹션 순서를 변경하여 고객이 원하는 정보를 먼저 볼 수 있도록 설정하세요.
+                        </p>
+                        <button onclick="showSection('ui-order'); openSetupGuide();" class="setup-guide-item-action">
+                            UI 순서 변경하러 가기
+                        </button>
+                    </div>
+                `;
+            }
+            // 일반 단계
+            else {
+                contentHtml = items.map(item => {
+                    const isItemCompleted = checkStatus[item.key];
+                    const badgeClass = item.required ? 'required' : 'optional';
+                    const badgeText = item.required ? '필수' : '선택';
+                    
+                    let actionHtml = '';
+                    if (!isItemCompleted) {
+                        actionHtml = `<a href="javascript:void(0)" onclick="navigateToSetupItem('${sectionId}', '${item.key}')" class="setup-guide-item-action">설정하러 가기</a>`;
+                    }
+                    
+                    let exampleHtml = '';
+                    if (item.hasExample && item.key === 'subdomain') {
+                        exampleHtml = `
+                            <div class="setup-guide-example">
+                                <strong>예시:</strong> 예를 들어 "my-store"를 입력하면 
+                                <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${window.location.origin}/my-store</code>
+                                주소로 가게 페이지가 제공됩니다.
+                            </div>
+                        `;
+                    }
+                    
+                    return `
+                        <div class="setup-guide-item ${isItemCompleted ? 'completed' : ''}">
+                            <div class="setup-guide-item-checkbox">
+                                ${isItemCompleted ? '✓' : ''}
+                            </div>
+                            <div class="setup-guide-item-label">
+                                <strong>${item.label}</strong>
+                            </div>
+                            <span class="setup-guide-item-badge ${badgeClass}">${badgeText}</span>
+                            ${actionHtml}
+                            ${exampleHtml}
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            return `
+                <div class="setup-guide-step ${isCompleted ? 'completed' : ''} ${isActive ? 'active' : ''}">
+                    <div class="setup-guide-step-header">
+                        <div class="setup-guide-step-title">
+                            <div class="setup-guide-step-number">${stepNumber}</div>
+                            <span>${title}</span>
+                        </div>
+                        <span class="setup-guide-step-status ${isCompleted ? 'completed' : (items.some(i => i.required) ? 'required' : 'optional')}">
+                            ${isCompleted ? '완료' : (items.some(i => i.required) ? '필수 설정' : '선택 설정')}
+                        </span>
+                    </div>
+                    <div class="setup-guide-step-content">
+                        ${contentHtml}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 설정 항목으로 이동
+        async function navigateToSetupItem(sectionId, itemKey) {
+            // 해당 섹션으로 이동
+            await showSection(sectionId);
+            
+            // 특정 항목으로 스크롤 (필요시)
+            setTimeout(() => {
+                const element = document.getElementById(itemKey) || document.querySelector(`[data-item="${itemKey}"]`);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    element.focus();
+                }
+            }, 300);
+        }
+        
+        // 이전 완료 상태 추적을 위한 변수
+        renderSetupStep.previousCompleted = true;
 
         window.downloadDomainQR = async function downloadDomainQR() {
             try {
