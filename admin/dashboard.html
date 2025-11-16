@@ -4232,7 +4232,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge">v1.5.80</div>
+                    <div class="version-badge">v1.5.81</div>
                 </div>
                 <a href="/admin/release-notes" class="release-notes-btn">
                     릴리즈 노트
@@ -11254,6 +11254,47 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             
             sidebar.classList.toggle('active');
             overlay.classList.toggle('active');
+        }
+
+        // 모든 섹션 숨기기 헬퍼 함수 (슈퍼어드민 전용 섹션 포함, 재사용)
+        function hideAllSections(exceptSectionId = null) {
+            // 1단계: 모든 admin-section 섹션 숨기기
+            const allSections = document.querySelectorAll('.admin-section');
+            allSections.forEach(section => {
+                if (!exceptSectionId || section.id !== exceptSectionId) {
+                    section.style.display = 'none';
+                    section.setAttribute('style', 'display: none !important;');
+                }
+            });
+            
+            // 2단계: 슈퍼어드민 전용 섹션들도 명시적으로 숨김 (ID 목록으로 안전장치)
+            const superadminOnlySectionIds = ['accounts', 'db-stats', 'activity-logs', 'superadmin'];
+            superadminOnlySectionIds.forEach(id => {
+                if (id !== exceptSectionId) {
+                    const section = document.getElementById(id);
+                    if (section) {
+                        section.style.display = 'none';
+                        section.setAttribute('style', 'display: none !important;');
+                    }
+                }
+            });
+            
+            // 3단계: .superadmin-only 클래스를 가진 모든 요소도 숨김
+            const superadminSections = document.querySelectorAll('.superadmin-only');
+            superadminSections.forEach(section => {
+                if (!exceptSectionId || !section.id || section.id !== exceptSectionId) {
+                    section.style.display = 'none';
+                    section.setAttribute('style', 'display: none !important;');
+                }
+            });
+        }
+        
+        // 특정 섹션 표시 헬퍼 함수
+        function showSectionOnly(sectionId) {
+            const targetSection = document.getElementById(sectionId);
+            if (targetSection) {
+                targetSection.setAttribute('style', 'display: block !important;');
+            }
         }
 
         // 섹션 표시
