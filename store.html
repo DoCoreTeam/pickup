@@ -1552,8 +1552,8 @@
           const targetStoreId = resolved.storeId;
           log('INFO', '설정 로딩 시작', { storeId: targetStoreId });
           
-          // 필요한 필드만 요청 (이미지, 기본 정보, 배달앱 설정만)
-          const settingsData = await apiRequest(`${API_BASE}/settings?storeId=${targetStoreId}&fields=images,basic,delivery,businessHours`);
+          // 필요한 필드만 요청 (할인, 픽업, 섹션 순서 포함)
+          const settingsData = await apiRequest(`${API_BASE}/settings?storeId=${targetStoreId}&fields=images,basic,delivery,discount,pickup,businessHours,sectionOrder`);
           
           // API 응답이 직접 설정 데이터인 경우
           if (settingsData && (settingsData.images || settingsData.basic)) {
