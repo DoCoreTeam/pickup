@@ -270,12 +270,17 @@ async function query(text, params = []) {
       const result = await client.query(text, params);
       return result;
     } catch (error) {
-      // 연결 관련 에러인 경우 재연결 시도
-      if (error.code === 'ECONNRESET' || 
-          error.code === 'EPIPE' || 
-          error.message.includes('terminated') ||
-          error.message.includes('Connection')) {
-        console.error(`❌ 쿼리 실행 실패 (연결 에러, 재시도 ${retries + 1}/${maxRetries}):`, error.message);
+      // 연결 관련 에러 또는 프로토콜 파서 에러인 경우 재연결 시도
+      const isConnectionError = error.code === 'ECONNRESET' || 
+                                error.code === 'EPIPE' || 
+                                error.message?.includes('terminated') ||
+                                error.message?.includes('Connection') ||
+                                error.message?.includes('pg-protocol') ||
+                                error.message?.includes('Parser') ||
+                                error.severity === 'ERROR';
+      
+      if (isConnectionError) {
+        console.error(`❌ 쿼리 실행 실패 (에러 코드: ${error.code}, 재시도 ${retries + 1}/${maxRetries}):`, error.message);
         retries++;
         
         if (retries < maxRetries) {
