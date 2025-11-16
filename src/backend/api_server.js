@@ -983,11 +983,16 @@ class APIRouter {
           ? storesResult
           : [];
       
-      // 설정은 필요한 경우에만 개별 조회하도록 변경 (전체 조회 제거)
+      // 병렬 처리로 최적화 (Promise.all 사용)
+      const [superadmin, currentStoreId] = await Promise.all([
+        dbServices.getSuperAdmin(),
+        dbServices.getCurrentStoreId()
+      ]);
+      
       const data = {
-        superadmin: await dbServices.getSuperAdmin(),
+        superadmin,
         stores,
-        currentStoreId: await dbServices.getCurrentStoreId(),
+        currentStoreId,
         settings: {}, // 설정은 개별 API로 조회하도록 변경
         deliveryOrders: {},
         images: {}

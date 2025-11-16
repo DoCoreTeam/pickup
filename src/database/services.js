@@ -732,17 +732,47 @@ async function getStores(options = {}) {
   };
 }
 
-// 특정 가게 조회
+// 특정 가게 조회 (최적화: JOIN으로 owners 한번에 조회, 캐싱 적용)
 async function getStoreById(storeId) {
+  // 캐시 확인
+  const cacheKey = getCacheKey('store', storeId);
+  const cached = getCached(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  
   const result = await db.query(`
     SELECT 
       s.id, s.name, s.subtitle, s.phone, s.address, s.status, s.subdomain,
       s.subdomain_status, s.subdomain_created_at, s.subdomain_last_modified,
       s."order", s.created_at, s.last_modified, s.paused_at,
-      ss.delivery
+      ss.delivery,
+      COALESCE(
+        json_agg(
+          json_build_object(
+            'id', o.id,
+            'ownerName', o.owner_name,
+            'email', o.email,
+            'phone', o.phone,
+            'status', o.status,
+            'approvedAt', o.approved_at,
+            'lastLogin', o.last_login,
+            'role', COALESCE(sol.role, 'manager'),
+            'isPrimary', CASE WHEN o.store_id = sol.store_id THEN TRUE ELSE FALSE END,
+            'linkedAt', sol.created_at
+          )
+          ORDER BY o.owner_name ASC NULLS LAST, o.email ASC
+        ) FILTER (WHERE o.id IS NOT NULL),
+        '[]'::json
+      ) AS owners
     FROM stores s
     LEFT JOIN store_settings ss ON s.id = ss.store_id
+    LEFT JOIN store_owner_links sol ON sol.store_id = s.id
+    LEFT JOIN store_owners o ON sol.owner_id = o.id
     WHERE s.id = $1
+    GROUP BY s.id, s.name, s.subtitle, s.phone, s.address, s.status, s.subdomain,
+             s.subdomain_status, s.subdomain_created_at, s.subdomain_last_modified,
+             s."order", s.created_at, s.last_modified, s.paused_at, ss.delivery
   `, [storeId]);
   
   if (result.rows.length === 0) {
@@ -750,7 +780,7 @@ async function getStoreById(storeId) {
   }
   
   const row = result.rows[0];
-  const owners = await getOwnersByStore(row.id);
+  const owners = row.owners || [];
   return {
     id: row.id,
     name: row.name, // 기존 호환성을 위해 추가
@@ -3146,6 +3176,8 @@ module.exports = {
   approveStore,
   rejectStore,
   getStoresForExport,
+  getStoresByIds,
+  clearCache, // 캐시 관리 함수 export
   bulkUpdateStoreStatus,
   bulkDeleteStores,
   getReleaseNotes,
