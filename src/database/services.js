@@ -1908,6 +1908,10 @@ async function recordOwnerLogin(ownerId) {
 
 // 가게 설정 업데이트
 async function updateStoreSettings(storeId, settings) {
+  // 캐시 무효화 (최신 데이터 반영)
+  clearCache(`store:${storeId}`);
+  clearCache(`storeSettings:${storeId}`);
+  
   try {
     await ensureStoreSettingsColumns();
     console.log(`가게 설정 업데이트 시도: ${storeId}`, settings);

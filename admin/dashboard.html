@@ -10172,10 +10172,26 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     
                     await apiRequest(`${API_BASE}/store/${currentStoreId}/settings`, 'POST', settings);
                     
+                    // 캐시 무효화 (최신 데이터 반영)
+                    const cacheKey = `settings_${currentStoreId}`;
+                    if (window.sessionCache) {
+                        window.sessionCache.clear(cacheKey);
+                    }
+                    // 백엔드 캐시도 무효화
+                    if (window.dbServices && window.dbServices.clearCache) {
+                        window.dbServices.clearCache('storeSettings', currentStoreId);
+                    }
+                    
+                    // 현재 설정 업데이트 (즉시 반영)
+                    if (window.currentSettings) {
+                        window.currentSettings.images = window.currentSettings.images || {};
+                        window.currentSettings.images[imageType] = imageData;
+                    }
+                    
                     // 이미지 미리보기 업데이트
                     updateImagePreview(imageType, imageData);
                     
-                    showStatus(`${imageType === 'mainLogo' ? '로고' : '메뉴판'} 이미지가 업로드되어 저장되었습니다!`, 'success');
+                    showToast(`${imageType === 'mainLogo' ? '로고' : '메뉴판'} 이미지가 업로드되어 저장되었습니다!`, 'success', '저장 완료');
                 } catch (error) {
                     console.error('이미지 저장 오류:', error);
                     showStatus('이미지 저장에 실패했습니다.', 'error');
