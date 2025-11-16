@@ -8151,17 +8151,21 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 // 목록에 추가/업데이트 (로컬에서만)
                 updatedStores.forEach(store => {
-                    const normalizedStore = normalizeStore(store);
+                    // 단일 가게 객체를 배열로 변환하여 정규화
+                    const normalizedStores = normalizeStoreListResponse(Array.isArray(store) ? store : [store]);
+                    if (normalizedStores.length === 0) return;
+                    
+                    const normalizedStore = normalizedStores[0];
                     const existingIndex = allStores.findIndex(s => s.id === normalizedStore.id);
                     
                     if (existingIndex >= 0) {
                         // 기존 가게 업데이트
                         allStores[existingIndex] = normalizedStore;
-                        log('INFO', '가게 업데이트 (로컬)', { storeId: normalizedStore.id, name: normalizedStore.name });
+                        log('INFO', '가게 업데이트 (로컬)', { storeId: normalizedStore.id, name: normalizedStore.name || store.name });
                     } else {
                         // 새 가게 추가
                         allStores.push(normalizedStore);
-                        log('INFO', '가게 추가 (로컬)', { storeId: normalizedStore.id, name: normalizedStore.name });
+                        log('INFO', '가게 추가 (로컬)', { storeId: normalizedStore.id, name: normalizedStore.name || store.name });
                     }
                 });
                 
@@ -8218,6 +8222,12 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 // 통계 재계산
                 recalculateStoreStatsFrom(allStores);
+                
+                // 통계 숫자와 목록 숫자 동기화
+                const filteredCount = filteredStores.length;
+                const totalCount = allStores.length;
+                document.getElementById('filteredStoresCount').textContent = filteredCount;
+                document.getElementById('totalStoresCount').textContent = totalCount;
                 
                 // 화면 재렌더링 (전체 목록 다시 로드 없이)
                 await renderStoreView();
