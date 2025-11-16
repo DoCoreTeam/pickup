@@ -10121,7 +10121,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     sectionOrder: sectionOrder
                 };
                 
-                await apiRequest(`${API_BASE}/store/${currentStoreId}/settings`, 'POST', settings);
+                await apiRequest(`${API_BASE}/store/${currentStoreId}/settings`, 'POST', updatedSettings);
                 
                 // 캐시 무효화 (최신 데이터 반영)
                 const cacheKey = `settings_${currentStoreId}`;
