@@ -2839,6 +2839,50 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
         }
 
+        /* 섹션 로딩 모달 (큰 로딩 인디케이터) */
+        .section-loading-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 20px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .section-loading-modal.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .section-loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #e5e7eb;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .section-loading-text {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2937;
+            text-align: center;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
         /* 홈 페이지 스타일 */
         .home-welcome {
             text-align: center;
@@ -3571,6 +3615,12 @@ body:not(.owner-mode) .menu-section-title.owner-only {
     <div id="globalLoadingBar" class="global-loading-bar"></div>
     <!-- 프로그레스 바 (최상단 고정) -->
     <div id="progressBar" style="position: fixed; top: 0; left: 0; width: 0%; height: 3px; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); z-index: 99999; transition: width 0.3s ease, opacity 0.3s ease; opacity: 0;"></div>
+    
+    <!-- 섹션 로딩 모달 -->
+    <div id="sectionLoadingModal" class="section-loading-modal">
+        <div class="section-loading-spinner"></div>
+        <div class="section-loading-text" id="sectionLoadingText">데이터를 불러오는 중...</div>
+    </div>
     
     <div class="admin-container">
         <!-- 토스트 알림 컨테이너 -->
@@ -5032,21 +5082,25 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             showToast(message, toastType);
         }
 
-        // 전역 로딩 바 관리자
+        // 전역 로딩 바 관리자 (로딩 모달 포함)
         (function() {
             let loadingCount = 0;
             let loadingBar = null;
+            let sectionLoadingModal = null;
+            let sectionLoadingText = null;
             let minDisplayTime = 300; // 최소 표시 시간 (ms)
             let hideTimer = null;
 
             function initLoadingBar() {
                 loadingBar = document.getElementById('globalLoadingBar');
+                sectionLoadingModal = document.getElementById('sectionLoadingModal');
+                sectionLoadingText = document.getElementById('sectionLoadingText');
                 if (!loadingBar) {
                     console.warn('전역 로딩 바 요소를 찾을 수 없습니다.');
                 }
             }
 
-            function showLoadingBar(type = 'default') {
+            function showLoadingBar(type = 'default', showModal = false, modalText = '데이터를 불러오는 중...') {
                 if (!loadingBar) initLoadingBar();
                 if (!loadingBar) return;
 
@@ -5065,6 +5119,14 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 } else if (type === 'success') {
                     loadingBar.classList.add('success');
                 }
+
+                // 섹션 로딩 모달 표시 (큰 로딩 인디케이터)
+                if (showModal && sectionLoadingModal) {
+                    if (sectionLoadingText) {
+                        sectionLoadingText.textContent = modalText;
+                    }
+                    sectionLoadingModal.classList.add('active');
+                }
             }
 
             function hideLoadingBar(force = false) {
@@ -5076,6 +5138,10 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 if (loadingCount === 0) {
                     const hide = () => {
                         loadingBar.classList.remove('active', 'error', 'success');
+                        // 섹션 로딩 모달도 숨김
+                        if (sectionLoadingModal) {
+                            sectionLoadingModal.classList.remove('active');
+                        }
                     };
 
                     if (force || minDisplayTime === 0) {
@@ -5087,8 +5153,10 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 }
             }
 
-            // 전역 함수로 노출
-            window.showGlobalLoading = showLoadingBar;
+            // 전역 함수로 노출 (모달 표시 옵션 추가)
+            window.showGlobalLoading = function(type = 'default', showModal = true, modalText = '데이터를 불러오는 중...') {
+                showLoadingBar(type, showModal, modalText);
+            };
             window.hideGlobalLoading = hideLoadingBar;
             window.setLoadingBarType = function(type) {
                 if (!loadingBar) initLoadingBar();
@@ -7847,7 +7915,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         // 설정 로드 (필드 선택적 로딩 지원)
         async function loadSettings(fields = null) {
             try {
-                const currentStoreId = await getCurrentStoreId();
+                const currentStoreId = getCurrentStoreId();
                 console.log('🔍 [DEBUG] loadSettings - currentStoreId:', currentStoreId);
                 
                 if (!currentStoreId) {
@@ -10025,9 +10093,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 if (domainQrSection) {
                     domainQrSection.style.display = 'block';
                 }
-                // 도메인 설정 로드 (로딩바 표시)
+                // 도메인 설정 로드 (로딩 모달 표시)
                 if (window.showGlobalLoading) {
-                    window.showGlobalLoading();
+                    window.showGlobalLoading('default', true, '도메인 설정을 불러오는 중...');
                 }
                 try {
                     await loadDomainSettings();
@@ -10060,6 +10128,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 return;
             }
             
+            // ===== UI 즉시 전환 (메뉴 클릭 시 즉시 반응) =====
             // 모든 섹션 숨기기
             const sections = document.querySelectorAll('.admin-section');
             sections.forEach(section => {
@@ -10071,124 +10140,93 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 }
             });
             
-            // 선택된 섹션 표시
+            // 선택된 섹션 표시 (즉시)
             const selectedSection = document.getElementById(sectionId);
             if (selectedSection) {
                 selectedSection.style.display = 'block';
             }
             
-            // 활동 로그 섹션인 경우 로그 다시 로드
-            if (sectionId === 'activity-logs') {
-                loadActivityLogs();
+            // 메뉴 활성화 (즉시)
+            const menuItems = document.querySelectorAll('.menu-item');
+            menuItems.forEach(item => item.classList.remove('active'));
+            const clickedItem = document.querySelector(`[onclick="showSection('${sectionId}')"]`);
+            if (clickedItem) {
+                clickedItem.classList.add('active');
             }
             
-            // 내 계정 섹션인 경우 계정 정보 로드
-            if (sectionId === 'owner-account') {
-                populateOwnerAccountSection();
-            }
-            
-            if (sectionId === 'dashboard') {
-                if (IS_SUPERADMIN) {
-                    updateDashboardScopeUI();
-                    
-                    // 대시보드 섹션에서만 통계용 전체 가게 목록 로드
-                    if (window.shouldReloadAllStores || !allStores || allStores.length === 0) {
-                        try {
-                            const allStoresQuery = new URLSearchParams({
-                                page: '1',
-                                pageSize: '10000', // 통계 계산용 전체 목록
-                                sortBy: 'createdAt',
-                                sortOrder: 'desc'
-                            });
-                            const allStoresResponse = await apiRequest(`${API_BASE}/stores?${allStoresQuery.toString()}`);
-                            allStores = normalizeStoreListResponse(allStoresResponse);
-                            window.shouldReloadAllStores = false;
-                            console.log('✅ [통계] 대시보드용 전체 가게 목록 로드 완료:', allStores.length);
-                        } catch (error) {
-                            console.warn('⚠️ [통계] 전체 가게 목록 조회 실패:', error);
-                        }
-                    }
-                }
-                await loadDashboardSummary();
-            }
-
-            // 섹션별 데이터 지연 로딩 (필요한 데이터만 로드)
+            // ===== 데이터 로드 (UI 전환 후 비동기로 실행) =====
             const currentStoreId = getCurrentStoreId();
             
-            // 기본 정보 섹션인 경우 기본 정보와 영업시간만 로드
-            if (sectionId === 'basic' || sectionId === 'basic-info') {
-                const loadedKey = `basicSectionLoaded_${currentStoreId}`;
-                if (!window[loadedKey]) {
-                    try {
-                        // 로딩바 표시
-                        if (window.showGlobalLoading) {
-                            window.showGlobalLoading();
-                        }
-                        await loadSettings(['basic', 'businessHours']);
-                        displayBusinessHours();
-                        window[loadedKey] = true;
-                        // 로딩바 숨김
-                        if (window.hideGlobalLoading) {
-                            window.setLoadingBarType('success');
-                            setTimeout(() => window.hideGlobalLoading(), 200);
-                        }
-                    } catch (error) {
-                        console.error('기본 정보 로드 실패:', error);
-                        showToast('기본 정보를 불러오는데 실패했습니다.', 'error');
-                        // 에러 시 로딩바 숨김
-                        if (window.hideGlobalLoading) {
-                            window.setLoadingBarType('error');
-                            setTimeout(() => window.hideGlobalLoading(), 500);
+            // 섹션별 데이터 로드 (비동기, 로딩 모달 표시)
+            const loadSectionData = async () => {
+                // 활동 로그 섹션인 경우 로그 다시 로드
+                if (sectionId === 'activity-logs') {
+                    loadActivityLogs();
+                    return;
+                }
+                
+                // 내 계정 섹션인 경우 계정 정보 로드
+                if (sectionId === 'owner-account') {
+                    populateOwnerAccountSection();
+                    return;
+                }
+                
+                if (sectionId === 'dashboard') {
+                    if (IS_SUPERADMIN) {
+                        updateDashboardScopeUI();
+                        
+                        // 대시보드 섹션에서만 통계용 전체 가게 목록 로드
+                        if (window.shouldReloadAllStores || !allStores || allStores.length === 0) {
+                            try {
+                                if (window.showGlobalLoading) {
+                                    window.showGlobalLoading('default', true, '통계 데이터를 불러오는 중...');
+                                }
+                                const allStoresQuery = new URLSearchParams({
+                                    page: '1',
+                                    pageSize: '10000', // 통계 계산용 전체 목록
+                                    sortBy: 'createdAt',
+                                    sortOrder: 'desc'
+                                });
+                                const allStoresResponse = await apiRequest(`${API_BASE}/stores?${allStoresQuery.toString()}`);
+                                allStores = normalizeStoreListResponse(allStoresResponse);
+                                window.shouldReloadAllStores = false;
+                                console.log('✅ [통계] 대시보드용 전체 가게 목록 로드 완료:', allStores.length);
+                            } catch (error) {
+                                console.warn('⚠️ [통계] 전체 가게 목록 조회 실패:', error);
+                            }
                         }
                     }
-                } else {
-                    displayBusinessHours();
-                }
-            }
-            
-            // UI 순서 변경 섹션인 경우 섹션 순서만 로드
-            if (sectionId === 'section-order') {
-                const loadedKey = `sectionOrderLoaded_${currentStoreId}`;
-                if (!window[loadedKey]) {
-                    try {
-                        // 로딩바 표시
-                        if (window.showGlobalLoading) {
-                            window.showGlobalLoading();
-                        }
-                        await loadSettings(['sectionOrder']);
-                        loadSectionOrder();
-                        window[loadedKey] = true;
-                        // 로딩바 숨김
-                        if (window.hideGlobalLoading) {
-                            window.setLoadingBarType('success');
-                            setTimeout(() => window.hideGlobalLoading(), 200);
-                        }
-                    } catch (error) {
-                        console.error('섹션 순서 로드 실패:', error);
-                        showToast('섹션 순서를 불러오는데 실패했습니다.', 'error');
-                        // 에러 시 로딩바 숨김
-                        if (window.hideGlobalLoading) {
-                            window.setLoadingBarType('error');
-                            setTimeout(() => window.hideGlobalLoading(), 500);
-                        }
-                    }
-                } else {
-                    loadSectionOrder();
-                }
-            }
-            
-            // 배달앱 설정 섹션인 경우 배달앱 설정만 로드
-            if (sectionId === 'delivery') {
-                const loadedKey = `deliverySectionLoaded_${currentStoreId}`;
-                if (!window[loadedKey]) {
-                    // 로딩바 표시
                     if (window.showGlobalLoading) {
-                        window.showGlobalLoading();
+                        window.showGlobalLoading('default', true, '대시보드 데이터를 불러오는 중...');
                     }
-                    setTimeout(async () => {
+                    try {
+                        await loadDashboardSummary();
+                        if (window.hideGlobalLoading) {
+                            window.setLoadingBarType('success');
+                            setTimeout(() => window.hideGlobalLoading(), 200);
+                        }
+                    } catch (error) {
+                        console.error('대시보드 로드 실패:', error);
+                        if (window.hideGlobalLoading) {
+                            window.setLoadingBarType('error');
+                            setTimeout(() => window.hideGlobalLoading(), 500);
+                        }
+                    }
+                    return;
+                }
+                
+                // 기본 정보 섹션인 경우 기본 정보와 영업시간만 로드
+                if (sectionId === 'basic' || sectionId === 'basic-info') {
+                    const loadedKey = `basicSectionLoaded_${currentStoreId}`;
+                    if (!window[loadedKey]) {
                         try {
-                            await loadSettings(['delivery']);
-                            await loadDeliveryOrderGrid();
+                            // 로딩 모달 표시
+                            if (window.showGlobalLoading) {
+                                window.showGlobalLoading('default', true, '기본 정보를 불러오는 중...');
+                            }
+                            await loadSettings(['basic', 'businessHours']);
+                            displayBusinessHours();
+                            renderBasicSummary(); // 기본 정보 요약 표시
                             window[loadedKey] = true;
                             // 로딩바 숨김
                             if (window.hideGlobalLoading) {
@@ -10196,85 +10234,155 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                                 setTimeout(() => window.hideGlobalLoading(), 200);
                             }
                         } catch (error) {
-                            console.error('배달앱 설정 로드 실패:', error);
-                            showToast('배달앱 설정을 불러오는데 실패했습니다.', 'error');
+                            console.error('기본 정보 로드 실패:', error);
+                            showToast('기본 정보를 불러오는데 실패했습니다.', 'error');
                             // 에러 시 로딩바 숨김
                             if (window.hideGlobalLoading) {
                                 window.setLoadingBarType('error');
                                 setTimeout(() => window.hideGlobalLoading(), 500);
                             }
                         }
-                    }, 200);
-                } else {
-                    await loadDeliveryOrderGrid();
+                    } else {
+                        // 이미 로드된 경우에도 요약 업데이트
+                        displayBusinessHours();
+                        renderBasicSummary();
+                    }
+                    return;
                 }
-            }
             
-            // 이미지/동영상 관리 섹션인 경우 이미지 정보만 로드
-            if (sectionId === 'images') {
-                const loadedKey = `imagesSectionLoaded_${currentStoreId}`;
-                if (!window[loadedKey]) {
-                    try {
-                        // 로딩바 표시
+                // UI 순서 변경 섹션인 경우 섹션 순서만 로드
+                if (sectionId === 'section-order') {
+                    const loadedKey = `sectionOrderLoaded_${currentStoreId}`;
+                    if (!window[loadedKey]) {
+                        try {
+                            // 로딩 모달 표시
+                            if (window.showGlobalLoading) {
+                                window.showGlobalLoading('default', true, '섹션 순서를 불러오는 중...');
+                            }
+                            await loadSettings(['sectionOrder']);
+                            loadSectionOrder();
+                            window[loadedKey] = true;
+                            // 로딩바 숨김
+                            if (window.hideGlobalLoading) {
+                                window.setLoadingBarType('success');
+                                setTimeout(() => window.hideGlobalLoading(), 200);
+                            }
+                        } catch (error) {
+                            console.error('섹션 순서 로드 실패:', error);
+                            showToast('섹션 순서를 불러오는데 실패했습니다.', 'error');
+                            // 에러 시 로딩바 숨김
+                            if (window.hideGlobalLoading) {
+                                window.setLoadingBarType('error');
+                                setTimeout(() => window.hideGlobalLoading(), 500);
+                            }
+                        }
+                    } else {
+                        loadSectionOrder();
+                    }
+                    return;
+                }
+                
+                // 배달앱 설정 섹션인 경우 배달앱 설정만 로드
+                if (sectionId === 'delivery') {
+                    const loadedKey = `deliverySectionLoaded_${currentStoreId}`;
+                    if (!window[loadedKey]) {
+                        // 로딩 모달 표시
                         if (window.showGlobalLoading) {
-                            window.showGlobalLoading();
+                            window.showGlobalLoading('default', true, '배달앱 설정을 불러오는 중...');
                         }
-                        await loadSettings(['images']);
-                        window[loadedKey] = true;
-                        // 로딩바 숨김
-                        if (window.hideGlobalLoading) {
-                            window.setLoadingBarType('success');
-                            setTimeout(() => window.hideGlobalLoading(), 200);
-                        }
-                    } catch (error) {
-                        console.error('이미지 정보 로드 실패:', error);
-                        showToast('이미지 정보를 불러오는데 실패했습니다.', 'error');
-                        // 에러 시 로딩바 숨김
-                        if (window.hideGlobalLoading) {
-                            window.setLoadingBarType('error');
-                            setTimeout(() => window.hideGlobalLoading(), 500);
+                        setTimeout(async () => {
+                            try {
+                                await loadSettings(['delivery']);
+                                await loadDeliveryOrderGrid();
+                                window[loadedKey] = true;
+                                // 로딩바 숨김
+                                if (window.hideGlobalLoading) {
+                                    window.setLoadingBarType('success');
+                                    setTimeout(() => window.hideGlobalLoading(), 200);
+                                }
+                            } catch (error) {
+                                console.error('배달앱 설정 로드 실패:', error);
+                                showToast('배달앱 설정을 불러오는데 실패했습니다.', 'error');
+                                // 에러 시 로딩바 숨김
+                                if (window.hideGlobalLoading) {
+                                    window.setLoadingBarType('error');
+                                    setTimeout(() => window.hideGlobalLoading(), 500);
+                                }
+                            }
+                        }, 200);
+                    } else {
+                        await loadDeliveryOrderGrid();
+                    }
+                    return;
+                }
+                
+                // 이미지/동영상 관리 섹션인 경우 이미지 정보만 로드
+                if (sectionId === 'images') {
+                    const loadedKey = `imagesSectionLoaded_${currentStoreId}`;
+                    if (!window[loadedKey]) {
+                        try {
+                            // 로딩 모달 표시
+                            if (window.showGlobalLoading) {
+                                window.showGlobalLoading('default', true, '이미지 정보를 불러오는 중...');
+                            }
+                            await loadSettings(['images']);
+                            window[loadedKey] = true;
+                            // 로딩바 숨김
+                            if (window.hideGlobalLoading) {
+                                window.setLoadingBarType('success');
+                                setTimeout(() => window.hideGlobalLoading(), 200);
+                            }
+                        } catch (error) {
+                            console.error('이미지 정보 로드 실패:', error);
+                            showToast('이미지 정보를 불러오는데 실패했습니다.', 'error');
+                            // 에러 시 로딩바 숨김
+                            if (window.hideGlobalLoading) {
+                                window.setLoadingBarType('error');
+                                setTimeout(() => window.hideGlobalLoading(), 500);
+                            }
                         }
                     }
+                    return;
                 }
-            }
-            
-            // 할인·픽업 안내 섹션인 경우 할인/픽업 정보만 로드
-            if (sectionId === 'discount') {
-                const loadedKey = `discountSectionLoaded_${currentStoreId}`;
-                if (!window[loadedKey]) {
-                    try {
-                        // 로딩바 표시
-                        if (window.showGlobalLoading) {
-                            window.showGlobalLoading();
-                        }
-                        await loadSettings(['discount', 'pickup']);
-                        window[loadedKey] = true;
-                        // 로딩바 숨김
-                        if (window.hideGlobalLoading) {
-                            window.setLoadingBarType('success');
-                            setTimeout(() => window.hideGlobalLoading(), 200);
-                        }
-                    } catch (error) {
-                        console.error('할인/픽업 정보 로드 실패:', error);
-                        showToast('할인/픽업 정보를 불러오는데 실패했습니다.', 'error');
-                        // 에러 시 로딩바 숨김
-                        if (window.hideGlobalLoading) {
-                            window.setLoadingBarType('error');
-                            setTimeout(() => window.hideGlobalLoading(), 500);
+                
+                // 할인·픽업 안내 섹션인 경우 할인/픽업 정보만 로드
+                if (sectionId === 'discount') {
+                    const loadedKey = `discountSectionLoaded_${currentStoreId}`;
+                    if (!window[loadedKey]) {
+                        try {
+                            // 로딩 모달 표시
+                            if (window.showGlobalLoading) {
+                                window.showGlobalLoading('default', true, '할인/픽업 정보를 불러오는 중...');
+                            }
+                            await loadSettings(['discount', 'pickup']);
+                            window[loadedKey] = true;
+                            // 로딩바 숨김
+                            if (window.hideGlobalLoading) {
+                                window.setLoadingBarType('success');
+                                setTimeout(() => window.hideGlobalLoading(), 200);
+                            }
+                        } catch (error) {
+                            console.error('할인/픽업 정보 로드 실패:', error);
+                            showToast('할인/픽업 정보를 불러오는데 실패했습니다.', 'error');
+                            // 에러 시 로딩바 숨김
+                            if (window.hideGlobalLoading) {
+                                window.setLoadingBarType('error');
+                                setTimeout(() => window.hideGlobalLoading(), 500);
+                            }
                         }
                     }
+                    return;
                 }
-            }
+            };
             
-            // 메뉴 활성화
-            const menuItems = document.querySelectorAll('.menu-item');
-            menuItems.forEach(item => item.classList.remove('active'));
-            
-            // 클릭된 메뉴 아이템 찾기
-            const clickedItem = document.querySelector(`[onclick="showSection('${sectionId}')"]`);
-            if (clickedItem) {
-                clickedItem.classList.add('active');
-            }
+            // 데이터 로드 시작 (비동기, UI 전환 후)
+            loadSectionData().catch(err => {
+                console.error('섹션 데이터 로드 실패:', err);
+                if (window.hideGlobalLoading) {
+                    window.setLoadingBarType('error');
+                    setTimeout(() => window.hideGlobalLoading(), 500);
+                }
+            });
         }
 
         // 상태 메시지 표시 (토스트 알림으로 대체됨)
