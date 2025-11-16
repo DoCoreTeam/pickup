@@ -6228,6 +6228,11 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             submitBtn.textContent = '승인 중...';
 
             try {
+                // 로딩 표시
+                if (window.showGlobalLoading) {
+                    window.showGlobalLoading('default', true, '점주 계정을 승인하는 중...');
+                }
+                
                 const response = await apiRequest(`${API_BASE}/owners/${currentOwnerApprovalId}/approve`, 'POST', {});
                 const owner = ownerAccounts.find(item => item.id === currentOwnerApprovalId);
                 if (owner) {
