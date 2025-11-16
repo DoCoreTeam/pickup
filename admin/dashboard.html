@@ -4205,7 +4205,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     <a href="/admin/bulk-management" id="bulkManagementBtn" class="btn btn-primary" style="display: none; margin-right: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;">
                         대량 가게 관리
                     </a>
-                    <button onclick="openSetupGuide()" class="btn btn-primary" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border: none; margin-right: 10px;">
+                    <button onclick="openSetupGuide()" class="btn btn-primary owner-only" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border: none; margin-right: 10px;">
                         📋 설정 가이드
                     </button>
                     <a href="javascript:void(0)" onclick="openMainPage()" class="btn btn-primary">페이지 보기</a>
@@ -4691,7 +4691,10 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         <button type="button" class="owner-tab" data-status="suspended">일시 중지</button>
                         <button type="button" class="owner-tab" data-status="rejected">거절됨</button>
                     </div>
-                    <button type="button" class="btn" style="background: #e2e8f0; color: #1f2937; padding: 8px 16px; border-radius: 8px;" onclick="reloadOwnerAccounts()">새로고침</button>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="text" id="ownerSearchInput" placeholder="가게명, 점주명, 전화번호, 주소 검색..." style="padding: 8px 12px; border: 1px solid #d0d7e2; border-radius: 8px; font-size: 14px; min-width: 300px;" oninput="debouncedOwnerSearch()">
+                        <button type="button" class="btn" style="background: #e2e8f0; color: #1f2937; padding: 8px 16px; border-radius: 8px;" onclick="reloadOwnerAccounts()">새로고침</button>
+                    </div>
                 </div>
 
                 <div id="ownerList"></div>
@@ -5100,8 +5103,22 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     </div>
 
                     <div class="db-stats-section">
-                        <h3>최근 실행된 쿼리 (최근 50개)</h3>
-                        <div class="db-stats-table" id="dbStatsRecentQueries" style="max-height: 400px; overflow-y: auto;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h3 style="margin: 0;">쿼리 실행 내역</h3>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #64748b;">
+                                    <input type="checkbox" id="dbStatsSlowQueryFilter" onchange="loadDbStats()" style="width: 16px; height: 16px;">
+                                    느린 쿼리만 (1000ms 이상)
+                                </label>
+                                <select id="dbStatsQueryLimit" onchange="loadDbStats()" style="padding: 6px 12px; border: 1px solid #d0d7e2; border-radius: 6px; font-size: 13px;">
+                                    <option value="50">최근 50개</option>
+                                    <option value="100">최근 100개</option>
+                                    <option value="200">최근 200개</option>
+                                    <option value="500">최근 500개</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="db-stats-table" id="dbStatsRecentQueries" style="max-height: 500px; overflow-y: auto;">
                             <div class="db-stats-loading">쿼리 데이터를 불러오는 중...</div>
                         </div>
                     </div>
@@ -5445,6 +5462,16 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             document.body.classList.add('owner-mode');
         }
         let ownerAccounts = [];
+        let ownerSearchKeyword = ''; // 점주 계정 검색 키워드
+        
+        // 점주 계정 검색 함수 (debounce)
+        const debouncedOwnerSearch = debounce(() => {
+            const searchInput = document.getElementById('ownerSearchInput');
+            if (searchInput) {
+                ownerSearchKeyword = searchInput.value.trim().toLowerCase();
+                renderOwnerAccounts();
+            }
+        }, 300);
         
         // 점주 계정 상태 상수 정의 (Single Source of Truth)
         const OWNER_STATUS = {
@@ -6334,9 +6361,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             const container = document.getElementById('ownerList');
             if (!container) return;
 
-            // 재발 방지: API에서 이미 필터링된 데이터를 받았으므로, 클라이언트 사이드 필터링은 최소화
-            // 다만, ownerStatusFilter와 일치하지 않는 데이터가 있다면 경고
-            const filtered = ownerAccounts.filter(owner => {
+            // 상태 필터링
+            let filtered = ownerAccounts.filter(owner => {
                 const matches = owner.status === ownerStatusFilter;
                 if (!matches && ownerAccounts.length > 0) {
                     console.warn('⚠️ [점주 계정 관리] 상태 불일치 계정 발견:', {
@@ -6348,6 +6374,23 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 }
                 return matches;
             });
+            
+            // 검색 필터링 (가게명, 점주명, 전화번호, 주소)
+            if (ownerSearchKeyword) {
+                filtered = filtered.filter(owner => {
+                    const ownerName = (owner.ownerName || '').toLowerCase();
+                    const email = (owner.email || '').toLowerCase();
+                    const phone = (owner.phone || '').toLowerCase();
+                    const storeName = (owner.requestData?.storeName || owner.storeName || '').toLowerCase();
+                    const address = (owner.requestData?.storeAddress || owner.storeAddress || '').toLowerCase();
+                    
+                    return ownerName.includes(ownerSearchKeyword) ||
+                           email.includes(ownerSearchKeyword) ||
+                           phone.includes(ownerSearchKeyword) ||
+                           storeName.includes(ownerSearchKeyword) ||
+                           address.includes(ownerSearchKeyword);
+                });
+            }
             
             // 재발 방지: 디버그 로그
             console.log(`🎨 [점주 계정 관리] 렌더링:`, {
@@ -6370,7 +6413,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             if (filtered.length === 0) {
                 // 상태별 안내 메시지 (상수 사용)
                 let guideText = '계정이 없습니다.';
-                if (ownerStatusFilter === OWNER_STATUS.PENDING) {
+                if (ownerSearchKeyword) {
+                    guideText = `검색 결과가 없습니다. (검색어: "${ownerSearchKeyword}")`;
+                } else if (ownerStatusFilter === OWNER_STATUS.PENDING) {
                     guideText = '새로운 입점 요청이 도착하면 이곳에서 확인할 수 있습니다.';
                 } else if (ownerStatusFilter === OWNER_STATUS.ACTIVE) {
                     guideText = '운영 중인 가게 사장님 계정이 없습니다.';
@@ -6383,7 +6428,24 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 return;
             }
 
-            container.innerHTML = filtered.map(owner => {
+            // 테이블 형태로 렌더링
+            const tableHtml = `
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <thead>
+                            <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; font-size: 14px;">점주명</th>
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; font-size: 14px;">이메일</th>
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; font-size: 14px;">연락처</th>
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; font-size: 14px;">가게명</th>
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; font-size: 14px;">주소</th>
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; font-size: 14px;">상태</th>
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; font-size: 14px;">요청일</th>
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; font-size: 14px;">작업</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filtered.map(owner => {
                 if (owner.requestData && typeof owner.requestData === 'string') {
                     try {
                         owner.requestData = JSON.parse(owner.requestData);
@@ -6471,36 +6533,34 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     `;
                 }
 
+                const displayAddress = (owner.requestData?.storeAddress || owner.storeAddress || '-').substring(0, 50) + ((owner.requestData?.storeAddress || owner.storeAddress || '').length > 50 ? '...' : '');
+                
                 return `
-                    <div class="owner-card">
-                        <div class="owner-card-header">
-                            <div class="owner-name">${escapeHtml(owner.ownerName || owner.email || '')}</div>
-                                ${statusBadge}
+                    <tr style="border-bottom: 1px solid #f1f5f9; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#f8fafc'" onmouseout="this.style.backgroundColor='white'">
+                        <td style="padding: 12px; color: #1f2937; font-weight: 500;">${escapeHtml(owner.ownerName || owner.email || '-')}</td>
+                        <td style="padding: 12px; color: #4b5563; font-size: 13px;">${escapeHtml(owner.email || '-')}</td>
+                        <td style="padding: 12px; color: #4b5563; font-size: 13px;">${escapeHtml(owner.phone || '-')}</td>
+                        <td style="padding: 12px; color: #4b5563; font-size: 13px;">${escapeHtml(displayStoreName || '-')}</td>
+                        <td style="padding: 12px; color: #4b5563; font-size: 13px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(owner.requestData?.storeAddress || owner.storeAddress || '')}">${escapeHtml(displayAddress)}</td>
+                        <td style="padding: 12px;">${statusBadge}</td>
+                        <td style="padding: 12px; color: #64748b; font-size: 13px; white-space: nowrap;">${escapeHtml(createdAt)}</td>
+                        <td style="padding: 12px;">
+                            <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                                ${actionButtons.replace(/class="btn-/g, 'style="padding: 6px 12px; border-radius: 6px; border: none; font-size: 12px; cursor: pointer; font-weight: 500; transition: all 0.2s;" class="btn-').replace(/onclick="/g, 'onclick="event.stopPropagation(); ')}
                             </div>
-                        <div class="owner-meta">
-                            <span><strong>이메일</strong> ${escapeHtml(owner.email || '-')}</span>
-                            <span><strong>연락처</strong> ${escapeHtml(owner.phone || '-')}</span>
-                            <span><strong>요청일</strong> ${escapeHtml(createdAt)}</span>
-                <span><strong>${storeLabelTitle}</strong> ${storeLabel}${owner.requestData?.storeAddressDetail ? ` (${escapeHtml(owner.requestData.storeAddressDetail)})` : ''}</span>
-                            ${approvedAt ? `<span><strong>승인일</strong> ${approvedAt}</span>` : ''}
-                            ${lastLogin ? `<span><strong>최근 접속</strong> ${lastLogin}</span>` : ''}
-                        </div>
-                        ${(requestMessageHtml || requestSummary) ? `
-                            <div style="background:#f8fafc; border-radius:12px; padding:14px; margin-bottom:16px; color:#4b5563;">
-                                <strong style="display:block; margin-bottom:6px;">요청 내용</strong>
-                                <div style="line-height:1.6;">
-                                    ${requestMessageHtml}
-                                    ${requestSummary}
-                                </div>
-                            </div>
-                        ` : ''}
-                        ${storesInfo}
-                            <div class="owner-actions">
-                                ${actionButtons}
-                            </div>
-                    </div>
+                        </td>
+                    </tr>
                 `;
-            }).join('');
+            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div style="margin-top: 16px; padding: 12px; background: #f8fafc; border-radius: 8px; color: #64748b; font-size: 13px;">
+                    총 ${filtered.length}개 계정 (${ownerAccounts.length}개 중)
+                </div>
+            `;
+            
+            container.innerHTML = tableHtml;
         }
 
         function openOwnerApprovalModal(ownerId) {
@@ -11446,6 +11506,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     }
                     try {
                 if (IS_SUPERADMIN) {
+                    // 대시보드 컨트롤 초기화 (슈퍼어드민만)
+                    initializeDashboardControls();
                     updateDashboardScopeUI();
                             
                             // 대시보드 섹션에서만 통계용 가게 목록 로드 (필요할 때만, 캐싱 활용)
@@ -12050,12 +12112,25 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     document.getElementById('dbStatsEstimatedCost').textContent = `$${costPerMonth.toFixed(2)}`;
                     document.getElementById('dbStatsTransferOverGB').textContent = `초과 전송량: ${transferOverGB.toFixed(4)} GB`;
                     
-                    // 최근 실행된 쿼리 표시
+                    // 최근 실행된 쿼리 표시 (필터링 및 제한 적용)
                     const recentQueriesEl = document.getElementById('dbStatsRecentQueries');
                     if (recentQueriesEl) {
-                        const recentQueries = stats.recentQueries || [];
+                        let recentQueries = stats.recentQueries || [];
+                        
+                        // 느린 쿼리 필터 적용
+                        const slowQueryFilter = document.getElementById('dbStatsSlowQueryFilter');
+                        if (slowQueryFilter && slowQueryFilter.checked) {
+                            recentQueries = recentQueries.filter(q => q.duration >= 1000);
+                        }
+                        
+                        // 제한 적용
+                        const queryLimitSelect = document.getElementById('dbStatsQueryLimit');
+                        const limit = queryLimitSelect ? parseInt(queryLimitSelect.value) || 50 : 50;
+                        recentQueries = recentQueries.slice(-limit).reverse(); // 최신순으로 정렬
+                        
                         if (recentQueries.length === 0) {
-                            recentQueriesEl.innerHTML = '<div class="db-stats-loading">쿼리 데이터가 없습니다.</div>';
+                            const filterMsg = slowQueryFilter && slowQueryFilter.checked ? '느린 쿼리(1000ms 이상)가 없습니다.' : '쿼리 데이터가 없습니다.';
+                            recentQueriesEl.innerHTML = `<div class="db-stats-loading">${filterMsg}</div>`;
                         } else {
                             recentQueriesEl.innerHTML = `
                                 <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
@@ -12069,13 +12144,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        ${recentQueries.reverse().map(q => {
+                                        ${recentQueries.map(q => {
                                             const time = new Date(q.timestamp).toLocaleTimeString('ko-KR');
-                                            const duration = q.duration > 1000 ? `<span style="color: #ef4444; font-weight: 600;">${q.duration}ms</span>` : `${q.duration}ms`;
+                                            const duration = q.duration >= 1000 ? `<span style="color: #ef4444; font-weight: 600;">${q.duration}ms ⚠️</span>` : (q.duration >= 500 ? `<span style="color: #f59e0b; font-weight: 500;">${q.duration}ms</span>` : `${q.duration}ms`);
                                             const size = formatBytes(q.size);
                                             const queryText = escapeHtml(q.query);
                                             return `
-                                                <tr style="border-bottom: 1px solid #f1f5f9;">
+                                                <tr style="border-bottom: 1px solid #f1f5f9; ${q.duration >= 1000 ? 'background: #fef2f2;' : ''}">
                                                     <td style="padding: 8px; color: #64748b; white-space: nowrap;">${time}</td>
                                                     <td style="padding: 8px;"><strong style="color: #3b82f6;">${q.type}</strong></td>
                                                     <td style="padding: 8px; font-family: 'Courier New', monospace; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${queryText}">${queryText}</td>
@@ -12086,6 +12161,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                                         }).join('')}
                                     </tbody>
                                 </table>
+                                <div style="margin-top: 12px; padding: 8px; background: #f8fafc; border-radius: 6px; font-size: 12px; color: #64748b; text-align: center;">
+                                    ${recentQueries.length}개 쿼리 표시 중${slowQueryFilter && slowQueryFilter.checked ? ' (느린 쿼리만)' : ''}
+                                </div>
                             `;
                         }
                     }
