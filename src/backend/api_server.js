@@ -964,7 +964,29 @@ class APIRouter {
 
   async getData(req, res, parsedUrl) {
     try {
-      const data = await dbServices.getAllData();
+      // 데이터 전송량 절감: 최대 20개 가게만 반환
+      const storesResult = await dbServices.getStores({ 
+        page: 1, 
+        pageSize: 20, // 500에서 20으로 대폭 감소
+        includeSummary: false 
+      });
+      
+      const stores = Array.isArray(storesResult?.data)
+        ? storesResult.data
+        : Array.isArray(storesResult)
+          ? storesResult
+          : [];
+      
+      // 설정은 필요한 경우에만 개별 조회하도록 변경 (전체 조회 제거)
+      const data = {
+        superadmin: await dbServices.getSuperAdmin(),
+        stores,
+        currentStoreId: await dbServices.getCurrentStoreId(),
+        settings: {}, // 설정은 개별 API로 조회하도록 변경
+        deliveryOrders: {},
+        images: {}
+      };
+      
       sendJsonResponse(res, 200, data);
     } catch (error) {
       log('ERROR', '데이터 조회 실패', error);

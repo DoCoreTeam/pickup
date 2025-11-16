@@ -1495,9 +1495,14 @@
             resolvedStoreId = resolved.storeId;
             store = resolved.store || null;
             if (!store) {
-              const data = await apiRequest(`${API_BASE}/data`);
-              if (data && data.stores && Array.isArray(data.stores)) {
-                store = data.stores.find(s => s.id === resolvedStoreId);
+              // 개별 가게 조회 API 사용 (데이터 전송량 절감)
+              try {
+                store = await apiRequest(`${API_BASE}/stores/${resolvedStoreId}`);
+              } catch (error) {
+                log('WARN', '개별 가게 조회 실패, 목록에서 검색 시도', { storeId: resolvedStoreId });
+                const response = await apiRequest(`${API_BASE}/stores?page=1&pageSize=50`);
+                const stores = response?.data || response || [];
+                store = stores.find(s => s.id === resolvedStoreId);
               }
             }
           } else {
@@ -1505,12 +1510,18 @@
             const resolved = await resolveStoreIdentifier(storeId);
             resolvedStoreId = resolved.storeId;
             store = resolved.store || null;
-            const data = await apiRequest(`${API_BASE}/data`);
             
-            if (data && data.stores && Array.isArray(data.stores)) {
-              store = data.stores.find(s => s.id === resolvedStoreId);
-            } else {
-              throw new Error('가게 데이터가 없습니다');
+            // 개별 가게 조회 API 사용 (데이터 전송량 절감)
+            try {
+              store = await apiRequest(`${API_BASE}/stores/${resolvedStoreId}`);
+            } catch (error) {
+              log('WARN', '개별 가게 조회 실패, 목록에서 검색 시도', { storeId: resolvedStoreId });
+              const response = await apiRequest(`${API_BASE}/stores?page=1&pageSize=50`);
+              const stores = response?.data || response || [];
+              store = stores.find(s => s.id === resolvedStoreId);
+              if (!store) {
+                throw new Error('가게 데이터가 없습니다');
+              }
             }
           }
           

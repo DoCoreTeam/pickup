@@ -397,17 +397,22 @@
         try {
           console.log('🔍 [DEBUG] loadStores 함수 시작');
           log('INFO', '가게 목록 로딩 시작');
-          const data = await apiRequest(`${API_BASE}/data`);
-          console.log('🔍 [DEBUG] API 응답:', data);
+          // /api/data 대신 /api/stores 사용 (페이지네이션 지원, 데이터 전송량 절감)
+          const response = await apiRequest(`${API_BASE}/stores?page=1&pageSize=50`);
+          console.log('🔍 [DEBUG] API 응답:', response);
           
-          if (data && data.stores && Array.isArray(data.stores)) {
-            stores = data.stores;
+          if (response && response.data && Array.isArray(response.data)) {
+            stores = response.data;
             console.log('🔍 [DEBUG] stores 배열:', stores);
             log('INFO', '가게 목록 로딩 완료', { count: stores.length });
             return stores;
+          } else if (response && Array.isArray(response)) {
+            // 응답이 배열인 경우 (하위 호환성)
+            stores = response;
+            return stores;
           } else {
-            console.log('❌ [DEBUG] 데이터 형식 오류:', data);
-            log('WARN', '가게 데이터가 없거나 형식이 잘못됨', data);
+            console.log('❌ [DEBUG] 데이터 형식 오류:', response);
+            log('WARN', '가게 데이터가 없거나 형식이 잘못됨', response);
             return [];
           }
         } catch (error) {
