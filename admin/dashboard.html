@@ -7491,32 +7491,6 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         recalculateStoreStatsFrom(allStores);
                         return;
                     }
-
-                    if (activeStoreId) {
-                        // sessionStorage 동기화 (점주 모드)
-                        sessionStorage.setItem('owner_store_id', activeStoreId);
-                        // window.currentStoreId 동기화
-                        window.currentStoreId = activeStoreId;
-                        // API 동기화
-                        try {
-                            await apiRequest(`${API_BASE}/current-store`, 'POST', { storeId: activeStoreId });
-                        } catch (error) {
-                            console.warn('현재 가게 설정 동기화 실패:', error);
-                        }
-                    }
-
-                    document.getElementById('filteredStoresCount').textContent = filteredStores.length;
-                    populateOwnerFilterOptions(filteredByOwner);
-                    await renderStoreView();
-
-                    if (activeStoreId) {
-                        await updateSelectedStoreCard(activeStoreId);
-                        updateSelectedStoreVisual(activeStoreId);
-                    } else {
-                        initializeSidebarStoreInfo();
-                    }
-
-                    return;
                 }
 
                 if (IS_SUPERADMIN && ownerAccounts.length === 0) {
