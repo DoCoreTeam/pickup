@@ -10436,7 +10436,14 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 return;
             }
 
-            if (sectionId === 'stores' || sectionId === 'domain-settings' || sectionId === 'domain-qr' || sectionId === 'accounts') {
+            // 슈퍼어드민 전용 섹션들 (가게 선택 불필요)
+            if (sectionId === 'stores' || sectionId === 'domain-settings' || sectionId === 'domain-qr' || sectionId === 'accounts' || sectionId === 'db-stats' || sectionId === 'activity-logs' || sectionId === 'superadmin') {
+                // 권한 확인
+                if ((sectionId === 'accounts' || sectionId === 'db-stats' || sectionId === 'activity-logs' || sectionId === 'superadmin') && !IS_SUPERADMIN) {
+                    showToast('접근 권한이 없습니다.', 'error');
+                    return;
+                }
+                
                 // 모든 섹션 숨기기 (owner-account 포함)
                 const sections = document.querySelectorAll('.admin-section');
                 sections.forEach(section => {
@@ -10444,7 +10451,10 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 });
                 
                 // 선택된 섹션 표시
-                document.getElementById(sectionId).style.display = 'block';
+                const targetSection = document.getElementById(sectionId);
+                if (targetSection) {
+                    targetSection.style.display = 'block';
+                }
                 
                 // 메뉴 활성화
                 const menuItems = document.querySelectorAll('.menu-item');
@@ -10517,6 +10527,22 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 if (sectionId === 'accounts') {
                     await reloadOwnerAccounts();
                 }
+                
+                // DB 통계 섹션인 경우 통계 로드
+                if (sectionId === 'db-stats') {
+                    loadDbStats();
+                }
+                
+                // 활동 로그 섹션인 경우 로그 로드
+                if (sectionId === 'activity-logs') {
+                    loadActivityLogs();
+                }
+                
+                // 슈퍼어드민 섹션인 경우 정보 로드
+                if (sectionId === 'superadmin') {
+                    loadSuperAdminInfo();
+                }
+                
                 return;
             }
             
@@ -10613,22 +10639,6 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             
             // 섹션별 데이터 로드 (비동기, 로딩 모달 표시)
             const loadSectionData = async () => {
-                // 활동 로그 섹션인 경우 로그 다시 로드
-                if (sectionId === 'activity-logs') {
-                    loadActivityLogs();
-                    return;
-                }
-                
-                // DB 통계 섹션
-                if (sectionId === 'db-stats') {
-                    if (!IS_SUPERADMIN) {
-                        showToast('접근 권한이 없습니다.', 'error');
-                        return;
-                    }
-                    loadDbStats();
-                    return;
-                }
-                
                 // 내 계정 섹션인 경우 계정 정보 로드
                 if (sectionId === 'owner-account') {
                     populateOwnerAccountSection();
