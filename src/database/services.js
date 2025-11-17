@@ -2052,6 +2052,7 @@ async function getEventSummary({ storeId = null, from = null, to = null }) {
   rangeEnd.setHours(23, 59, 59, 999);
 
   // 두 쿼리를 하나로 통합하여 성능 최적화 (단일 스캔)
+  // 인덱스 활용을 위해 조건 순서 최적화: store_id 조건이 있으면 먼저 필터링
   const combinedResult = await db.query(
     `WITH event_data AS (
        SELECT 
@@ -2059,8 +2060,8 @@ async function getEventSummary({ storeId = null, from = null, to = null }) {
          event_type,
          COUNT(*)::int AS count
        FROM store_events
-      WHERE ($1::varchar IS NULL OR store_id = $1)
-        AND created_at BETWEEN $2 AND $3
+      WHERE created_at BETWEEN $2 AND $3
+        AND ($1::varchar IS NULL OR store_id = $1)
       GROUP BY day, event_type
      )
      SELECT 
@@ -2592,6 +2593,20 @@ async function ensureHistoryTables() {
       // store_settings 테이블 인덱스
       await db.query(`CREATE INDEX IF NOT EXISTS idx_store_settings_store_id ON store_settings(store_id)`);
       
+      // store_events 테이블 인덱스 (대시보드 성능 최적화)
+      try {
+        // 복합 인덱스: store_id + created_at (가장 자주 사용되는 필터 조합)
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_store_events_store_created ON store_events(store_id, created_at DESC)`);
+        // 전체 이벤트 조회용 인덱스 (scope=all인 경우)
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_store_events_created_at ON store_events(created_at DESC)`);
+        // event_type 필터링 최적화 (GROUP BY에 사용)
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_store_events_store_type_created ON store_events(store_id, event_type, created_at DESC)`);
+        console.log('[DB] store_events 인덱스 생성 완료');
+      } catch (e) {
+        // store_events 테이블이 없을 수 있음
+        console.warn('[DB] store_events 인덱스 생성 실패 (테이블이 없을 수 있음):', e.message);
+      }
+      
       // activity_logs 테이블 인덱스 (존재하는 경우)
       try {
         await db.query(`CREATE INDEX IF NOT EXISTS idx_activity_logs_store_id ON activity_logs(store_id)`);
@@ -2608,6 +2623,12 @@ async function ensureHistoryTables() {
         await db.query('ANALYZE store_settings');
         await db.query('ANALYZE store_owner_links');
         await db.query('ANALYZE store_owners');
+        // store_events 테이블도 분석 (대시보드 성능 최적화)
+        try {
+          await db.query('ANALYZE store_events');
+        } catch (e) {
+          // store_events 테이블이 없을 수 있음
+        }
         console.log('[DB] 테이블 통계 정보 업데이트 완료');
       } catch (analyzeError) {
         console.warn('[DB] ANALYZE 실행 실패 (권한 문제일 수 있음):', analyzeError.message);
