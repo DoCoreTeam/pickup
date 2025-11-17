@@ -9134,6 +9134,17 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         }
                     }
                     
+                    // 이미지 설정도 캐시에서 즉시 업데이트
+                    if (shouldUpdateField('images') && cached.images) {
+                        if (typeof updateImagePreview === 'function') {
+                            updateImagePreview('mainLogo', cached.images.mainLogo);
+                            updateImagePreview('menuImage', cached.images.menuImage);
+                        }
+                        if (typeof updateVideoPreview === 'function') {
+                            updateVideoPreview('promoVideo', cached.images.promoVideo);
+                        }
+                    }
+                    
                     // 캐시에서 가져왔지만 백그라운드에서 최신 데이터 확인 (비동기)
                     // 캐시 데이터로 빠르게 표시하고 최신 데이터로 갱신
                     setTimeout(async () => {
@@ -9188,6 +9199,17 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                                     } else {
                                         pickupForm.classList.remove('active');
                                     }
+                                }
+                            }
+                            
+                            // 이미지 설정도 최신 데이터로 업데이트
+                            if (shouldUpdateField('images') && latestSettings.images) {
+                                if (typeof updateImagePreview === 'function') {
+                                    updateImagePreview('mainLogo', latestSettings.images.mainLogo);
+                                    updateImagePreview('menuImage', latestSettings.images.menuImage);
+                                }
+                                if (typeof updateVideoPreview === 'function') {
+                                    updateVideoPreview('promoVideo', latestSettings.images.promoVideo);
                                 }
                             }
                         } catch (error) {
