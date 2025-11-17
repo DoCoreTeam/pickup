@@ -795,6 +795,28 @@ async function getStoreById(storeId) {
   
   const row = result.rows[0];
   const owners = row.owners || [];
+  
+  // delivery는 필요할 때만 별도 조회 (성능 최적화)
+  // 캐시 키가 다르므로 캐시에서 가져올 수 있음
+  let delivery = {
+    baeminUrl: '',
+    ttaengUrl: '',
+    yogiyoUrl: '',
+    coupangUrl: '',
+    deliveryOrder: [],
+  };
+  
+  // delivery 정보는 별도 조회 (캐시 활용)
+  try {
+    const deliverySettings = await getStoreSettingsOptimized(storeId, ['delivery']);
+    if (deliverySettings?.settings?.delivery) {
+      delivery = deliverySettings.settings.delivery;
+    }
+  } catch (error) {
+    // delivery 조회 실패해도 기본값 사용
+    console.warn(`[getStoreById] delivery 조회 실패 (기본값 사용):`, error.message);
+  }
+  
   return {
     id: row.id,
     name: row.name, // 기존 호환성을 위해 추가
@@ -816,13 +838,7 @@ async function getStoreById(storeId) {
       enabled: false,
       description: '',
     },
-    delivery: {
-      baeminUrl: row.delivery?.baeminUrl || '',
-      ttaengUrl: row.delivery?.ttaengUrl || '',
-      yogiyoUrl: row.delivery?.yogiyoUrl || '',
-      coupangUrl: row.delivery?.coupangUrl || '',
-      deliveryOrder: row.delivery?.deliveryOrder || [],
-    },
+    delivery,
     pickup: {
       title: '',
       enabled: false,
