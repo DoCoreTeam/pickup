@@ -426,6 +426,58 @@ async function setPrimaryOwnerForStore(ownerId, storeId) {
   return linkOwnerToStore(ownerId, storeId, { role: 'primary', makePrimary: true });
 }
 
+// 점주 본인의 대표 가게 설정 (점주가 직접 설정)
+async function setOwnerPrimaryStore(ownerId, storeId) {
+  if (!ownerId || !storeId) {
+    throw new Error('ownerId와 storeId는 필수입니다.');
+  }
+
+  // 점주가 해당 가게에 연결되어 있는지 확인
+  const linkCheck = await db.query(
+    `SELECT store_id, role
+       FROM store_owner_links
+      WHERE owner_id = $1 AND store_id = $2`,
+    [ownerId, storeId]
+  );
+
+  if (linkCheck.rows.length === 0) {
+    throw new Error('연결되지 않은 가게는 대표 가게로 설정할 수 없습니다.');
+  }
+
+  // 트랜잭션으로 대표 가게 설정
+  await db.transaction(async client => {
+    // store_owners 테이블의 store_id 업데이트 (대표 가게)
+    await client.query(
+      `UPDATE store_owners
+          SET store_id = $2
+        WHERE id = $1`,
+      [ownerId, storeId]
+    );
+
+    // store_owner_links 테이블의 role 업데이트
+    await client.query(
+      `UPDATE store_owner_links
+          SET role = CASE 
+            WHEN owner_id = $1 AND store_id = $2 THEN 'primary'
+            WHEN owner_id = $1 AND store_id != $2 THEN 'manager'
+            ELSE role
+          END
+        WHERE owner_id = $1`,
+      [ownerId, storeId]
+    );
+
+    // stores 테이블 업데이트 시간 갱신
+    await client.query(
+      `UPDATE stores
+          SET last_modified = CURRENT_TIMESTAMP
+        WHERE id = $1`,
+      [storeId]
+    );
+  });
+
+  return { ownerId, storeId, success: true };
+}
+
 // 슈퍼어드민 조회
 async function getSuperAdmin() {
   const result = await db.query(`
@@ -3902,6 +3954,7 @@ module.exports = {
   linkOwnerToStore,
   unlinkOwnerFromStore,
   setPrimaryOwnerForStore,
+  setOwnerPrimaryStore,
   getOwnerAccountDetail,
   getSeoSettingsForStore,
   saveSeoSettingsForStore,

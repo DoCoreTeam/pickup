@@ -533,6 +533,9 @@ class APIRouter {
     this.routes.set('POST /api/owners/login', this.postOwnerLogin.bind(this));
     this.routes.set('POST /api/owners/:ownerId/password', this.updateOwnerPasswordHandler.bind(this));
     
+    // 점주 대표 가게 설정
+    this.routes.set('POST /api/owner/primary-store', this.setOwnerPrimaryStore.bind(this));
+    
     // POST /api/store/select - 가게 선택
     this.routes.set('POST /api/store/select', (req, res, parsedUrl) => {
       log('INFO', '가게 선택 API 호출됨');
@@ -4418,6 +4421,40 @@ class APIRouter {
       const message = error && error.message ? error.message : '비밀번호를 변경할 수 없습니다.';
       const statusCode = error && error.message && error.message.includes('찾을 수 없습니다') ? 404 : 500;
       sendErrorResponse(res, statusCode, message);
+    }
+  }
+
+  // 점주 본인의 대표 가게 설정
+  async setOwnerPrimaryStore(req, res, parsedUrl) {
+    try {
+      // 점주 계정 인증 확인 (sessionStorage에서 가져온 owner_id와 비교)
+      const body = await parseRequestBody(req);
+      const storeId = typeof body?.storeId === 'string' ? body.storeId.trim() : '';
+      const ownerId = typeof body?.ownerId === 'string' ? body.ownerId.trim() : '';
+
+      // 세션에서 점주 ID 가져오기 (보안을 위해 쿼리 파라미터에서 가져오는 대신 body에서 받음)
+      // 프론트엔드에서 sessionStorage의 owner_id를 body에 포함해서 보냄
+      if (!ownerId) {
+        sendErrorResponse(res, 400, '점주 ID가 필요합니다.');
+        return;
+      }
+
+      if (!storeId) {
+        sendErrorResponse(res, 400, '가게 ID가 필요합니다.');
+        return;
+      }
+
+      // 대표 가게 설정
+      await dbServices.setOwnerPrimaryStore(ownerId, storeId);
+
+      sendJsonResponse(res, 200, {
+        success: true,
+        message: '대표 가게가 설정되었습니다.',
+        storeId
+      });
+    } catch (error) {
+      log('ERROR', '점주 대표 가게 설정 실패', error);
+      sendErrorResponse(res, 500, error.message || '대표 가게 설정에 실패했습니다.');
     }
   }
 

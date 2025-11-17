@@ -5035,6 +5035,31 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 </div>
             </div>
 
+            <!-- 대표 가게 설정 모달 -->
+            <div class="modal-backdrop" id="primaryStoreSetupModal" style="display: none;">
+                <div class="modal-content" style="max-width: 500px;">
+                    <div class="modal-header">
+                        <h3>대표 가게 설정</h3>
+                        <button type="button" class="modal-close" onclick="closePrimaryStoreSetupModal()">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <p style="margin-bottom: 20px; color: #64748b; line-height: 1.6;">
+                            대표 가게를 설정해주세요. 로그인 시 자동으로 대표 가게가 선택됩니다.
+                        </p>
+                        <div class="form-group">
+                            <label for="primaryStoreModalSelect">대표 가게 선택</label>
+                            <select id="primaryStoreModalSelect" class="form-input">
+                                <option value="">가게를 선택하세요</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closePrimaryStoreSetupModal()">나중에</button>
+                        <button type="button" class="btn btn-primary" onclick="savePrimaryStoreFromModal()">설정</button>
+                    </div>
+                </div>
+            </div>
+
             <div class="admin-section owner-only" id="owner-account">
                 <h2 class="section-title">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7v7c0 5 3.5 9.4 10 11 6.5-1.6 10-6 10-11V7l-10-5z"/><circle cx="12" cy="11" r="3"/></svg>
@@ -5050,9 +5075,31 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         <div class="profile-label">대표 이름</div>
                         <div class="profile-value" id="ownerAccountName">-</div>
                     </div>
+                    <div>
+                        <div class="profile-label">대표 가게</div>
+                        <div class="profile-value" id="ownerPrimaryStoreName">-</div>
+                    </div>
                 </div>
 
                 <div class="settings-form">
+                    <div class="form-card">
+                        <div class="form-header">
+                            <h3>대표 가게 설정</h3>
+                            <p>대표 가게를 설정하면 로그인 시 자동으로 해당 가게가 선택됩니다.</p>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ownerPrimaryStoreSelect">대표 가게 선택</label>
+                            <select id="ownerPrimaryStoreSelect" class="form-input">
+                                <option value="">가게를 선택하세요</option>
+                            </select>
+                        </div>
+
+                        <div class="button-group">
+                            <button type="button" class="btn btn-primary" onclick="saveOwnerPrimaryStore()">대표 가게 설정</button>
+                        </div>
+                    </div>
+
                     <div class="form-card">
                         <div class="form-header">
                             <h3>비밀번호 변경</h3>
@@ -13840,15 +13887,193 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
         }
 
-        function populateOwnerAccountSection() {
+        async function populateOwnerAccountSection() {
             if (!IS_STORE_OWNER) return;
             const emailEl = document.getElementById('ownerAccountEmail');
             const nameEl = document.getElementById('ownerAccountName');
+            const primaryStoreNameEl = document.getElementById('ownerPrimaryStoreName');
+            const primaryStoreSelectEl = document.getElementById('ownerPrimaryStoreSelect');
+            
             if (emailEl) {
                 emailEl.textContent = sessionStorage.getItem('owner_email') || '-';
             }
             if (nameEl) {
                 nameEl.textContent = sessionStorage.getItem('owner_name') || '-';
+            }
+            
+            // 점주가 연결된 가게 목록 가져오기
+            try {
+                const ownerId = sessionStorage.getItem('owner_id');
+                if (!ownerId) return;
+                
+                const ownerStoresStr = sessionStorage.getItem('owner_store_list');
+                const ownerStores = ownerStoresStr ? JSON.parse(ownerStoresStr) : [];
+                const primaryStoreId = sessionStorage.getItem('owner_store_id') || '';
+                
+                // 대표 가게 선택 드롭다운 채우기
+                if (primaryStoreSelectEl) {
+                    primaryStoreSelectEl.innerHTML = '<option value="">가게를 선택하세요</option>';
+                    ownerStores.forEach(store => {
+                        const option = document.createElement('option');
+                        option.value = store.id;
+                        option.textContent = store.name || store.id;
+                        if (store.id === primaryStoreId || store.isPrimary) {
+                            option.selected = true;
+                        }
+                        primaryStoreSelectEl.appendChild(option);
+                    });
+                }
+                
+                // 대표 가게 이름 표시
+                if (primaryStoreNameEl) {
+                    const primaryStore = ownerStores.find(store => store.id === primaryStoreId || store.isPrimary);
+                    if (primaryStore) {
+                        primaryStoreNameEl.textContent = primaryStore.name || primaryStore.id;
+                    } else if (ownerStores.length > 0) {
+                        primaryStoreNameEl.textContent = ownerStores[0].name || ownerStores[0].id;
+                    } else {
+                        primaryStoreNameEl.textContent = '대표 가게가 설정되지 않았습니다';
+                    }
+                }
+            } catch (error) {
+                console.error('점주 계정 정보 로드 실패:', error);
+            }
+        }
+        
+        async function saveOwnerPrimaryStore() {
+            if (!IS_STORE_OWNER) {
+                showToast('사장님 전용 기능입니다.', 'error', '권한 부족');
+                return;
+            }
+            
+            const ownerId = sessionStorage.getItem('owner_id');
+            if (!ownerId) {
+                showToast('점주 정보를 찾을 수 없습니다. 다시 로그인해주세요.', 'error', '권한 부족');
+                return;
+            }
+            
+            const primaryStoreSelectEl = document.getElementById('ownerPrimaryStoreSelect');
+            const storeId = primaryStoreSelectEl?.value?.trim() || '';
+            
+            if (!storeId) {
+                showToast('대표 가게를 선택해주세요.', 'error', '입력 필요');
+                return;
+            }
+            
+            try {
+                await apiRequest(`${API_BASE}/owner/primary-store`, 'POST', {
+                    ownerId,
+                    storeId
+                });
+                
+                // sessionStorage 업데이트
+                sessionStorage.setItem('owner_store_id', storeId);
+                
+                // 대표 가게 이름 업데이트
+                const ownerStoresStr = sessionStorage.getItem('owner_store_list');
+                const ownerStores = ownerStoresStr ? JSON.parse(ownerStoresStr) : [];
+                const primaryStore = ownerStores.find(store => store.id === storeId);
+                
+                const primaryStoreNameEl = document.getElementById('ownerPrimaryStoreName');
+                if (primaryStoreNameEl && primaryStore) {
+                    primaryStoreNameEl.textContent = primaryStore.name || primaryStore.id;
+                }
+                
+                // 현재 가게 ID도 업데이트 (대표 가게로 자동 전환)
+                window.currentStoreId = storeId;
+                localStorage.setItem('currentStoreId', storeId);
+                
+                // 사이드바 업데이트
+                updateCurrentStoreInfo(storeId).catch(err => {
+                    console.warn('가게 정보 업데이트 실패:', err);
+                });
+                
+                showToast('대표 가게가 설정되었습니다.', 'success', '설정 완료');
+            } catch (error) {
+                console.error('대표 가게 설정 실패:', error);
+                showToast(error.message || '대표 가게 설정에 실패했습니다.', 'error', '설정 실패');
+            }
+        }
+        
+        // 대표 가게 설정 모달 표시
+        function showPrimaryStoreSetupModal(ownerStores = null) {
+            const modal = document.getElementById('primaryStoreSetupModal');
+            const selectEl = document.getElementById('primaryStoreModalSelect');
+            
+            if (!modal || !selectEl) return;
+            
+            // 가게 목록이 없으면 가져오기
+            if (!ownerStores) {
+                const ownerStoresStr = sessionStorage.getItem('owner_store_list');
+                ownerStores = ownerStoresStr ? JSON.parse(ownerStoresStr) : [];
+            }
+            
+            // 드롭다운 채우기
+            selectEl.innerHTML = '<option value="">가게를 선택하세요</option>';
+            ownerStores.forEach(store => {
+                const option = document.createElement('option');
+                option.value = store.id;
+                option.textContent = store.name || store.id;
+                selectEl.appendChild(option);
+            });
+            
+            if (ownerStores.length === 0) {
+                selectEl.innerHTML = '<option value="">연결된 가게가 없습니다</option>';
+                selectEl.disabled = true;
+            }
+            
+            modal.style.display = 'flex';
+        }
+        
+        // 대표 가게 설정 모달 닫기
+        function closePrimaryStoreSetupModal() {
+            const modal = document.getElementById('primaryStoreSetupModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        // 모달에서 대표 가게 설정
+        async function savePrimaryStoreFromModal() {
+            const selectEl = document.getElementById('primaryStoreModalSelect');
+            const storeId = selectEl?.value?.trim() || '';
+            
+            if (!storeId) {
+                showToast('대표 가게를 선택해주세요.', 'error', '입력 필요');
+                return;
+            }
+            
+            const ownerId = sessionStorage.getItem('owner_id');
+            if (!ownerId) {
+                showToast('점주 정보를 찾을 수 없습니다. 다시 로그인해주세요.', 'error', '권한 부족');
+                return;
+            }
+            
+            try {
+                await apiRequest(`${API_BASE}/owner/primary-store`, 'POST', {
+                    ownerId,
+                    storeId
+                });
+                
+                // sessionStorage 업데이트
+                sessionStorage.setItem('owner_store_id', storeId);
+                
+                // 현재 가게 ID도 업데이트 (대표 가게로 자동 전환)
+                window.currentStoreId = storeId;
+                localStorage.setItem('currentStoreId', storeId);
+                
+                // 사이드바 업데이트
+                updateCurrentStoreInfo(storeId).catch(err => {
+                    console.warn('가게 정보 업데이트 실패:', err);
+                });
+                
+                // 모달 닫기
+                closePrimaryStoreSetupModal();
+                
+                showToast('대표 가게가 설정되었습니다.', 'success', '설정 완료');
+            } catch (error) {
+                console.error('대표 가게 설정 실패:', error);
+                showToast(error.message || '대표 가게 설정에 실패했습니다.', 'error', '설정 실패');
             }
         }
 
@@ -15175,23 +15400,49 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     }
                 }
                 
-                // 점주 계정일 때는 자동으로 가게 목록을 로드하고 첫 번째 가게 선택
+                // 점주 계정일 때는 대표 가게를 확인하고 자동 선택
                 if (IS_STORE_OWNER && !IS_SUPERADMIN) {
-                    // 백그라운드에서 가게 목록 로드 및 자동 선택
+                    // 백그라운드에서 가게 목록 로드 및 대표 가게 확인
                     loadStoreList().then(() => {
-                        const currentStoreId = getCurrentStoreId();
-                if (currentStoreId) {
-                    window.currentStoreId = currentStoreId;
-                            console.log('✅ [DEBUG] 점주 계정 - 가게 자동 선택:', currentStoreId);
+                        // 대표 가게 확인
+                        const ownerStoreId = sessionStorage.getItem('owner_store_id') || '';
+                        const ownerStoresStr = sessionStorage.getItem('owner_store_list');
+                        const ownerStores = ownerStoresStr ? JSON.parse(ownerStoresStr) : [];
+                        
+                        // 대표 가게 찾기 (primaryStoreId, owner_store_id, 또는 isPrimary로 확인)
+                        const primaryStore = ownerStores.find(store => 
+                            store.id === ownerStoreId || 
+                            store.isPrimary || 
+                            store.role === 'primary'
+                        ) || (ownerStores.length > 0 ? ownerStores[0] : null);
+                        
+                        if (primaryStore && primaryStore.id) {
+                            // 대표 가게가 있으면 자동 선택
+                            const primaryStoreId = primaryStore.id;
+                            window.currentStoreId = primaryStoreId;
+                            localStorage.setItem('currentStoreId', primaryStoreId);
+                            sessionStorage.setItem('owner_store_id', primaryStoreId);
+                            console.log('✅ [점주 계정] 대표 가게 자동 선택:', primaryStoreId);
+                            
                             // 가게 정보 업데이트
-                            updateCurrentStoreInfo(currentStoreId).catch(err => {
+                            updateCurrentStoreInfo(primaryStoreId).catch(err => {
                                 console.warn('가게 정보 업데이트 실패:', err);
                             });
+                        } else if (ownerStores.length > 0) {
+                            // 대표 가게가 없지만 가게가 있는 경우 - 모달로 설정 유도
+                            console.warn('⚠️ [점주 계정] 대표 가게가 설정되지 않았습니다. 설정을 유도합니다.');
+                            showPrimaryStoreSetupModal(ownerStores);
+                        } else {
+                            // 가게가 없는 경우
+                            console.warn('⚠️ [점주 계정] 연결된 가게가 없습니다.');
+                            if (!savedStoreId) {
+                                initializeSidebarStoreInfo();
+                            }
                         }
                     }).catch(error => {
                         console.error('점주 가게 목록 로드 실패:', error);
                         if (!savedStoreId) {
-                    initializeSidebarStoreInfo();
+                            initializeSidebarStoreInfo();
                         }
                     });
                 } else if (IS_SUPERADMIN && savedStoreId) {
