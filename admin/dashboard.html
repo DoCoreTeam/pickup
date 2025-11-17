@@ -9810,6 +9810,43 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
         }
 
+        // 전체 주소를 개별 필드로 파싱하는 함수
+        function parseFullAddressToFields(fullAddress) {
+            if (!fullAddress || !fullAddress.trim()) {
+                return { postalCode: '', roadAddress: '', extraAddress: '', addressDetail: '' };
+            }
+            
+            let roadAddress = fullAddress.trim();
+            let extraAddress = '';
+            let addressDetail = '';
+            
+            // 괄호 안의 내용을 참고항목으로 추출 (예: "(서초동, 서초그랑자이)")
+            const extraMatch = roadAddress.match(/\(([^)]+)\)/);
+            if (extraMatch) {
+                extraAddress = `(${extraMatch[1]})`;
+                roadAddress = roadAddress.replace(/\([^)]+\)/, '').trim();
+            }
+            
+            // 마지막 숫자나 단어를 상세주소로 추출 (예: "1", "101호" 등)
+            // 도로명 주소와 상세주소를 구분하기 위해 마지막 부분을 확인
+            const parts = roadAddress.split(/\s+/);
+            if (parts.length > 0) {
+                const lastPart = parts[parts.length - 1];
+                // 마지막 부분이 숫자로 시작하거나 호수 형식이면 상세주소로 분리
+                if (/^\d/.test(lastPart) || /호$/.test(lastPart)) {
+                    addressDetail = lastPart;
+                    roadAddress = parts.slice(0, -1).join(' ').trim();
+                }
+            }
+            
+            return {
+                postalCode: '', // 우편번호는 주소 검색 API를 통해서만 얻을 수 있음
+                roadAddress: roadAddress,
+                extraAddress: extraAddress,
+                addressDetail: addressDetail
+            };
+        }
+
         function openBasicInfoWizard() {
             const modal = document.getElementById('basicInfoWizardModal');
             if (!modal) return;
@@ -9817,11 +9854,20 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             const storeName = document.getElementById('storeName')?.value || '';
             const storeSubtitle = document.getElementById('storeSubtitle')?.value || '';
             const storePhone = document.getElementById('storePhone')?.value || '';
-            const postalCode = document.getElementById('storePostalCode')?.value || '';
-            const roadAddress = document.getElementById('storeRoadAddress')?.value || '';
-            const extraAddress = document.getElementById('storeExtraAddress')?.value || '';
-            const addressDetail = document.getElementById('storeAddressDetail')?.value || '';
+            let postalCode = document.getElementById('storePostalCode')?.value || '';
+            let roadAddress = document.getElementById('storeRoadAddress')?.value || '';
+            let extraAddress = document.getElementById('storeExtraAddress')?.value || '';
+            let addressDetail = document.getElementById('storeAddressDetail')?.value || '';
+            const storeAddress = document.getElementById('storeAddress')?.value || '';
             const existingSubdomain = document.getElementById('subdomain')?.value || '';
+
+            // 개별 필드가 비어있고 전체 주소만 있는 경우, 파싱해서 각 필드에 분리
+            if ((!roadAddress && !extraAddress && !addressDetail) && storeAddress) {
+                const parsed = parseFullAddressToFields(storeAddress);
+                if (!roadAddress) roadAddress = parsed.roadAddress;
+                if (!extraAddress) extraAddress = parsed.extraAddress;
+                if (!addressDetail) addressDetail = parsed.addressDetail;
+            }
 
             basicWizardState.storeName = storeName;
             basicWizardState.storeSubtitle = storeSubtitle;
