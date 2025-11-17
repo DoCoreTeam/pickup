@@ -11776,10 +11776,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
             
             // ===== 데이터 로드 (UI 전환 후 비동기로 실행) =====
-            const currentStoreId = getCurrentStoreId();
+            // 중요: loadSectionData 내부에서 최신 storeId를 가져와야 함 (가게 선택 후 타이밍 이슈 방지)
             
             // 섹션별 데이터 로드 (비동기, 로딩 모달 표시)
             const loadSectionData = async () => {
+                // 내부에서 최신 storeId 가져오기 (가게 선택 후 갱신 보장)
+                const currentStoreId = getCurrentStoreId();
+                
                 // 내 계정 섹션인 경우 계정 정보 로드
                 if (sectionId === 'owner-account') {
                     populateOwnerAccountSection();
@@ -11810,8 +11813,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     
                     // 캐시가 있으면 즉시 렌더링 (로딩바 없이)
                     if (cachedSummary && scope === 'store') {
-                        const currentStoreId = await getCurrentStoreId();
-                        if (currentStoreId && cachedSummary.storeId === currentStoreId) {
+                        // 최신 storeId 확인 (getCurrentStoreId는 동기 함수)
+                        const latestStoreId = getCurrentStoreId();
+                        if (latestStoreId && cachedSummary.storeId === latestStoreId) {
                             console.log('✅ [캐시] 대시보드 데이터 즉시 표시');
                             renderDashboardSummary(cachedSummary);
                             
