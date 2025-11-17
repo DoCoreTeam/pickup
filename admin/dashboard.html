@@ -57,8 +57,10 @@
         /* 슈퍼어드민 모드일 때 슈퍼어드민 전용 요소 표시 (섹션 내부 컨트롤 등) */
         /* flex 컨테이너인 경우 flex 유지 */
         body.superadmin-mode .superadmin-only.dashboard-controls,
+        body.superadmin-mode .dashboard-controls.superadmin-only,
         body.superadmin-mode .superadmin-only[class*="flex"],
-        body.superadmin-mode .superadmin-only[class*="controls"] {
+        body.superadmin-mode .superadmin-only[class*="controls"],
+        body.superadmin-mode .dashboard-controls {
             display: flex !important;
         }
         
