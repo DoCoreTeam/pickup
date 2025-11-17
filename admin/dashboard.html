@@ -8229,11 +8229,11 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 if (visibleSection && visibleSection.id) {
                     const sectionId = visibleSection.id;
                     // showSection을 다시 호출하여 해당 섹션의 데이터만 로드
-                    setTimeout(() => {
-                        showSection(sectionId).catch(err => {
-                            console.error('섹션 데이터 로드 실패:', err);
-                        });
-                    }, 100);
+                    // 중요: loadSectionData 내부에서 최신 storeId를 가져오므로 즉시 호출 가능
+                    // setTimeout 제거: 타이밍 이슈 방지를 위해 loadSectionData 내부에서 최신 storeId 사용
+                    showSection(sectionId).catch(err => {
+                        console.error('섹션 데이터 로드 실패:', err);
+                    });
                 }
                 
                 // 사용자 정보 로드 (DB 데이터 → 폼 매핑)
