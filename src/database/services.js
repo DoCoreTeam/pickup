@@ -2130,7 +2130,33 @@ async function getEventTotalsByStore({ from = null, to = null, search = '', limi
   params.push(Math.min(Math.max(parseInt(limit, 10) || 100, 10), 500));
   const limitIdx = params.length;
 
-  const sql = `
+  // 서브쿼리로 먼저 가게 필터링 후 JOIN (성능 최적화)
+  // WHERE 절이 있으면 먼저 stores를 필터링하여 JOIN 대상 축소
+  const sql = whereClauses.length > 0 ? `
+    WITH filtered_stores AS (
+      SELECT s.id, s.name, s.subdomain, s.status
+      FROM stores s
+      WHERE ${whereClauses.join(' AND ')}
+    )
+    SELECT
+      fs.id,
+      fs.name,
+      COALESCE(fs.subdomain, '') AS subdomain,
+      fs.status,
+      COALESCE(COUNT(e.id), 0)::int AS total_events,
+      COALESCE(COUNT(*) FILTER (WHERE e.event_type = 'page_view'), 0)::int AS page_views,
+      COALESCE(COUNT(*) FILTER (WHERE e.event_type = 'call_click'), 0)::int AS call_clicks,
+      COALESCE(COUNT(*) FILTER (WHERE e.event_type = 'menu_view'), 0)::int AS menu_views,
+      COALESCE(COUNT(*) FILTER (WHERE e.event_type = 'delivery_click'), 0)::int AS delivery_clicks,
+      MAX(e.created_at) AS last_event_at
+    FROM filtered_stores fs
+    LEFT JOIN store_events e
+      ON e.store_id = fs.id
+     AND e.created_at BETWEEN $1 AND $2
+    GROUP BY fs.id, fs.name, fs.subdomain, fs.status
+    ORDER BY page_views DESC, fs.name ASC
+    LIMIT $${limitIdx}
+  ` : `
     SELECT
       s.id,
       s.name,
@@ -2146,7 +2172,6 @@ async function getEventTotalsByStore({ from = null, to = null, search = '', limi
     LEFT JOIN store_events e
       ON e.store_id = s.id
      AND e.created_at BETWEEN $1 AND $2
-    ${whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : ''}
     GROUP BY s.id, s.name, s.subdomain, s.status
     ORDER BY page_views DESC, s.name ASC
     LIMIT $${limitIdx}
