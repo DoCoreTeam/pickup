@@ -992,7 +992,7 @@ class APIRouter {
               
               // 서버 사이드에서 초기 데이터 생성 (가게 정보 + 로고만)
               try {
-                const settings = await dbServices.getStoreSettingsOptimized(store.id);
+                const settings = await dbServices.getStoreSettingsOptimized(store.id, ['images']);
                 // images 필드 추출 (mainLogo가 있을 때만 포함)
                 const imagesData = settings?.settings?.images || settings?.images || {};
                 const hasLogo = Boolean(imagesData?.mainLogo && imagesData.mainLogo.trim());
@@ -1830,11 +1830,11 @@ class APIRouter {
     
     try {
       const storeId = parsedUrl.query.storeId;
-      const fields = parsedUrl.query.fields ? parsedUrl.query.fields.split(',') : null;
+      const fields = parsedUrl.query.fields ? parsedUrl.query.fields.split(',').map(f => f.trim()) : null;
       
       if (storeId) {
-        // 특정 가게 설정 조회 - 하나의 쿼리로 최적화
-        const storeData = await dbServices.getStoreSettingsOptimized(storeId);
+        // 특정 가게 설정 조회 - fields 파라미터로 필요한 컬럼만 선택적 조회 (성능 최적화)
+        const storeData = await dbServices.getStoreSettingsOptimized(storeId, fields);
         
         if (!storeData) {
           sendErrorResponse(res, 404, '가게를 찾을 수 없습니다.');

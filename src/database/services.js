@@ -875,33 +875,78 @@ async function getStoreSettings(storeId) {
 }
 
 // 가게 설정 조회 최적화 버전 (stores와 store_settings를 하나의 쿼리로 조회, 캐싱 적용)
-async function getStoreSettingsOptimized(storeId) {
-  // 캐시 확인
-  const cacheKey = getCacheKey('storeSettings', storeId);
+// fields 파라미터로 필요한 컬럼만 선택적으로 조회하여 성능 최적화
+async function getStoreSettingsOptimized(storeId, fields = null) {
+  // 캐시 키에 fields 포함 (다른 필드 조합은 별도 캐시)
+  const fieldsKey = fields && fields.length > 0 ? fields.sort().join(',') : 'all';
+  const cacheKey = getCacheKey('storeSettings', `${storeId}_${fieldsKey}`);
   const cached = getCached(cacheKey);
   if (cached) {
     return cached;
   }
   
+  // fields 파라미터가 있으면 해당 필드만 SELECT (성능 최적화)
+  const selectFields = [];
+  
+  // 기본 정보는 항상 포함
+  selectFields.push('s.id', 's.name', 's.subtitle', 's.phone', 's.address', 's.created_at', 's.last_modified');
+  
+  // fields가 없거나 '*'이면 모든 필드 포함
+  const includeAll = !fields || fields.length === 0 || fields.includes('*');
+  
+  if (includeAll) {
+    // 모든 설정 필드 포함
+    selectFields.push(
+      'ss.basic',
+      'ss.discount',
+      'ss.delivery',
+      'ss.pickup',
+      'ss.images',
+      'ss.business_hours',
+      'ss.section_order',
+      'ss.qr_code',
+      'ss.seo_settings',
+      'ss.ab_test_settings'
+    );
+  } else {
+    // 요청된 필드만 포함
+    const fieldsSet = new Set(fields.map(f => f.trim()));
+    
+    if (fieldsSet.has('basic') || fieldsSet.has('*')) {
+      selectFields.push('ss.basic');
+    }
+    if (fieldsSet.has('discount')) {
+      selectFields.push('ss.discount');
+    }
+    if (fieldsSet.has('delivery')) {
+      selectFields.push('ss.delivery');
+    }
+    if (fieldsSet.has('pickup')) {
+      selectFields.push('ss.pickup');
+    }
+    if (fieldsSet.has('images')) {
+      selectFields.push('ss.images');
+    }
+    if (fieldsSet.has('businessHours') || fieldsSet.has('business_hours')) {
+      selectFields.push('ss.business_hours');
+    }
+    if (fieldsSet.has('sectionOrder') || fieldsSet.has('section_order')) {
+      selectFields.push('ss.section_order');
+    }
+    if (fieldsSet.has('qrCode') || fieldsSet.has('qr_code')) {
+      selectFields.push('ss.qr_code');
+    }
+    if (fieldsSet.has('seoSettings') || fieldsSet.has('seo_settings')) {
+      selectFields.push('ss.seo_settings');
+    }
+    if (fieldsSet.has('abTestSettings') || fieldsSet.has('ab_test_settings')) {
+      selectFields.push('ss.ab_test_settings');
+    }
+  }
+  
   const result = await db.query(`
     SELECT 
-      s.id,
-      s.name,
-      s.subtitle,
-      s.phone,
-      s.address,
-      s.created_at,
-      s.last_modified,
-      ss.basic,
-      ss.discount,
-      ss.delivery,
-      ss.pickup,
-      ss.images,
-      ss.business_hours,
-      ss.section_order,
-      ss.qr_code,
-      ss.seo_settings,
-      ss.ab_test_settings
+      ${selectFields.join(',\n      ')}
     FROM stores s
     LEFT JOIN store_settings ss ON s.id = ss.store_id
     WHERE s.id = $1
@@ -912,18 +957,41 @@ async function getStoreSettingsOptimized(storeId) {
   }
   
   const row = result.rows[0];
-  const settings = {
-    basic: row.basic || {},
-    discount: row.discount || {},
-    delivery: row.delivery || {},
-    pickup: row.pickup || {},
-    images: row.images || {},
-    businessHours: row.business_hours || {},
-    sectionOrder: row.section_order || [],
-    qrCode: row.qr_code || {},
-    seoSettings: row.seo_settings || {},
-    abTestSettings: row.ab_test_settings || {}
-  };
+  const settings = {};
+  
+  // 조회된 필드만 포함 (성능 최적화: 불필요한 데이터 제외)
+  const fieldsSet = fields && fields.length > 0 ? new Set(fields.map(f => f.trim())) : null;
+  
+  if (includeAll || !fields || (fieldsSet && fieldsSet.has('basic'))) {
+    settings.basic = row.basic || {};
+  }
+  if (includeAll || (fieldsSet && fieldsSet.has('discount'))) {
+    settings.discount = row.discount || {};
+  }
+  if (includeAll || (fieldsSet && fieldsSet.has('delivery'))) {
+    settings.delivery = row.delivery || {};
+  }
+  if (includeAll || (fieldsSet && fieldsSet.has('pickup'))) {
+    settings.pickup = row.pickup || {};
+  }
+  if (includeAll || (fieldsSet && fieldsSet.has('images'))) {
+    settings.images = row.images || {};
+  }
+  if (includeAll || (fieldsSet && (fieldsSet.has('businessHours') || fieldsSet.has('business_hours')))) {
+    settings.businessHours = row.business_hours || {};
+  }
+  if (includeAll || (fieldsSet && (fieldsSet.has('sectionOrder') || fieldsSet.has('section_order')))) {
+    settings.sectionOrder = row.section_order || [];
+  }
+  if (includeAll || (fieldsSet && (fieldsSet.has('qrCode') || fieldsSet.has('qr_code')))) {
+    settings.qrCode = row.qr_code || {};
+  }
+  if (includeAll || (fieldsSet && (fieldsSet.has('seoSettings') || fieldsSet.has('seo_settings')))) {
+    settings.seoSettings = row.seo_settings || {};
+  }
+  if (includeAll || (fieldsSet && (fieldsSet.has('abTestSettings') || fieldsSet.has('ab_test_settings')))) {
+    settings.abTestSettings = row.ab_test_settings || {};
+  }
   
   const storeData = {
     id: row.id,
