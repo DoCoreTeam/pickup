@@ -4265,7 +4265,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge">v1.5.95-staging</div>
+                    <div class="version-badge">v1.5.96-staging</div>
                 </div>
                 <a href="/admin/release-notes" class="release-notes-btn">
                     릴리즈 노트
@@ -10433,11 +10433,15 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 // 변경 전 값 저장
                 const oldPickup = oldSettings.pickup || {};
                 
-                // 새 값 설정
+                // 새 값 설정 (빈 값 처리)
+                const pickupTitleEl = document.getElementById('pickupTitle');
+                const pickupDescriptionEl = document.getElementById('pickupDescription');
+                const pickupEnabledEl = document.getElementById('pickupEnabled');
+                
                 oldSettings.pickup = {
-                    enabled: document.getElementById('pickupEnabled').checked,
-                    title: document.getElementById('pickupTitle').value,
-                    description: document.getElementById('pickupDescription').value
+                    enabled: pickupEnabledEl ? pickupEnabledEl.checked : false,
+                    title: pickupTitleEl ? pickupTitleEl.value.trim() : '',
+                    description: pickupDescriptionEl ? pickupDescriptionEl.value.trim() : ''
                 };
                 
                 await apiRequest(`${API_BASE}/store/${currentStoreId}/settings`, 'POST', oldSettings);

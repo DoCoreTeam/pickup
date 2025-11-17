@@ -2010,9 +2010,29 @@
             { id: 'address', title: '주소 정보', icon: '📍', description: '가게 주소 및 지도' }
           ];
 
-          const sectionOrder = Array.isArray(settings?.sectionOrder) && settings.sectionOrder.length > 0 ? settings.sectionOrder : defaultOrder;
+          // sectionOrder가 있으면 사용하되, pickup이 없으면 추가
+          let sectionOrder = Array.isArray(settings?.sectionOrder) && settings.sectionOrder.length > 0 
+            ? [...settings.sectionOrder] 
+            : [...defaultOrder];
+          
+          // sectionOrder에 pickup이 없고, 픽업 안내가 활성화되어 있으면 추가
+          const hasPickupInOrder = sectionOrder.some(s => s.id === 'pickup');
+          const hasActivePickup = settings?.pickup?.enabled && (settings.pickup.title || settings.pickup.description);
+          
+          if (!hasPickupInOrder && hasActivePickup) {
+            // discount 다음에 pickup 추가
+            const discountIndex = sectionOrder.findIndex(s => s.id === 'discount');
+            if (discountIndex >= 0) {
+              sectionOrder.splice(discountIndex + 1, 0, { id: 'pickup', title: '픽업 안내', icon: '📦', description: '픽업 장소 및 안내' });
+            } else {
+              // discount가 없으면 맨 앞에 추가
+              sectionOrder.unshift({ id: 'pickup', title: '픽업 안내', icon: '📦', description: '픽업 장소 및 안내' });
+            }
+          }
+          
           console.log('✅ 섹션 순서 로드:', sectionOrder);
           console.log('📊 settings 객체:', settings);
+          console.log('📦 픽업 안내 상태:', { enabled: settings?.pickup?.enabled, hasTitle: !!settings?.pickup?.title, hasDescription: !!settings?.pickup?.description });
           
           dynamicSections.innerHTML = '';
 
