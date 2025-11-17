@@ -4445,7 +4445,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             <option value="pending">승인 대기</option>
                             <option value="paused">일시정지</option>
                         </select>
-                        <select id="storeOwnerFilter" onchange="handleStoreOwnerFilterChange()">
+                        <select id="storeOwnerFilter" class="superadmin-only" onchange="handleStoreOwnerFilterChange()" style="display: none;">
                             <option value="">전체 점주</option>
                             <option value="__unassigned">미연결</option>
                         </select>
@@ -4461,7 +4461,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     </div>
                     <div class="store-view-toggle">
                         <button type="button" class="store-view-btn active" data-view="store" onclick="setStoreViewMode('store')">가게별</button>
-                        <button type="button" class="store-view-btn" data-view="owner" onclick="setStoreViewMode('owner')">점주별</button>
+                        <button type="button" class="store-view-btn superadmin-only" data-view="owner" onclick="setStoreViewMode('owner')" style="display: none;">점주별</button>
                     </div>
                 </div>
                 
