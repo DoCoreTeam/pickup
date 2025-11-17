@@ -9056,7 +9056,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     
                     return cached; // 캐시에서 가져온 경우 즉시 반환
                     } else {
-                    // 캐시에 없으면 API 호출
+                    // 캐시에 없거나 최신 데이터 확인 필요 시 API 호출
                     // fields 파라미터가 있으면 해당 필드만 요청
                     const url = fields && fields.length > 0
                         ? `${API_BASE}/settings?storeId=${currentStoreId}&fields=${fields.join(',')}`
@@ -9064,15 +9064,80 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     
                     const settings = await apiRequest(url);
                     console.log('🔍 [DEBUG] loadSettings - settings:', settings);
-                    console.log('🔍 [DEBUG] loadSettings - settings.basic:', settings.basic);
+                    console.log('🔍 [DEBUG] loadSettings - discount:', { enabled: settings.discount?.enabled, title: settings.discount?.title });
+                    console.log('🔍 [DEBUG] loadSettings - pickup:', { enabled: settings.pickup?.enabled, title: settings.pickup?.title });
                     
                     // 전역 설정 저장
                     window.currentSettings = settings;
                     
-                    // 세션 캐시에 저장
+                    // 세션 캐시에 저장 (최신 데이터로 업데이트)
                     if (window.sessionCache) {
                         window.sessionCache.set(cacheKey, settings);
                         console.log('✅ [캐시] 세션 캐시에 설정 저장:', cacheKey);
+                    }
+                } else {
+                    // 캐시가 있었지만 최신 데이터 확인을 위해 API 호출 (백그라운드)
+                    // 캐시된 데이터로 빠르게 표시하고, API 데이터로 덮어쓰기
+                    try {
+                        const url = fields && fields.length > 0
+                            ? `${API_BASE}/settings?storeId=${currentStoreId}&fields=${fields.join(',')}`
+                            : `${API_BASE}/settings?storeId=${currentStoreId}`;
+                        
+                        const settings = await apiRequest(url);
+                        console.log('🔄 [캐시] 최신 데이터 확인 완료:', settings);
+                        
+                        // 전역 설정을 최신 데이터로 업데이트
+                        window.currentSettings = settings;
+                        
+                        // 세션 캐시도 최신 데이터로 업데이트
+                        if (window.sessionCache) {
+                            window.sessionCache.set(cacheKey, settings);
+                        }
+                        
+                        // UI 업데이트 (필요한 필드만)
+                        const fieldsSet = fields && fields.length > 0 ? new Set(fields.map(f => f.trim())) : null;
+                        const shouldUpdateField = (fieldName) => !fieldsSet || fieldsSet.has(fieldName) || fieldsSet.has('*');
+                        
+                        if (shouldUpdateField('discount')) {
+                            const discountEnabledEl = document.getElementById('discountEnabled');
+                            const discountTitleEl = document.getElementById('discountTitle');
+                            const discountDescriptionEl = document.getElementById('discountDescription');
+                            
+                            if (discountEnabledEl) discountEnabledEl.checked = settings.discount?.enabled || false;
+                            if (discountTitleEl) discountTitleEl.value = settings.discount?.title || '';
+                            if (discountDescriptionEl) discountDescriptionEl.value = settings.discount?.description || '';
+                            
+                            const discountForm = document.getElementById('discountForm');
+                            if (discountForm) {
+                                if (settings.discount?.enabled) {
+                                    discountForm.classList.add('active');
+                                } else {
+                                    discountForm.classList.remove('active');
+                                }
+                            }
+                        }
+                        
+                        if (shouldUpdateField('pickup')) {
+                            const pickupEnabledEl = document.getElementById('pickupEnabled');
+                            const pickupTitleEl = document.getElementById('pickupTitle');
+                            const pickupDescriptionEl = document.getElementById('pickupDescription');
+                            
+                            if (pickupEnabledEl) pickupEnabledEl.checked = settings.pickup?.enabled || false;
+                            if (pickupTitleEl) pickupTitleEl.value = settings.pickup?.title || '';
+                            if (pickupDescriptionEl) pickupDescriptionEl.value = settings.pickup?.description || '';
+                            
+                            const pickupForm = document.getElementById('pickupForm');
+                            if (pickupForm) {
+                                if (settings.pickup?.enabled) {
+                                    pickupForm.classList.add('active');
+                                } else {
+                                    pickupForm.classList.remove('active');
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.warn('⚠️ [캐시] 최신 데이터 확인 실패, 캐시 데이터 사용:', error);
+                        // API 호출 실패 시 캐시 데이터 사용 계속
                     }
                 }
                 

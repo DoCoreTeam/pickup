@@ -1805,11 +1805,21 @@
               <span class="action-icon">📍</span>
               <span class="action-text">위치 보기</span>
             </button>` : '';
-        const pickupActionHtml = settings?.pickup?.enabled ? `
+        // 픽업 안내 버튼: enabled가 true이고 (title 또는 description이 있으면 표시)
+        const hasPickupContent = settings?.pickup?.enabled && (settings.pickup.title || settings.pickup.description);
+        const pickupActionHtml = hasPickupContent ? `
             <button class="action-btn pickup-action" onclick="showPickupInfo()">
               <span class="action-icon">📦</span>
               <span class="action-text">픽업 안내</span>
             </button>` : '';
+        
+        // 디버깅 로그
+        console.log('📦 픽업 안내 버튼 체크:', { 
+            enabled: settings?.pickup?.enabled, 
+            hasTitle: !!settings?.pickup?.title, 
+            hasDescription: !!settings?.pickup?.description,
+            hasPickupContent: hasPickupContent 
+        });
         const quickActionsHtml = [menuActionHtml, locationActionHtml, pickupActionHtml]
           .filter(Boolean)
           .join('');
