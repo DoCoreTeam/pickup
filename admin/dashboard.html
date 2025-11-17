@@ -10188,46 +10188,6 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             });
         }
 
-        // 드래그앤드롭으로 변경된 순서 저장
-        async function saveDeliveryOrder() {
-            try {
-                const currentStoreId = await getCurrentStoreId();
-                const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
-                
-                const gridItems = document.querySelectorAll('#deliveryOrderGrid .delivery-grid-item');
-                const newOrder = Array.from(gridItems).map(item => item.getAttribute('data-app-id'));
-                
-                settings.delivery = settings.delivery || {};
-                settings.delivery.deliveryOrder = newOrder;
-                
-                await apiRequest(`${API_BASE}/store/${currentStoreId}/settings`, 'POST', settings);
-                
-                showToast('배달앱 순서가 변경되었습니다!', 'success', '순서 변경');
-                
-                // 활동 로그 기록 (변경 전/후 명확히)
-                const oldOrder = settings.delivery?.deliveryOrder || [];
-                const appNames = {
-                    'ttaeng': '땡겨요',
-                    'baemin': '배달의민족',
-                    'coupang': '쿠팡이츠',
-                    'yogiyo': '요기요'
-                };
-                const oldOrderNames = oldOrder.map(id => appNames[id] || id).join(' → ');
-                const newOrderNames = newOrder.map(id => appNames[id] || id).join(' → ');
-                
-                await logActivity('settings', '배달앱 순서 변경', 
-                    `배달앱 표시 순서 변경\n이전: ${oldOrderNames}\n이후: ${newOrderNames}`, {
-                    oldOrder: oldOrder,
-                    newOrder: newOrder,
-                    oldOrderNames: oldOrderNames,
-                    newOrderNames: newOrderNames
-                });
-                
-            } catch (error) {
-                console.error('배달앱 순서 저장 실패:', error);
-                showToast('배달앱 순서 저장에 실패했습니다.', 'error', '저장 실패');
-            }
-        }
 
         // 활동 로그 기록 (개선된 버전)
         async function logActivity(logType, action, description, details = null, beforeData = null, afterData = null) {
