@@ -11680,14 +11680,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                                     }
                                 }
                             }
-                        }
-                        
-                await loadDashboardSummary();
-                        // 로딩바는 모든 작업이 완료된 후 한 번만 숨김
-                        if (window.hideGlobalLoading) {
-                            window.setLoadingBarType('success');
-                            setTimeout(() => window.hideGlobalLoading(), 200);
-                        }
+                            
+                            await loadDashboardSummary();
+                            // 로딩바는 모든 작업이 완료된 후 한 번만 숨김
+                            if (window.hideGlobalLoading) {
+                                window.setLoadingBarType('success');
+                                setTimeout(() => window.hideGlobalLoading(), 200);
+                            }
                     } catch (error) {
                         console.error('대시보드 로드 실패:', error);
                         if (window.hideGlobalLoading) {
