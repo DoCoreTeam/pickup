@@ -8392,30 +8392,71 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     let storeSubtitle = selectedStore.subtitle || '';
                     let logoUrl = '/assets/images/icons/default-store.png';
 
-                    try {
-                        // 선택된 가게의 상세 설정을 불러와 보조 정보 확보
-                        const settingsResponse = await apiRequest(`${API_BASE}/settings?storeId=${storeId}`);
-                        const storeSettings = settingsResponse?.data || settingsResponse || {};
-
-                        if (storeSettings?.basic?.storeSubtitle) {
-                            storeSubtitle = storeSettings.basic.storeSubtitle;
-                        }
-                        if (storeSettings?.images?.mainLogo || storeSettings?.basic?.storeLogo) {
-                            logoUrl = storeSettings.images?.mainLogo || storeSettings.basic.storeLogo;
-                        }
-                    } catch (error) {
-                        console.warn('선택된 가게 설정 로드 중 오류:', error);
-                    }
-
+                    // 1단계: 가게명과 부제목을 즉시 업데이트 (이미 가져온 데이터 사용)
                     if (nameElement) nameElement.textContent = selectedStore.name || '이름 없음';
                     if (subtitleElement) subtitleElement.textContent = storeSubtitle || '';
 
+                    // 2단계: 로고는 캐시에서 먼저 확인
+                    const cacheKey = `settings_${storeId}_images`;
+                    const cachedSettings = window.sessionCache?.get(cacheKey);
+                    
                     if (logoElement) {
                         const logoImg = logoElement.querySelector('.store-logo-img');
                         if (logoImg) {
-                            logoImg.src = logoUrl || '/assets/images/icons/default-store.png';
-                            logoImg.alt = selectedStore.name ? `${selectedStore.name} 로고` : '기본 가게 로고';
+                            // 캐시에서 로고 확인
+                            if (cachedSettings) {
+                                const cachedLogo = cachedSettings.images?.mainLogo || cachedSettings.basic?.storeLogo;
+                                if (cachedLogo) {
+                                    logoUrl = cachedLogo;
+                                    logoImg.src = logoUrl;
+                                    logoImg.alt = selectedStore.name ? `${selectedStore.name} 로고` : '기본 가게 로고';
+                                } else {
+                                    // 캐시에 로고가 없으면 기본 이미지 즉시 표시
+                                    logoImg.src = logoUrl;
+                                    logoImg.alt = '기본 가게 로고';
+                                }
+                            } else {
+                                // 캐시가 없으면 기본 이미지 먼저 표시 (로딩 중 표시)
+                                logoImg.src = logoUrl;
+                                logoImg.alt = '로딩 중...';
+                            }
                         }
+                    }
+
+                    // 3단계: 설정 정보를 백그라운드에서 가져와서 업데이트 (캐시가 없거나 로고가 없는 경우)
+                    if (!cachedSettings || (!cachedSettings.images?.mainLogo && !cachedSettings.basic?.storeLogo)) {
+                        try {
+                            // 선택된 가게의 상세 설정을 불러와 보조 정보 확보
+                            const settingsResponse = await apiRequest(`${API_BASE}/settings?storeId=${storeId}&fields=images,basic`);
+                            const storeSettings = settingsResponse?.data || settingsResponse || {};
+
+                            if (storeSettings?.basic?.storeSubtitle) {
+                                storeSubtitle = storeSettings.basic.storeSubtitle;
+                                if (subtitleElement) subtitleElement.textContent = storeSubtitle;
+                            }
+                            
+                            // 로고 업데이트 (API에서 가져온 최신 데이터)
+                            if (logoElement) {
+                                const logoImg = logoElement.querySelector('.store-logo-img');
+                                if (logoImg) {
+                                    const newLogoUrl = storeSettings?.images?.mainLogo || storeSettings?.basic?.storeLogo;
+                                    if (newLogoUrl) {
+                                        logoImg.src = newLogoUrl;
+                                        logoImg.alt = selectedStore.name ? `${selectedStore.name} 로고` : '기본 가게 로고';
+                                    } else {
+                                        logoImg.src = '/assets/images/icons/default-store.png';
+                                        logoImg.alt = '기본 가게 로고';
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            console.warn('선택된 가게 설정 로드 중 오류:', error);
+                            // 에러 시에도 기본 로고는 유지
+                        }
+                    } else if (cachedSettings?.basic?.storeSubtitle) {
+                        // 캐시에 부제목이 있으면 업데이트
+                        storeSubtitle = cachedSettings.basic.storeSubtitle;
+                        if (subtitleElement) subtitleElement.textContent = storeSubtitle;
                     }
                 } else {
                     // 가게를 찾을 수 없는 경우 초기화
