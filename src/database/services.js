@@ -619,7 +619,7 @@ async function getStores(options = {}) {
       ),
       owner_list AS (
         SELECT
-          sol.store_id,
+          p.id AS store_id,
           json_agg(
             json_build_object(
               'id', o.id,
@@ -634,11 +634,11 @@ async function getStores(options = {}) {
               'linkedAt', sol.created_at
             )
             ORDER BY o.owner_name ASC NULLS LAST, o.email ASC
-          ) AS owners
-        FROM store_owner_links sol
-        JOIN store_owners o ON sol.owner_id = o.id
-        WHERE sol.store_id IN (SELECT id FROM page)
-        GROUP BY sol.store_id
+          ) FILTER (WHERE o.id IS NOT NULL) AS owners
+        FROM page p
+        LEFT JOIN store_owner_links sol ON sol.store_id = p.id
+        LEFT JOIN store_owners o ON sol.owner_id = o.id
+        GROUP BY p.id
       )
       SELECT
         p.id,

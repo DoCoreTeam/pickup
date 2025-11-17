@@ -7171,7 +7171,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
 
         async function renderStoreView() {
             if (storeViewMode === 'owner') {
-                renderOwnerGroupView();
+                // 점주별 보기: filteredStores를 점주별로 그룹화하여 표시
+                if (IS_SUPERADMIN) {
+                    renderOwnerGroupView();
+                } else {
+                    // 점주 계정은 점주별 보기 불가
+                    await renderStoreTable();
+                }
             } else {
                 await renderStoreTable();
             }
