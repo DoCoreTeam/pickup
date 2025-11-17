@@ -4265,7 +4265,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge">v1.6.10-staging</div>
+                    <div class="version-badge">v1.6.11-staging</div>
                 </div>
                 <a href="/admin/release-notes" class="release-notes-btn">
                     릴리즈 노트
@@ -11458,15 +11458,43 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     sortOrder: 'desc'
                 });
 
+                // 점주 계정일 때는 본인 가게만 보이도록 필터링 (슈퍼어드민이 아닐 때)
+                if (IS_STORE_OWNER && !IS_SUPERADMIN) {
+                    const ownerId = sessionStorage.getItem('owner_id');
+                    if (ownerId) {
+                        query.set('ownerId', ownerId);
+                    } else {
+                        // 점주 ID가 없으면 빈 목록 표시
+                        storesListEl.innerHTML = '<div class="home-loading">점주 정보를 찾을 수 없습니다.</div>';
+                        return;
+                    }
+                }
+
                 const response = await apiRequest(`${API_BASE}/stores?${query.toString()}`, 'GET', null, 3, false);
                 const stores = normalizeStoreListResponse(response);
+                
+                // 점주 계정일 때는 본인과 연결된 가게만 추가 필터링
+                let filteredStores = stores;
+                if (IS_STORE_OWNER && !IS_SUPERADMIN) {
+                    const ownerId = sessionStorage.getItem('owner_id');
+                    if (ownerId) {
+                        filteredStores = stores.filter(store => {
+                            const owners = store.owners || [];
+                            return owners.some(owner => owner.id === ownerId);
+                        });
+                    } else {
+                        filteredStores = [];
+                    }
+                }
+                
+                const storesToDisplay = filteredStores;
 
-                if (stores.length === 0) {
+                if (storesToDisplay.length === 0) {
                     storesListEl.innerHTML = '<div class="home-loading">등록된 가게가 없습니다.</div>';
                     return;
                 }
 
-                storesListEl.innerHTML = stores.map(store => `
+                storesListEl.innerHTML = storesToDisplay.map(store => `
                     <div class="home-store-card" onclick="selectStore('${store.id}')">
                         <div class="home-store-name">${escapeHtml(store.basic?.storeName || store.name || '알 수 없는 가게')}</div>
                         <div class="home-store-subtitle">${escapeHtml(store.basic?.storeSubtitle || store.subtitle || '')}</div>
@@ -12337,15 +12365,20 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 const dashboardSection = document.getElementById('dashboard');
                 if (!dashboardSection) return;
 
+                // 점주 계정은 항상 'store' 스코프만 사용 (본인 가게만)
+                // 슈퍼어드민만 'all' 스코프 사용 가능
                 const scope = overrideScope || (IS_SUPERADMIN ? dashboardScope : 'store');
+                
+                // 점주 계정이 'all' 스코프로 접근하려 하면 'store'로 강제 변경
+                const finalScope = (IS_STORE_OWNER && !IS_SUPERADMIN) ? 'store' : scope;
                 const scopeHint = document.getElementById('dashboardScopeHint');
                 if (scopeHint) {
-                    scopeHint.textContent = scope === 'all'
+                    scopeHint.textContent = finalScope === 'all'
                         ? '전체 가게 기준 주요 지표입니다.'
                         : '선택된 가게 기준 주요 지표입니다.';
                 }
 
-                if (scope === 'store') {
+                if (finalScope === 'store') {
                     const targetStoreId = await getCurrentStoreId();
                     if (!targetStoreId) {
                         showStoreSelectionRequired();
@@ -12372,7 +12405,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     const summary = await apiRequest(`${API_BASE}/dashboard/summary?${query.toString()}`, 'GET');
                     
                     // 캐시에 저장 (5분 TTL)
-                    const cacheKey = `dashboard_summary_${scope}`;
+                    const cacheKey = `dashboard_summary_${finalScope}`;
                     if (summary && window.sessionCache) {
                         summary._cacheTime = Date.now();
                         summary.storeId = targetStoreId;
@@ -12381,6 +12414,14 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     
                     renderDashboardSummary(summary);
                 } else {
+                    // 'all' 스코프는 슈퍼어드민만 사용 가능
+                    if (!IS_SUPERADMIN) {
+                        console.warn('점주 계정은 전체 현황을 볼 수 없습니다. 가게별 현황으로 전환합니다.');
+                        // 점주 계정이 'all'로 접근하면 가게별 현황으로 리다이렉트
+                        await loadDashboardSummary('store');
+                        return;
+                    }
+                    
                     const query = new URLSearchParams({
                         scope: 'all'
                     });
@@ -12388,7 +12429,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     const summary = await apiRequest(`${API_BASE}/dashboard/summary?${query.toString()}`, 'GET');
                     
                     // 캐시에 저장 (5분 TTL)
-                    const cacheKey = `dashboard_summary_${scope}`;
+                    const cacheKey = `dashboard_summary_${finalScope}`;
                     if (summary && window.sessionCache) {
                         summary._cacheTime = Date.now();
                         window.sessionCache.set(cacheKey, summary, 5 * 60 * 1000); // 5분
@@ -12397,7 +12438,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     renderDashboardSummary(summary);
                     
                     // 가게별 메트릭은 백그라운드에서 로드 (대시보드 로드와 병렬)
-                    if (IS_SUPERADMIN) {
+                    // 슈퍼어드민만 전체 가게 메트릭 조회 가능
+                    if (IS_SUPERADMIN && typeof loadDashboardStoreMetrics === 'function') {
                         loadDashboardStoreMetrics(dashboardStoreSearchTerm).catch(err => {
                             console.warn('가게별 메트릭 로드 실패:', err);
                         });
