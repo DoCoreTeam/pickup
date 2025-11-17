@@ -1830,10 +1830,21 @@ class APIRouter {
     
     try {
       const storeId = parsedUrl.query.storeId;
-      const fields = parsedUrl.query.fields ? parsedUrl.query.fields.split(',').map(f => f.trim()) : null;
+      // fields 파라미터 처리: 없으면 null (최소 필드만 조회), '*'이면 전체, 아니면 배열로 변환
+      let fields = null;
+      if (parsedUrl.query.fields) {
+        const fieldsParam = parsedUrl.query.fields.trim();
+        if (fieldsParam === '*') {
+          fields = '*'; // 전체 필드 명시적 요청
+        } else if (fieldsParam.length > 0) {
+          fields = fieldsParam.split(',').map(f => f.trim());
+        }
+      }
+      // fields가 없으면 null (기본값: 최소 필드만 조회)
       
       if (storeId) {
         // 특정 가게 설정 조회 - fields 파라미터로 필요한 컬럼만 선택적 조회 (성능 최적화)
+        // fields가 없으면 최소 필드만 조회 (성능 향상)
         const storeData = await dbServices.getStoreSettingsOptimized(storeId, fields);
         
         if (!storeData) {

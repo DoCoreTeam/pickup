@@ -756,12 +756,12 @@ async function getStoreById(storeId) {
     return cached;
   }
   
+  // stores와 owners만 조회 (delivery는 필요할 때만 별도 조회로 성능 최적화)
   const result = await db.query(`
     SELECT 
       s.id, s.name, s.subtitle, s.phone, s.address, s.status, s.subdomain,
       s.subdomain_status, s.subdomain_created_at, s.subdomain_last_modified,
       s."order", s.created_at, s.last_modified, s.paused_at,
-      ss.delivery,
       COALESCE(
         json_agg(
           json_build_object(
@@ -781,13 +781,12 @@ async function getStoreById(storeId) {
         '[]'::json
       ) AS owners
     FROM stores s
-    LEFT JOIN store_settings ss ON s.id = ss.store_id
     LEFT JOIN store_owner_links sol ON sol.store_id = s.id
     LEFT JOIN store_owners o ON sol.owner_id = o.id
     WHERE s.id = $1
     GROUP BY s.id, s.name, s.subtitle, s.phone, s.address, s.status, s.subdomain,
              s.subdomain_status, s.subdomain_created_at, s.subdomain_last_modified,
-             s."order", s.created_at, s.last_modified, s.paused_at, ss.delivery
+             s."order", s.created_at, s.last_modified, s.paused_at
   `, [storeId]);
   
   if (result.rows.length === 0) {
@@ -876,9 +875,17 @@ async function getStoreSettings(storeId) {
 
 // 가게 설정 조회 최적화 버전 (stores와 store_settings를 하나의 쿼리로 조회, 캐싱 적용)
 // fields 파라미터로 필요한 컬럼만 선택적으로 조회하여 성능 최적화
+// 기본값: fields가 없으면 최소 필드만 조회 (성능 최적화)
 async function getStoreSettingsOptimized(storeId, fields = null) {
-  // 캐시 키에 fields 포함 (다른 필드 조합은 별도 캐시)
-  const fieldsKey = fields && fields.length > 0 ? fields.sort().join(',') : 'all';
+  // fields가 명시적으로 null이거나 빈 배열이면 기본 필드만 조회 (성능 최적화)
+  // '*'를 명시적으로 요청한 경우에만 전체 필드 조회
+  const includeAll = fields === '*' || (Array.isArray(fields) && fields.length > 0 && fields.includes('*'));
+  
+  // 캐시 키 생성 (fields 조합별로 별도 캐시)
+  // 기본값과 전체 조회는 별도 캐시로 분리하여 캐시 히트율 향상
+  const fieldsKey = includeAll 
+    ? 'all' 
+    : (fields && fields.length > 0 ? fields.sort().join(',') : 'minimal');
   const cacheKey = getCacheKey('storeSettings', `${storeId}_${fieldsKey}`);
   const cached = getCached(cacheKey);
   if (cached) {
@@ -890,9 +897,6 @@ async function getStoreSettingsOptimized(storeId, fields = null) {
   
   // 기본 정보는 항상 포함
   selectFields.push('s.id', 's.name', 's.subtitle', 's.phone', 's.address', 's.created_at', 's.last_modified');
-  
-  // fields가 없거나 '*'이면 모든 필드 포함
-  const includeAll = !fields || fields.length === 0 || fields.includes('*');
   
   if (includeAll) {
     // 모든 설정 필드 포함
@@ -908,11 +912,11 @@ async function getStoreSettingsOptimized(storeId, fields = null) {
       'ss.seo_settings',
       'ss.ab_test_settings'
     );
-  } else {
-    // 요청된 필드만 포함
+  } else if (fields && fields.length > 0) {
+    // 요청된 필드만 포함 (성능 최적화)
     const fieldsSet = new Set(fields.map(f => f.trim()));
     
-    if (fieldsSet.has('basic') || fieldsSet.has('*')) {
+    if (fieldsSet.has('basic')) {
       selectFields.push('ss.basic');
     }
     if (fieldsSet.has('discount')) {
@@ -943,12 +947,16 @@ async function getStoreSettingsOptimized(storeId, fields = null) {
       selectFields.push('ss.ab_test_settings');
     }
   }
+  // fields가 없거나 빈 배열이면 설정 필드는 조회하지 않음 (최소 필드만 조회)
+  
+  // 설정 필드가 필요한 경우에만 JOIN (성능 최적화)
+  const needsSettings = selectFields.some(field => field.startsWith('ss.'));
   
   const result = await db.query(`
     SELECT 
       ${selectFields.join(',\n      ')}
     FROM stores s
-    LEFT JOIN store_settings ss ON s.id = ss.store_id
+    ${needsSettings ? 'LEFT JOIN store_settings ss ON s.id = ss.store_id' : ''}
     WHERE s.id = $1
   `, [storeId]);
   
@@ -962,36 +970,52 @@ async function getStoreSettingsOptimized(storeId, fields = null) {
   // 조회된 필드만 포함 (성능 최적화: 불필요한 데이터 제외)
   const fieldsSet = fields && fields.length > 0 ? new Set(fields.map(f => f.trim())) : null;
   
-  if (includeAll || !fields || (fieldsSet && fieldsSet.has('basic'))) {
+  if (includeAll) {
+    // 모든 필드 포함
     settings.basic = row.basic || {};
-  }
-  if (includeAll || (fieldsSet && fieldsSet.has('discount'))) {
     settings.discount = row.discount || {};
-  }
-  if (includeAll || (fieldsSet && fieldsSet.has('delivery'))) {
     settings.delivery = row.delivery || {};
-  }
-  if (includeAll || (fieldsSet && fieldsSet.has('pickup'))) {
     settings.pickup = row.pickup || {};
-  }
-  if (includeAll || (fieldsSet && fieldsSet.has('images'))) {
     settings.images = row.images || {};
-  }
-  if (includeAll || (fieldsSet && (fieldsSet.has('businessHours') || fieldsSet.has('business_hours')))) {
     settings.businessHours = row.business_hours || {};
-  }
-  if (includeAll || (fieldsSet && (fieldsSet.has('sectionOrder') || fieldsSet.has('section_order')))) {
     settings.sectionOrder = row.section_order || [];
-  }
-  if (includeAll || (fieldsSet && (fieldsSet.has('qrCode') || fieldsSet.has('qr_code')))) {
     settings.qrCode = row.qr_code || {};
-  }
-  if (includeAll || (fieldsSet && (fieldsSet.has('seoSettings') || fieldsSet.has('seo_settings')))) {
     settings.seoSettings = row.seo_settings || {};
-  }
-  if (includeAll || (fieldsSet && (fieldsSet.has('abTestSettings') || fieldsSet.has('ab_test_settings')))) {
     settings.abTestSettings = row.ab_test_settings || {};
+  } else if (fieldsSet && fieldsSet.size > 0) {
+    // 요청된 필드만 포함
+    if (fieldsSet.has('basic')) {
+      settings.basic = row.basic || {};
+    }
+    if (fieldsSet.has('discount')) {
+      settings.discount = row.discount || {};
+    }
+    if (fieldsSet.has('delivery')) {
+      settings.delivery = row.delivery || {};
+    }
+    if (fieldsSet.has('pickup')) {
+      settings.pickup = row.pickup || {};
+    }
+    if (fieldsSet.has('images')) {
+      settings.images = row.images || {};
+    }
+    if (fieldsSet.has('businessHours') || fieldsSet.has('business_hours')) {
+      settings.businessHours = row.business_hours || {};
+    }
+    if (fieldsSet.has('sectionOrder') || fieldsSet.has('section_order')) {
+      settings.sectionOrder = row.section_order || [];
+    }
+    if (fieldsSet.has('qrCode') || fieldsSet.has('qr_code')) {
+      settings.qrCode = row.qr_code || {};
+    }
+    if (fieldsSet.has('seoSettings') || fieldsSet.has('seo_settings')) {
+      settings.seoSettings = row.seo_settings || {};
+    }
+    if (fieldsSet.has('abTestSettings') || fieldsSet.has('ab_test_settings')) {
+      settings.abTestSettings = row.ab_test_settings || {};
+    }
   }
+  // fields가 없거나 빈 배열이면 settings는 빈 객체 유지 (최소 필드만 조회)
   
   const storeData = {
     id: row.id,
@@ -2233,11 +2257,18 @@ async function ensureHistoryTables() {
       // 복합 인덱스 추가 (status + created_at 정렬 최적화)
       await db.query(`CREATE INDEX IF NOT EXISTS idx_stores_status_created ON stores(status, created_at DESC)`);
       
-      // store_owner_links 테이블 인덱스
-      await db.query(`CREATE INDEX IF NOT EXISTS idx_store_owner_links_store_id ON store_owner_links(store_id)`);
-      await db.query(`CREATE INDEX IF NOT EXISTS idx_store_owner_links_owner_id ON store_owner_links(owner_id)`);
-      // 복합 인덱스 추가 (JOIN 최적화)
+      // store_owner_links 테이블 인덱스 (복합 인덱스로 단일 컬럼 인덱스 대체)
+      // 복합 인덱스가 (store_id), (store_id, owner_id) 둘 다 커버하므로 단일 인덱스는 제거
       await db.query(`CREATE INDEX IF NOT EXISTS idx_store_owner_links_composite ON store_owner_links(store_id, owner_id)`);
+      
+      // 중복 인덱스 제거 시도 (없으면 무시)
+      try {
+        await db.query(`DROP INDEX IF EXISTS idx_store_owner_links_store_id`);
+        await db.query(`DROP INDEX IF EXISTS idx_store_owner_links_owner_id`);
+        console.log('[DB] 중복 인덱스 제거 완료 (store_owner_links)');
+      } catch (e) {
+        // 인덱스가 없거나 권한 문제면 무시
+      }
       
       // store_owners 테이블 인덱스
       await db.query(`CREATE INDEX IF NOT EXISTS idx_store_owners_status ON store_owners(status)`);
