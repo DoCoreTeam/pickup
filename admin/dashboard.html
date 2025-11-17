@@ -82,6 +82,13 @@
             display: inline !important;
         }
         
+        /* 버튼 요소는 inline-block */
+        body.superadmin-mode .superadmin-only.store-view-btn,
+        body.superadmin-mode .superadmin-only[type="button"],
+        body.superadmin-mode .superadmin-only.btn {
+            display: inline-block !important;
+        }
+        
         /* 슈퍼어드민 전용 섹션은 기본적으로 숨김 (showSection으로 표시/숨김 제어) */
         .admin-section.superadmin-only {
             display: none !important;
@@ -4232,7 +4239,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge">v1.5.84</div>
+                    <div class="version-badge">v1.5.85-staging</div>
                 </div>
                 <a href="/admin/release-notes" class="release-notes-btn">
                     릴리즈 노트
