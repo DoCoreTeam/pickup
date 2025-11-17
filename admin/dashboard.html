@@ -106,6 +106,14 @@
             display: inline-block !important;
         }
         
+        /* store-filters와 store-view-toggle 내부 요소에 대한 더 구체적인 선택자 */
+        body.superadmin-mode .store-filters select.superadmin-only,
+        body.superadmin-mode .store-filters #storeOwnerFilter.superadmin-only,
+        body.superadmin-mode .store-view-toggle button.superadmin-only,
+        body.superadmin-mode .store-view-toggle .store-view-btn.superadmin-only {
+            display: inline-block !important;
+        }
+        
         /* 슈퍼어드민 전용 섹션은 기본적으로 숨김 (showSection으로 표시/숨김 제어) */
         .admin-section.superadmin-only {
             display: none !important;
