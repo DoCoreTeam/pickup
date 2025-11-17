@@ -11420,24 +11420,6 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 // 가게 관리 섹션인 경우 가게 목록 로드 (필요할 때만)
                 if (sectionId === 'stores') {
-                    // 슈퍼어드민 모드 확인 및 요소 표시
-                    if (IS_SUPERADMIN) {
-                        // body에 superadmin-mode 클래스 추가
-                        document.body.classList.add('superadmin-mode');
-                        
-                        // 가게 관리 필터 강제 표시
-                        const storeOwnerFilter = document.getElementById('storeOwnerFilter');
-                        if (storeOwnerFilter) {
-                            storeOwnerFilter.style.display = 'inline-block';
-                        }
-                        
-                        // 점주별 버튼 강제 표시
-                        const ownerViewBtn = document.querySelector('.store-view-btn[data-view="owner"]');
-                        if (ownerViewBtn) {
-                            ownerViewBtn.style.display = 'inline-block';
-                        }
-                    }
-                    
                     // 세션 캐시 확인
                     const cacheKey = 'stores_list';
                     // 권한 체크 후 해당 데이터만 로드 (초기 로드 시점부터 필터링)
@@ -14829,49 +14811,11 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             if (isLoading) return;
             isLoading = true;
             
-            // 슈퍼어드민 모드 확인 및 요소 표시/숨김 처리
+            // 슈퍼어드민 모드 확인 및 body 클래스 추가 (CSS가 작동하도록)
             if (IS_SUPERADMIN) {
-                // body에 superadmin-mode 클래스 추가 (혹시 모를 경우 대비)
                 document.body.classList.add('superadmin-mode');
-                
-                // 슈퍼어드민 전용 요소 표시
-                const superadminOnlyElements = document.querySelectorAll('.superadmin-only');
-                superadminOnlyElements.forEach(el => {
-                    // 특수한 경우 처리
-                    if (el.classList.contains('dashboard-controls') || el.classList.contains('controls')) {
-                        el.style.display = 'flex';
-                    } else if (el.tagName === 'SELECT' || el.tagName === 'BUTTON' || el.type === 'button') {
-                        el.style.display = 'inline-block';
-                    } else if (el.classList.contains('store-view-btn')) {
-                        el.style.display = 'inline-block';
-                    } else {
-                        el.style.display = 'block';
-                    }
-                });
-                
-                // 대시보드 컨트롤 확인
-                const dashboardControls = document.getElementById('dashboardControls');
-                if (dashboardControls) {
-                    dashboardControls.style.display = 'flex';
-                }
-                
-                // 가게 관리 필터 확인
-                const storeOwnerFilter = document.getElementById('storeOwnerFilter');
-                if (storeOwnerFilter) {
-                    storeOwnerFilter.style.display = 'inline-block';
-                }
-                
-                // 점주별 버튼 확인
-                const ownerViewBtn = document.querySelector('.store-view-btn[data-view="owner"]');
-                if (ownerViewBtn) {
-                    ownerViewBtn.style.display = 'inline-block';
-                }
-            } else {
-                // 슈퍼어드민 전용 요소 숨김
-                const superadminOnlyElements = document.querySelectorAll('.superadmin-only');
-                superadminOnlyElements.forEach(el => {
-                    el.style.display = 'none';
-                });
+            } else if (IS_STORE_OWNER) {
+                document.body.classList.add('owner-mode');
             }
             
             // 초기 로드 시 전체 목록을 가져오지 않도록 설정 (필요할 때만 로드)
