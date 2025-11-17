@@ -86,6 +86,8 @@
         
         /* 버튼 요소는 inline-block */
         body.superadmin-mode .superadmin-only.store-view-btn,
+        body.superadmin-mode .store-view-btn.superadmin-only,
+        body.superadmin-mode button.superadmin-only.store-view-btn,
         body.superadmin-mode .superadmin-only[type="button"],
         body.superadmin-mode .superadmin-only.btn {
             display: inline-block !important;
@@ -95,6 +97,12 @@
         body.superadmin-mode .superadmin-only select,
         body.superadmin-mode select.superadmin-only,
         body.superadmin-mode #storeOwnerFilter.superadmin-only {
+            display: inline-block !important;
+        }
+        
+        /* select와 button은 일반 block 규칙보다 우선순위 높음 */
+        body.superadmin-mode select.superadmin-only,
+        body.superadmin-mode button.superadmin-only {
             display: inline-block !important;
         }
         
