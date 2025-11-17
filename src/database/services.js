@@ -655,18 +655,11 @@ async function getStores(options = {}) {
         p.created_at,
         p.last_modified,
         p.paused_at,
-        ss.basic,
-        ss.discount,
-        ss.delivery,
-        ss.pickup,
-        ss.images,
-        ss.business_hours,
-        ss.section_order,
-        ss.qr_code,
+        -- 설정 데이터는 리스트 조회 시 제외 (성능 최적화)
+        -- 필요한 경우 별도 API로 조회하도록 변경
         COALESCE(owner_list.owners, '[]'::json) AS owners,
         p.row_number
       FROM page p
-      LEFT JOIN store_settings ss ON ss.store_id = p.id
       LEFT JOIN owner_list ON owner_list.store_id = p.id
       ORDER BY p.row_number
     `;
