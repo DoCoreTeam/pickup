@@ -4591,10 +4591,17 @@ class APIRouter {
   process.on('SIGINT', () => gracefulShutdown('SIGINT'));
   process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
-  server.listen(PORT, () => {
+  server.listen(PORT, async () => {
     log('INFO', `API 서버가 포트 ${PORT}에서 실행 중입니다.`);
     if (!dbConnected) {
       log('WARN', '⚠️ DB 연결이 실패했지만 서버는 계속 실행됩니다. DB가 필요한 API는 에러를 반환합니다.');
+    } else {
+      // 서버 기동 시 store_settings 전체를 메모리에 로드 (성능 최적화)
+      try {
+        await dbServices.loadAllStoreSettingsToMemory();
+      } catch (error) {
+        log('WARN', '⚠️ store_settings 메모리 캐시 로드 실패 (계속 진행)', { error: error.message });
+      }
     }
   });
 })();

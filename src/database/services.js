@@ -23,6 +23,10 @@ let storeSettingsColumnsAvailable = true;
 const cache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5분
 
+// store_settings 전체를 메모리에 보관하는 전역 캐시 (서버 기동 시 로드, 무효화 시에만 갱신)
+const storeSettingsMemoryCache = new Map(); // storeId -> settings 객체
+let storeSettingsCacheLoaded = false;
+
 function getCacheKey(type, id) {
   return `${type}:${id}`;
 }
@@ -57,6 +61,86 @@ function clearCache(pattern = null) {
       cache.delete(key);
     }
   }
+}
+
+// store_settings 전체를 메모리에 로드 (서버 기동 시 한 번만 실행)
+async function loadAllStoreSettingsToMemory() {
+  if (storeSettingsCacheLoaded) {
+    console.log('[캐시] store_settings 메모리 캐시 이미 로드됨');
+    return;
+  }
+  
+  try {
+    console.log('[캐시] store_settings 전체를 메모리에 로드 시작...');
+    const startTime = Date.now();
+    
+    // 모든 store_settings를 한 번에 조회 (JOIN으로 store 정보도 함께)
+    const result = await db.query(`
+      SELECT 
+        ss.store_id,
+        ss.basic,
+        ss.discount,
+        ss.delivery,
+        ss.pickup,
+        ss.images,
+        ss.business_hours,
+        ss.section_order,
+        ss.qr_code,
+        ss.seo_settings,
+        ss.ab_test_settings,
+        ss.updated_at
+      FROM store_settings ss
+      ORDER BY ss.store_id
+    `);
+    
+    // 메모리 캐시에 저장
+    storeSettingsMemoryCache.clear();
+    let loadedCount = 0;
+    
+    for (const row of result.rows) {
+      const settings = {
+        basic: row.basic || {},
+        discount: row.discount || {},
+        delivery: row.delivery || {},
+        pickup: row.pickup || {},
+        images: row.images || {},
+        businessHours: row.business_hours || {},
+        sectionOrder: row.section_order || [],
+        qrCode: row.qr_code || {},
+        seoSettings: row.seo_settings || {},
+        abTestSettings: row.ab_test_settings || {},
+        updatedAt: row.updated_at
+      };
+      
+      storeSettingsMemoryCache.set(row.store_id, settings);
+      loadedCount++;
+    }
+    
+    const duration = Date.now() - startTime;
+    storeSettingsCacheLoaded = true;
+    console.log(`[캐시] store_settings 메모리 캐시 로드 완료: ${loadedCount}개 (${duration}ms)`);
+  } catch (error) {
+    console.error('[캐시] store_settings 메모리 캐시 로드 실패:', error);
+    // 실패해도 계속 진행 (캐시 없이 동작)
+  }
+}
+
+// 특정 가게의 설정을 메모리 캐시에서 조회
+function getStoreSettingsFromMemory(storeId) {
+  return storeSettingsMemoryCache.get(storeId) || null;
+}
+
+// 메모리 캐시에서 설정 제거 (무효화)
+function invalidateStoreSettingsCache(storeId) {
+  storeSettingsMemoryCache.delete(storeId);
+  // 관련 TTL 캐시도 함께 무효화
+  clearCache(`storeSettings:${storeId}`);
+  clearCache(`store:${storeId}`);
+}
+
+// 메모리 캐시에 설정 저장/업데이트
+function setStoreSettingsInMemory(storeId, settings) {
+  storeSettingsMemoryCache.set(storeId, settings);
 }
 
 // 캐시 정리 (1시간마다 만료된 항목 제거)
@@ -806,11 +890,17 @@ async function getStoreById(storeId) {
     deliveryOrder: [],
   };
   
-  // delivery 정보는 별도 조회 (캐시 활용)
+  // delivery 정보는 메모리 캐시에서 조회 (가장 빠름)
   try {
-    const deliverySettings = await getStoreSettingsOptimized(storeId, ['delivery']);
-    if (deliverySettings?.settings?.delivery) {
-      delivery = deliverySettings.settings.delivery;
+    const memoryCached = getStoreSettingsFromMemory(storeId);
+    if (memoryCached?.delivery) {
+      delivery = memoryCached.delivery;
+    } else {
+      // 메모리 캐시에 없으면 getStoreSettingsOptimized 사용 (fallback)
+      const deliverySettings = await getStoreSettingsOptimized(storeId, ['delivery']);
+      if (deliverySettings?.settings?.delivery) {
+        delivery = deliverySettings.settings.delivery;
+      }
     }
   } catch (error) {
     // delivery 조회 실패해도 기본값 사용
@@ -889,7 +979,7 @@ async function getStoreSettings(storeId) {
   };
 }
 
-// 가게 설정 조회 최적화 버전 (stores와 store_settings를 하나의 쿼리로 조회, 캐싱 적용)
+// 가게 설정 조회 최적화 버전 (메모리 캐시 우선 → TTL 캐시 → DB 조회)
 // fields 파라미터로 필요한 컬럼만 선택적으로 조회하여 성능 최적화
 // 기본값: fields가 없으면 최소 필드만 조회 (성능 최적화)
 async function getStoreSettingsOptimized(storeId, fields = null) {
@@ -897,8 +987,62 @@ async function getStoreSettingsOptimized(storeId, fields = null) {
   // '*'를 명시적으로 요청한 경우에만 전체 필드 조회
   const includeAll = fields === '*' || (Array.isArray(fields) && fields.length > 0 && fields.includes('*'));
   
-  // 캐시 키 생성 (fields 조합별로 별도 캐시)
-  // 기본값과 전체 조회는 별도 캐시로 분리하여 캐시 히트율 향상
+  // 1단계: 메모리 캐시에서 조회 (가장 빠름 - 서버 기동 시 로드한 데이터)
+  if (storeSettingsCacheLoaded && (includeAll || !fields || fields.length === 0 || (Array.isArray(fields) && fields.length > 0))) {
+    const memoryCached = getStoreSettingsFromMemory(storeId);
+    if (memoryCached) {
+      // stores 정보만 가져오기 (메모리 캐시에 settings는 있음)
+      const storeInfo = await db.query('SELECT id, name, subtitle, phone, address, created_at, last_modified FROM stores WHERE id = $1', [storeId]);
+      if (storeInfo.rows.length === 0) {
+        return null;
+      }
+      
+      const row = storeInfo.rows[0];
+      const settings = {};
+      
+      if (includeAll) {
+        // 모든 필드 반환
+        Object.assign(settings, memoryCached);
+      } else if (fields && fields.length > 0) {
+        // 요청된 필드만 반환
+        const fieldsSet = new Set(fields.map(f => f.trim()));
+        if (fieldsSet.has('basic')) settings.basic = memoryCached.basic || {};
+        if (fieldsSet.has('discount')) settings.discount = memoryCached.discount || {};
+        if (fieldsSet.has('delivery')) settings.delivery = memoryCached.delivery || {};
+        if (fieldsSet.has('pickup')) settings.pickup = memoryCached.pickup || {};
+        if (fieldsSet.has('images')) settings.images = memoryCached.images || {};
+        if (fieldsSet.has('businessHours') || fieldsSet.has('business_hours')) {
+          settings.businessHours = memoryCached.businessHours || {};
+        }
+        if (fieldsSet.has('sectionOrder') || fieldsSet.has('section_order')) {
+          settings.sectionOrder = memoryCached.sectionOrder || [];
+        }
+        if (fieldsSet.has('qrCode') || fieldsSet.has('qr_code')) {
+          settings.qrCode = memoryCached.qrCode || {};
+        }
+        if (fieldsSet.has('seoSettings') || fieldsSet.has('seo_settings')) {
+          settings.seoSettings = memoryCached.seoSettings || {};
+        }
+        if (fieldsSet.has('abTestSettings') || fieldsSet.has('ab_test_settings')) {
+          settings.abTestSettings = memoryCached.abTestSettings || {};
+        }
+      }
+      // fields가 없으면 settings는 빈 객체 (stores 정보만 반환)
+      
+      return {
+        id: row.id,
+        name: row.name,
+        subtitle: row.subtitle,
+        phone: row.phone,
+        address: row.address,
+        createdAt: row.created_at,
+        updatedAt: row.last_modified,
+        settings
+      };
+    }
+  }
+  
+  // 2단계: TTL 캐시 확인
   const fieldsKey = includeAll 
     ? 'all' 
     : (fields && fields.length > 0 ? fields.sort().join(',') : 'minimal');
@@ -1044,10 +1188,153 @@ async function getStoreSettingsOptimized(storeId, fields = null) {
     settings
   };
   
-  // 캐시에 저장
+  // TTL 캐시에 저장
   setCache(cacheKey, storeData);
   
+  // 메모리 캐시도 업데이트 (전체 필드인 경우만)
+  if (includeAll) {
+    setStoreSettingsInMemory(storeId, settings);
+  }
+  
   return storeData;
+}
+
+// EXPLAIN ANALYZE 유틸리티 함수 (쿼리 성능 분석)
+async function explainAnalyzeQuery(query, params = []) {
+  try {
+    const explainQuery = `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ${query}`;
+    const result = await db.query(explainQuery, params);
+    
+    if (result.rows.length > 0 && result.rows[0]['QUERY PLAN']) {
+      const plan = result.rows[0]['QUERY PLAN'];
+      const planJson = typeof plan === 'string' ? JSON.parse(plan) : plan;
+      
+      return {
+        query,
+        params,
+        plan: planJson,
+        summary: extractPlanSummary(planJson)
+      };
+    }
+    
+    return {
+      query,
+      params,
+      plan: null,
+      summary: { error: '쿼리 플랜을 가져올 수 없습니다.' }
+    };
+  } catch (error) {
+    console.error('[EXPLAIN ANALYZE] 에러:', error);
+    return {
+      query,
+      params,
+      plan: null,
+      summary: { error: error.message }
+    };
+  }
+}
+
+// 쿼리 플랜 요약 정보 추출
+function extractPlanSummary(planArray) {
+  if (!Array.isArray(planArray) || planArray.length === 0) {
+    return { error: '플랜 데이터가 없습니다.' };
+  }
+  
+  const rootPlan = planArray[0];
+  const summary = {
+    executionTime: rootPlan['Execution Time'] || null,
+    planningTime: rootPlan['Planning Time'] || null,
+    totalCost: rootPlan['Plan']?.Total Cost || null,
+    actualRows: rootPlan['Plan']?.['Actual Rows'] || null,
+    actualLoops: rootPlan['Plan']?.['Actual Loops'] || null,
+    sharedHitBlocks: rootPlan['Plan']?.['Shared Hit Blocks'] || null,
+    sharedReadBlocks: rootPlan['Plan']?.['Shared Read Blocks'] || null,
+    seqScan: findSeqScans(rootPlan['Plan']),
+    indexScans: findIndexScans(rootPlan['Plan']),
+    sorts: findSorts(rootPlan['Plan']),
+    aggregates: findAggregates(rootPlan['Plan'])
+  };
+  
+  return summary;
+}
+
+// Seq Scan 찾기
+function findSeqScans(plan, scans = []) {
+  if (!plan) return scans;
+  
+  if (plan['Node Type'] === 'Seq Scan') {
+    scans.push({
+      relationName: plan['Relation Name'],
+      alias: plan['Alias'],
+      rows: plan['Actual Rows'],
+      cost: plan['Total Cost']
+    });
+  }
+  
+  if (plan['Plans']) {
+    plan['Plans'].forEach(child => findSeqScans(child, scans));
+  }
+  
+  return scans;
+}
+
+// Index Scan 찾기
+function findIndexScans(plan, scans = []) {
+  if (!plan) return scans;
+  
+  if (plan['Node Type'] && plan['Node Type'].includes('Index')) {
+    scans.push({
+      nodeType: plan['Node Type'],
+      indexName: plan['Index Name'],
+      relationName: plan['Relation Name'],
+      rows: plan['Actual Rows'],
+      cost: plan['Total Cost']
+    });
+  }
+  
+  if (plan['Plans']) {
+    plan['Plans'].forEach(child => findIndexScans(child, scans));
+  }
+  
+  return scans;
+}
+
+// Sort 찾기
+function findSorts(plan, sorts = []) {
+  if (!plan) return sorts;
+  
+  if (plan['Node Type'] === 'Sort') {
+    sorts.push({
+      sortKey: plan['Sort Key'],
+      rows: plan['Actual Rows'],
+      cost: plan['Total Cost']
+    });
+  }
+  
+  if (plan['Plans']) {
+    plan['Plans'].forEach(child => findSorts(child, sorts));
+  }
+  
+  return sorts;
+}
+
+// Aggregate 찾기
+function findAggregates(plan, aggregates = []) {
+  if (!plan) return aggregates;
+  
+  if (plan['Node Type'] === 'Aggregate') {
+    aggregates.push({
+      strategy: plan['Strategy'],
+      rows: plan['Actual Rows'],
+      cost: plan['Total Cost']
+    });
+  }
+  
+  if (plan['Plans']) {
+    plan['Plans'].forEach(child => findAggregates(child, aggregates));
+  }
+  
+  return aggregates;
 }
 
 // 현재 가게 ID 조회
@@ -2110,7 +2397,14 @@ async function updateStoreSettings(storeId, settings) {
       ]);
     }
     
-    console.log(`가게 설정 업데이트 완료: ${storeId}`);
+    // 메모리 캐시 업데이트 (최신 데이터 반영 - DB와 동기화)
+    const updatedSettings = {
+      ...finalSettings,
+      updatedAt: new Date()
+    };
+    setStoreSettingsInMemory(storeId, updatedSettings);
+    
+    console.log(`가게 설정 업데이트 완료: ${storeId} (메모리 캐시 갱신)`);
     return { success: true, storeId };
   } catch (error) {
     console.error('가게 설정 업데이트 실패:', error);
@@ -3573,5 +3867,7 @@ module.exports = {
   deleteOwnerAccount,
   createStoreEvent,
   getEventSummary,
-  getEventTotalsByStore
+  getEventTotalsByStore,
+  loadAllStoreSettingsToMemory,
+  explainAnalyzeQuery
 };
