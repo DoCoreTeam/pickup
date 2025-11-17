@@ -2255,6 +2255,17 @@ async function ensureHistoryTables() {
       }
       
       console.log('[DB] 성능 최적화 인덱스 생성 완료');
+      
+      // 테이블 통계 정보 업데이트 (쿼리 플래너 최적화)
+      try {
+        await db.query('ANALYZE stores');
+        await db.query('ANALYZE store_settings');
+        await db.query('ANALYZE store_owner_links');
+        await db.query('ANALYZE store_owners');
+        console.log('[DB] 테이블 통계 정보 업데이트 완료');
+      } catch (analyzeError) {
+        console.warn('[DB] ANALYZE 실행 실패 (권한 문제일 수 있음):', analyzeError.message);
+      }
     } catch (error) {
       console.warn('[DB] 인덱스 생성 실패 (권한 문제일 수 있음):', error.message);
     }
