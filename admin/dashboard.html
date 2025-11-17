@@ -4712,9 +4712,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 </h2>
                 
                 <div style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-left: 4px solid #667eea; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px;">
-                    <div style="display: flex; align-items: center; gap: 8px; color: #667eea; font-weight: 600; font-size: 14px;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                        드래그 및 URL 입력 시 자동 저장됩니다
+                    <div style="display: flex; align-items: center; gap: 8px; color: #64748b; font-weight: 500; font-size: 14px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        변경사항을 저장하려면 하단의 저장 버튼을 클릭하세요
                     </div>
                 </div>
                 
@@ -4733,26 +4733,33 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 <div class="form-group">
                     <label for="ttaengUrl">땡겨요 URL</label>
-                    <input type="url" id="ttaengUrl" class="form-input" placeholder="땡겨요 URL을 입력하세요" onblur="saveDeliveryUrls()" oninput="updateDeliveryStatus('ttaeng')">
+                    <input type="url" id="ttaengUrl" class="form-input" placeholder="땡겨요 URL을 입력하세요" oninput="updateDeliveryStatus('ttaeng'); markDeliverySettingsChanged();">
                     <div id="ttaengStatus" class="delivery-status status-inactive">준비중</div>
                 </div>
                 
                 <div class="form-group">
                     <label for="baeminUrl">배달의민족 URL</label>
-                    <input type="url" id="baeminUrl" class="form-input" placeholder="배달의민족 URL을 입력하세요" onblur="saveDeliveryUrls()" oninput="updateDeliveryStatus('baemin')">
+                    <input type="url" id="baeminUrl" class="form-input" placeholder="배달의민족 URL을 입력하세요" oninput="updateDeliveryStatus('baemin'); markDeliverySettingsChanged();">
                     <div id="baeminStatus" class="delivery-status status-inactive">준비중</div>
                 </div>
                 
                 <div class="form-group">
                     <label for="coupangUrl">쿠팡이츠 URL</label>
-                    <input type="url" id="coupangUrl" class="form-input" placeholder="쿠팡이츠 URL을 입력하세요" onblur="saveDeliveryUrls()" oninput="updateDeliveryStatus('coupang')">
+                    <input type="url" id="coupangUrl" class="form-input" placeholder="쿠팡이츠 URL을 입력하세요" oninput="updateDeliveryStatus('coupang'); markDeliverySettingsChanged();">
                     <div id="coupangStatus" class="delivery-status status-inactive">준비중</div>
                 </div>
                 
                 <div class="form-group">
                     <label for="yogiyoUrl">요기요 URL</label>
-                    <input type="url" id="yogiyoUrl" class="form-input" placeholder="요기요 URL을 입력하세요" onblur="saveDeliveryUrls()" oninput="updateDeliveryStatus('yogiyo')">
+                    <input type="url" id="yogiyoUrl" class="form-input" placeholder="요기요 URL을 입력하세요" oninput="updateDeliveryStatus('yogiyo'); markDeliverySettingsChanged();">
                     <div id="yogiyoStatus" class="delivery-status status-inactive">준비중</div>
+                </div>
+                
+                <div class="form-group" style="margin-top: 24px; padding-top: 24px; border-top: 2px solid #f1f5f9;">
+                    <button type="button" id="saveDeliverySettingsBtn" class="btn btn-primary" onclick="saveAllDeliverySettings()" style="min-width: 200px; font-weight: 600;" disabled>
+                        저장
+                    </button>
+                    <span id="deliverySettingsSaveStatus" style="margin-left: 12px; color: #64748b; font-size: 14px;"></span>
                 </div>
             </div>
 
@@ -9969,36 +9976,102 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         }
 
         // 배달앱 URL 저장 (CRUD 완전 구현)
-        async function saveDeliveryUrls() {
+        // 모든 배달앱 설정 저장 (URL + 순서)
+        async function saveAllDeliverySettings() {
+            const saveBtn = document.getElementById('saveDeliverySettingsBtn');
+            const statusSpan = document.getElementById('deliverySettingsSaveStatus');
+            
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.textContent = '저장 중...';
+            }
+            if (statusSpan) {
+                statusSpan.textContent = '저장 중...';
+                statusSpan.style.color = '#64748b';
+            }
+            
             try {
                 const currentStoreId = await getCurrentStoreId();
+                if (!currentStoreId) {
+                    throw new Error('가게를 선택해주세요.');
+                }
+                
+                // 현재 서버 설정 가져오기
                 const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
                 
+                // 로컬 상태에서 URL과 순서 가져오기
+                const ttaengUrl = document.getElementById('ttaengUrl')?.value || '';
+                const baeminUrl = document.getElementById('baeminUrl')?.value || '';
+                const coupangUrl = document.getElementById('coupangUrl')?.value || '';
+                const yogiyoUrl = document.getElementById('yogiyoUrl')?.value || '';
+                
+                // 현재 그리드 순서 가져오기
+                const gridItems = document.querySelectorAll('#deliveryOrderGrid .delivery-grid-item');
+                const currentOrder = Array.from(gridItems).map(item => item.getAttribute('data-app-id'));
+                
+                // 배달앱 설정 업데이트
                 settings.delivery = {
-                    ttaengUrl: document.getElementById('ttaengUrl').value,
-                    baeminUrl: document.getElementById('baeminUrl').value,
-                    coupangUrl: document.getElementById('coupangUrl').value,
-                    yogiyoUrl: document.getElementById('yogiyoUrl').value,
-                    deliveryOrder: settings.delivery?.deliveryOrder || ['ttaeng', 'baemin', 'coupang', 'yogiyo']
+                    ...(settings.delivery || {}),
+                    ttaengUrl: ttaengUrl.trim(),
+                    baeminUrl: baeminUrl.trim(),
+                    coupangUrl: coupangUrl.trim(),
+                    yogiyoUrl: yogiyoUrl.trim(),
+                    deliveryOrder: currentOrder.length > 0 ? currentOrder : localDeliveryOrder
                 };
                 
                 console.log('저장할 배달앱 설정:', settings.delivery);
                 
+                // 서버에 저장
                 await apiRequest(`${API_BASE}/store/${currentStoreId}/settings`, 'POST', settings);
                 
-                // 저장 후 모든 배달앱 상태 업데이트
-                updateAllDeliveryStatuses();
+                // 로컬 순서 업데이트
+                localDeliveryOrder = settings.delivery.deliveryOrder;
                 
-                // 강제로 그리드 다시 로드 (상태 업데이트를 위해)
-                setTimeout(async () => {
-                    await loadDeliveryOrderGrid();
-                    console.log('배달앱 그리드 다시 로드 완료');
-                }, 100);
+                // 변경 추적 리셋
+                deliverySettingsChanged = false;
                 
-                showStatus('배달앱 URL 설정이 저장되었습니다!', 'success');
+                if (saveBtn) {
+                    saveBtn.textContent = '저장';
+                }
+                if (statusSpan) {
+                    statusSpan.textContent = '저장 완료';
+                    statusSpan.style.color = '#10b981';
+                    setTimeout(() => {
+                        statusSpan.textContent = '';
+                    }, 2000);
+                }
+                
+                showToast('배달앱 설정이 저장되었습니다!', 'success', '저장 완료');
+                
+                // 활동 로그 기록
+                try {
+                    const appNames = {
+                        'ttaeng': '땡겨요',
+                        'baemin': '배달의민족',
+                        'coupang': '쿠팡이츠',
+                        'yogiyo': '요기요'
+                    };
+                    const orderNames = settings.delivery.deliveryOrder.map(id => appNames[id] || id).join(' → ');
+                    await logActivity('settings', '배달앱 설정 변경', 
+                        `배달앱 URL 및 순서 변경\n순서: ${orderNames}`, {
+                        delivery: settings.delivery
+                    });
+                } catch (logError) {
+                    console.warn('활동 로그 기록 실패:', logError);
+                }
+                
             } catch (error) {
-                console.error('배달앱 URL 저장 실패:', error);
-                showStatus('배달앱 URL 저장에 실패했습니다.', 'error');
+                console.error('배달앱 설정 저장 실패:', error);
+                showToast('배달앱 설정 저장에 실패했습니다.', 'error', '저장 실패');
+                
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = '저장';
+                }
+                if (statusSpan) {
+                    statusSpan.textContent = '저장 실패';
+                    statusSpan.style.color = '#ef4444';
+                }
             }
         }
 
@@ -10006,8 +10079,24 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         async function renderDeliveryOrder() {
             try {
                 const currentStoreId = await getCurrentStoreId();
+                if (!currentStoreId) return;
+                
                 const settings = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
                 const deliveryOrder = settings.delivery?.deliveryOrder || ['ttaeng', 'baemin', 'coupang', 'yogiyo'];
+                
+                // 로컬 순서 초기화
+                localDeliveryOrder = [...deliveryOrder];
+                
+                // 변경 추적 리셋 (초기 로드 시)
+                deliverySettingsChanged = false;
+                const saveBtn = document.getElementById('saveDeliverySettingsBtn');
+                const statusSpan = document.getElementById('deliverySettingsSaveStatus');
+                if (saveBtn) {
+                    saveBtn.disabled = true;
+                }
+                if (statusSpan) {
+                    statusSpan.textContent = '';
+                }
                 
                 const appConfigs = {
                     'ttaeng': { name: '땡겨요', iconClass: 'ttaeng' },
@@ -10017,11 +10106,17 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 };
                 
                 const gridContainer = document.getElementById('deliveryOrderGrid');
+                if (!gridContainer) return;
+                
                 gridContainer.innerHTML = '';
                 
                 deliveryOrder.forEach((appId, index) => {
                     const config = appConfigs[appId];
-                    const url = settings.delivery?.[`${appId}Url`] || '';
+                    if (!config) return;
+                    
+                    // 현재 입력 필드에서 URL 가져오기 (로컬 상태 반영)
+                    const urlInput = document.getElementById(`${appId}Url`);
+                    const url = urlInput ? urlInput.value.trim() : (settings.delivery?.[`${appId}Url`] || '');
                     const isActive = url && url.trim() !== '';
                     
                     const item = document.createElement('div');
@@ -10046,6 +10141,25 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
         }
 
+        // 배달앱 설정 변경 추적 변수
+        let deliverySettingsChanged = false;
+        let localDeliveryOrder = ['ttaeng', 'baemin', 'coupang', 'yogiyo'];
+        
+        // 배달앱 설정 변경 표시
+        function markDeliverySettingsChanged() {
+            deliverySettingsChanged = true;
+            const saveBtn = document.getElementById('saveDeliverySettingsBtn');
+            const statusSpan = document.getElementById('deliverySettingsSaveStatus');
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.style.opacity = '1';
+            }
+            if (statusSpan) {
+                statusSpan.textContent = '저장되지 않은 변경사항이 있습니다.';
+                statusSpan.style.color = '#f59e0b';
+            }
+        }
+        
         // SortableJS 드래그앤드롭 초기화
         function initializeSortable() {
             const gridContainer = document.getElementById('deliveryOrderGrid');
@@ -10064,10 +10178,12 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 onStart: function(evt) {
                     console.log('🔄 [DEBUG] 배달앱 드래그 시작:', evt.item.getAttribute('data-app-id'));
                 },
-                onEnd: async function(evt) {
+                onEnd: function(evt) {
                     console.log('✅ [DEBUG] 배달앱 드래그 완료');
-                    // 순서가 변경되었을 때 저장
-                    await saveDeliveryOrder();
+                    // 로컬 상태만 업데이트 (즉시 저장하지 않음)
+                    const gridItems = document.querySelectorAll('#deliveryOrderGrid .delivery-grid-item');
+                    localDeliveryOrder = Array.from(gridItems).map(item => item.getAttribute('data-app-id'));
+                    markDeliverySettingsChanged();
                 }
             });
         }
@@ -10229,8 +10345,22 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 statusDiv.className = 'delivery-status status-inactive';
             }
             
-            // 순서 목록도 함께 업데이트
-            renderDeliveryOrder();
+            // 그리드 내부의 상태도 로컬에서만 업데이트 (서버 요청 없음)
+            updateGridItemStatus(app, url && url.trim() !== '');
+        }
+        
+        // 그리드 아이템 상태만 업데이트 (로컬)
+        function updateGridItemStatus(appId, isActive) {
+            const gridItems = document.querySelectorAll('#deliveryOrderGrid .delivery-grid-item');
+            gridItems.forEach(item => {
+                if (item.getAttribute('data-app-id') === appId) {
+                    const statusDiv = item.querySelector('.app-status');
+                    if (statusDiv) {
+                        statusDiv.textContent = isActive ? '활성' : '준비중';
+                        statusDiv.className = `app-status ${isActive ? 'active' : ''}`;
+                    }
+                }
+            });
         }
 
         // 모든 배달앱 상태 업데이트
