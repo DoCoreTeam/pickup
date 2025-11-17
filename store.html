@@ -2003,36 +2003,25 @@
           }
 
           // 기본 섹션 순서 (설정이 없으면 기본값 사용)
+          // 픽업 안내는 버튼 + 모달 방식으로 처리되므로 섹션 순서에서 제외
           const defaultOrder = [
             { id: 'discount', title: '할인 안내', icon: '🎉', description: '할인 이벤트 정보' },
-            { id: 'pickup', title: '픽업 안내', icon: '📦', description: '픽업 장소 및 안내' },
             { id: 'delivery', title: '배달 주문', icon: '🚚', description: '배달앱 주문 링크' },
             { id: 'address', title: '주소 정보', icon: '📍', description: '가게 주소 및 지도' }
           ];
 
-          // sectionOrder가 있으면 사용하되, pickup이 없으면 추가
+          // sectionOrder에서 pickup 제거 (픽업 안내는 버튼 + 모달 방식)
           let sectionOrder = Array.isArray(settings?.sectionOrder) && settings.sectionOrder.length > 0 
-            ? [...settings.sectionOrder] 
-            : [...defaultOrder];
+            ? settings.sectionOrder.filter(s => s.id !== 'pickup')
+            : defaultOrder;
           
-          // sectionOrder에 pickup이 없고, 픽업 안내가 활성화되어 있으면 추가
-          const hasPickupInOrder = sectionOrder.some(s => s.id === 'pickup');
-          const hasActivePickup = settings?.pickup?.enabled && (settings.pickup.title || settings.pickup.description);
-          
-          if (!hasPickupInOrder && hasActivePickup) {
-            // discount 다음에 pickup 추가
-            const discountIndex = sectionOrder.findIndex(s => s.id === 'discount');
-            if (discountIndex >= 0) {
-              sectionOrder.splice(discountIndex + 1, 0, { id: 'pickup', title: '픽업 안내', icon: '📦', description: '픽업 장소 및 안내' });
-            } else {
-              // discount가 없으면 맨 앞에 추가
-              sectionOrder.unshift({ id: 'pickup', title: '픽업 안내', icon: '📦', description: '픽업 장소 및 안내' });
-            }
+          // pickup이 제거된 후 빈 배열이면 기본값 사용
+          if (sectionOrder.length === 0) {
+            sectionOrder = defaultOrder;
           }
           
           console.log('✅ 섹션 순서 로드:', sectionOrder);
           console.log('📊 settings 객체:', settings);
-          console.log('📦 픽업 안내 상태:', { enabled: settings?.pickup?.enabled, hasTitle: !!settings?.pickup?.title, hasDescription: !!settings?.pickup?.description });
           
           dynamicSections.innerHTML = '';
 
@@ -2049,25 +2038,6 @@
                       </div>
                       <div class="discount-description">
                         ${settings.discount.description || '할인 내용을 입력하세요'}
-                      </div>
-                    </div>
-                  `;
-                }
-                break;
-
-              case 'pickup':
-                // 픽업 안내는 enabled가 true이고 title 또는 description이 있을 때 표시
-                if (settings?.pickup?.enabled && (settings.pickup.title || settings.pickup.description)) {
-                  const pickupTitle = settings.pickup.title || '픽업 안내';
-                  const pickupDescription = settings.pickup.description || '';
-                  sectionHTML = `
-                    <div class="pickup-section">
-                      <div class="pickup-header">
-                        <div class="pickup-icon">📦</div>
-                        <div class="pickup-title">${escapeHtml(pickupTitle)}</div>
-                      </div>
-                      <div class="pickup-content">
-                        <div class="pickup-description">${escapeHtml(pickupDescription).replace(/\n/g, '<br>')}</div>
                       </div>
                     </div>
                   `;
