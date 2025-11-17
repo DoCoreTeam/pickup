@@ -9054,6 +9054,106 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         loadBusinessHours(cached);
                     }
                     
+                    // 할인/픽업 설정도 캐시에서 즉시 업데이트
+                    if (shouldUpdateField('discount')) {
+                        const discountEnabledEl = document.getElementById('discountEnabled');
+                        const discountTitleEl = document.getElementById('discountTitle');
+                        const discountDescriptionEl = document.getElementById('discountDescription');
+                        
+                        if (discountEnabledEl) discountEnabledEl.checked = cached.discount?.enabled || false;
+                        if (discountTitleEl) discountTitleEl.value = cached.discount?.title || '';
+                        if (discountDescriptionEl) discountDescriptionEl.value = cached.discount?.description || '';
+                        
+                        const discountForm = document.getElementById('discountForm');
+                        if (discountForm) {
+                            if (cached.discount?.enabled) {
+                                discountForm.classList.add('active');
+                            } else {
+                                discountForm.classList.remove('active');
+                            }
+                        }
+                    }
+                    
+                    if (shouldUpdateField('pickup')) {
+                        const pickupEnabledEl = document.getElementById('pickupEnabled');
+                        const pickupTitleEl = document.getElementById('pickupTitle');
+                        const pickupDescriptionEl = document.getElementById('pickupDescription');
+                        
+                        if (pickupEnabledEl) pickupEnabledEl.checked = cached.pickup?.enabled || false;
+                        if (pickupTitleEl) pickupTitleEl.value = cached.pickup?.title || '';
+                        if (pickupDescriptionEl) pickupDescriptionEl.value = cached.pickup?.description || '';
+                        
+                        const pickupForm = document.getElementById('pickupForm');
+                        if (pickupForm) {
+                            if (cached.pickup?.enabled) {
+                                pickupForm.classList.add('active');
+                            } else {
+                                pickupForm.classList.remove('active');
+                            }
+                        }
+                    }
+                    
+                    // 캐시에서 가져왔지만 백그라운드에서 최신 데이터 확인 (비동기)
+                    // 캐시 데이터로 빠르게 표시하고 최신 데이터로 갱신
+                    setTimeout(async () => {
+                        try {
+                            const url = fields && fields.length > 0
+                                ? `${API_BASE}/settings?storeId=${currentStoreId}&fields=${fields.join(',')}`
+                                : `${API_BASE}/settings?storeId=${currentStoreId}`;
+                            
+                            const latestSettings = await apiRequest(url);
+                            
+                            // 전역 설정을 최신 데이터로 업데이트
+                            window.currentSettings = latestSettings;
+                            
+                            // 세션 캐시도 최신 데이터로 업데이트
+                            if (window.sessionCache) {
+                                window.sessionCache.set(cacheKey, latestSettings);
+                            }
+                            
+                            // UI 업데이트 (필요한 필드만)
+                            if (shouldUpdateField('discount')) {
+                                const discountEnabledEl = document.getElementById('discountEnabled');
+                                const discountTitleEl = document.getElementById('discountTitle');
+                                const discountDescriptionEl = document.getElementById('discountDescription');
+                                
+                                if (discountEnabledEl) discountEnabledEl.checked = latestSettings.discount?.enabled || false;
+                                if (discountTitleEl) discountTitleEl.value = latestSettings.discount?.title || '';
+                                if (discountDescriptionEl) discountDescriptionEl.value = latestSettings.discount?.description || '';
+                                
+                                const discountForm = document.getElementById('discountForm');
+                                if (discountForm) {
+                                    if (latestSettings.discount?.enabled) {
+                                        discountForm.classList.add('active');
+                                    } else {
+                                        discountForm.classList.remove('active');
+                                    }
+                                }
+                            }
+                            
+                            if (shouldUpdateField('pickup')) {
+                                const pickupEnabledEl = document.getElementById('pickupEnabled');
+                                const pickupTitleEl = document.getElementById('pickupTitle');
+                                const pickupDescriptionEl = document.getElementById('pickupDescription');
+                                
+                                if (pickupEnabledEl) pickupEnabledEl.checked = latestSettings.pickup?.enabled || false;
+                                if (pickupTitleEl) pickupTitleEl.value = latestSettings.pickup?.title || '';
+                                if (pickupDescriptionEl) pickupDescriptionEl.value = latestSettings.pickup?.description || '';
+                                
+                                const pickupForm = document.getElementById('pickupForm');
+                                if (pickupForm) {
+                                    if (latestSettings.pickup?.enabled) {
+                                        pickupForm.classList.add('active');
+                                    } else {
+                                        pickupForm.classList.remove('active');
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            console.warn('⚠️ [캐시] 최신 데이터 확인 실패:', error);
+                        }
+                    }, 100);
+                    
                     return cached; // 캐시에서 가져온 경우 즉시 반환
                     } else {
                     // 캐시에 없거나 최신 데이터 확인 필요 시 API 호출
