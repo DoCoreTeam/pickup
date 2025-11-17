@@ -11585,6 +11585,22 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
 
             if (sectionId === 'dashboard') {
+                    // 슈퍼어드민 모드 확인 및 요소 표시
+                    if (IS_SUPERADMIN) {
+                        // body에 superadmin-mode 클래스 추가
+                        document.body.classList.add('superadmin-mode');
+                        
+                        // 대시보드 컨트롤 강제 표시
+                        const dashboardControls = document.getElementById('dashboardControls');
+                        if (dashboardControls) {
+                            dashboardControls.style.display = 'flex';
+                        }
+                        
+                        // 대시보드 컨트롤 초기화 (슈퍼어드민만)
+                        initializeDashboardControls();
+                        updateDashboardScopeUI();
+                    }
+                    
                     // 대시보드 캐시 확인 (로딩바 표시 전에 확인)
                     const scope = IS_SUPERADMIN ? dashboardScope : 'store';
                     const cacheKey = `dashboard_summary_${scope}`;
@@ -11613,10 +11629,6 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         window.showGlobalLoading('default', true, '대시보드 데이터를 불러오는 중...');
                     }
                     try {
-                if (IS_SUPERADMIN) {
-                    // 대시보드 컨트롤 초기화 (슈퍼어드민만)
-                    initializeDashboardControls();
-                    updateDashboardScopeUI();
                             
                             // 전체 현황일 때만 가게 목록 로드 (캐싱 활용)
                             if (dashboardScope === 'all') {
