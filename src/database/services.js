@@ -2230,10 +2230,14 @@ async function ensureHistoryTables() {
       await db.query(`CREATE INDEX IF NOT EXISTS idx_stores_subdomain ON stores(subdomain) WHERE subdomain IS NOT NULL`);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_stores_created_at ON stores(created_at DESC)`);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_stores_name_lower ON stores(LOWER(name))`);
+      // 복합 인덱스 추가 (status + created_at 정렬 최적화)
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_stores_status_created ON stores(status, created_at DESC)`);
       
       // store_owner_links 테이블 인덱스
       await db.query(`CREATE INDEX IF NOT EXISTS idx_store_owner_links_store_id ON store_owner_links(store_id)`);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_store_owner_links_owner_id ON store_owner_links(owner_id)`);
+      // 복합 인덱스 추가 (JOIN 최적화)
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_store_owner_links_composite ON store_owner_links(store_id, owner_id)`);
       
       // store_owners 테이블 인덱스
       await db.query(`CREATE INDEX IF NOT EXISTS idx_store_owners_status ON store_owners(status)`);
