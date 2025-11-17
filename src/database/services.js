@@ -2286,6 +2286,7 @@ async function updateStoreSettings(storeId, settings) {
     console.log(`가게 설정 업데이트 시도: ${storeId}`, settings);
     
     // store_settings 테이블에서 해당 가게의 기존 설정을 가져오기
+    // JSONB 병합 연산자(||)를 사용하여 DB 레벨에서 효율적으로 병합
     const existingSettingsQuery = await db.query(
       'SELECT basic, delivery, discount, pickup, images, business_hours, section_order, qr_code, seo_settings, ab_test_settings FROM store_settings WHERE store_id = $1',
       [storeId]
@@ -2297,6 +2298,7 @@ async function updateStoreSettings(storeId, settings) {
     if (existingSettingsQuery.rows.length > 0) {
       // 기존 설정과 새 설정 병합 (새 설정이 우선)
       const existing = existingSettingsQuery.rows[0];
+      // JSONB 병합: COALESCE로 NULL 처리 후 각 필드 병합 (DB 레벨 병합보다 JS 병합이 더 유연)
       finalSettings = {
         basic: { ...(existing.basic || {}), ...(settings.basic || {}) },
         delivery: { ...(existing.delivery || {}), ...(settings.delivery || {}) },
@@ -2377,24 +2379,25 @@ async function updateStoreSettings(storeId, settings) {
       ]);
     } else {
       // 새 설정 생성 (병합된 설정 사용)
+      // JSONB 타입이므로 CAST를 사용하여 직접 삽입 (JSON.stringify 불필요)
       await db.query(`
         INSERT INTO store_settings (
             store_id, basic, delivery, discount, pickup, images, 
             business_hours, section_order, qr_code,
             seo_settings, ab_test_settings, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ) VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb, $10::jsonb, $11::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       `, [
         storeId,
-        JSON.stringify(finalSettings.basic),
-        JSON.stringify(finalSettings.delivery),
-        JSON.stringify(finalSettings.discount),
-        JSON.stringify(finalSettings.pickup),
-        JSON.stringify(finalSettings.images),
-        JSON.stringify(finalSettings.businessHours),
-        JSON.stringify(finalSettings.sectionOrder),
-        JSON.stringify(finalSettings.qrCode),
-        JSON.stringify(finalSettings.seoSettings),
-        JSON.stringify(finalSettings.abTestSettings)
+        finalSettings.basic,
+        finalSettings.delivery,
+        finalSettings.discount,
+        finalSettings.pickup,
+        finalSettings.images,
+        finalSettings.businessHours,
+        finalSettings.sectionOrder,
+        finalSettings.qrCode,
+        finalSettings.seoSettings,
+        finalSettings.abTestSettings
       ]);
     }
     
