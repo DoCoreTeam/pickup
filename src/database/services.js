@@ -2349,33 +2349,34 @@ async function updateStoreSettings(storeId, settings) {
 
     if (existingSettingsQuery.rows.length > 0) {
       // 기존 설정 업데이트 (병합된 설정 사용)
+      // JSONB 타입이므로 CAST를 사용하여 직접 업데이트 (JSON.stringify 불필요)
       await db.query(`
         UPDATE store_settings 
         SET 
-          basic = $2,
-          delivery = $3,
-          discount = $4,
-          pickup = $5,
-          images = $6,
-          business_hours = $7,
-          section_order = $8,
-          qr_code = $9,
-          seo_settings = $10,
-          ab_test_settings = $11,
+          basic = $2::jsonb,
+          delivery = $3::jsonb,
+          discount = $4::jsonb,
+          pickup = $5::jsonb,
+          images = $6::jsonb,
+          business_hours = $7::jsonb,
+          section_order = $8::jsonb,
+          qr_code = $9::jsonb,
+          seo_settings = $10::jsonb,
+          ab_test_settings = $11::jsonb,
           updated_at = CURRENT_TIMESTAMP
         WHERE store_id = $1
       `, [
         storeId,
-        JSON.stringify(finalSettings.basic),
-        JSON.stringify(finalSettings.delivery),
-        JSON.stringify(finalSettings.discount),
-        JSON.stringify(finalSettings.pickup),
-        JSON.stringify(finalSettings.images),
-        JSON.stringify(finalSettings.businessHours),
-        JSON.stringify(finalSettings.sectionOrder),
-        JSON.stringify(finalSettings.qrCode),
-        JSON.stringify(finalSettings.seoSettings),
-        JSON.stringify(finalSettings.abTestSettings)
+        finalSettings.basic,
+        finalSettings.delivery,
+        finalSettings.discount,
+        finalSettings.pickup,
+        finalSettings.images,
+        finalSettings.businessHours,
+        finalSettings.sectionOrder,
+        finalSettings.qrCode,
+        finalSettings.seoSettings,
+        finalSettings.abTestSettings
       ]);
     } else {
       // 새 설정 생성 (병합된 설정 사용)
