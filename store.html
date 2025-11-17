@@ -2005,6 +2005,7 @@
           // 기본 섹션 순서 (설정이 없으면 기본값 사용)
           const defaultOrder = [
             { id: 'discount', title: '할인 안내', icon: '🎉', description: '할인 이벤트 정보' },
+            { id: 'pickup', title: '픽업 안내', icon: '📦', description: '픽업 장소 및 안내' },
             { id: 'delivery', title: '배달 주문', icon: '🚚', description: '배달앱 주문 링크' },
             { id: 'address', title: '주소 정보', icon: '📍', description: '가게 주소 및 지도' }
           ];
@@ -2028,6 +2029,25 @@
                       </div>
                       <div class="discount-description">
                         ${settings.discount.description || '할인 내용을 입력하세요'}
+                      </div>
+                    </div>
+                  `;
+                }
+                break;
+
+              case 'pickup':
+                // 픽업 안내는 enabled가 true이고 title 또는 description이 있을 때 표시
+                if (settings?.pickup?.enabled && (settings.pickup.title || settings.pickup.description)) {
+                  const pickupTitle = settings.pickup.title || '픽업 안내';
+                  const pickupDescription = settings.pickup.description || '';
+                  sectionHTML = `
+                    <div class="pickup-section">
+                      <div class="pickup-header">
+                        <div class="pickup-icon">📦</div>
+                        <div class="pickup-title">${escapeHtml(pickupTitle)}</div>
+                      </div>
+                      <div class="pickup-content">
+                        <div class="pickup-description">${escapeHtml(pickupDescription).replace(/\n/g, '<br>')}</div>
                       </div>
                     </div>
                   `;
