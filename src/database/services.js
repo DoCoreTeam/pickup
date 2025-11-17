@@ -1241,18 +1241,19 @@ function extractPlanSummary(planArray) {
   }
   
   const rootPlan = planArray[0];
+  const planNode = rootPlan['Plan'] || {};
   const summary = {
     executionTime: rootPlan['Execution Time'] || null,
     planningTime: rootPlan['Planning Time'] || null,
-    totalCost: rootPlan['Plan']?.Total Cost || null,
-    actualRows: rootPlan['Plan']?.['Actual Rows'] || null,
-    actualLoops: rootPlan['Plan']?.['Actual Loops'] || null,
-    sharedHitBlocks: rootPlan['Plan']?.['Shared Hit Blocks'] || null,
-    sharedReadBlocks: rootPlan['Plan']?.['Shared Read Blocks'] || null,
-    seqScan: findSeqScans(rootPlan['Plan']),
-    indexScans: findIndexScans(rootPlan['Plan']),
-    sorts: findSorts(rootPlan['Plan']),
-    aggregates: findAggregates(rootPlan['Plan'])
+    totalCost: planNode['Total Cost'] || null,
+    actualRows: planNode['Actual Rows'] || null,
+    actualLoops: planNode['Actual Loops'] || null,
+    sharedHitBlocks: planNode['Shared Hit Blocks'] || null,
+    sharedReadBlocks: planNode['Shared Read Blocks'] || null,
+    seqScan: findSeqScans(planNode),
+    indexScans: findIndexScans(planNode),
+    sorts: findSorts(planNode),
+    aggregates: findAggregates(planNode)
   };
   
   return summary;
