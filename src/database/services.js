@@ -684,15 +684,6 @@ async function getStores(options = {}) {
   };
 
   const data = dataRows.map(row => {
-    const basic = toPlainObject(row.basic, {});
-    const discount = toPlainObject(row.discount, {});
-    const delivery = toPlainObject(row.delivery, {});
-    const pickup = toPlainObject(row.pickup, {});
-    const images = toPlainObject(row.images, {});
-    const businessHours = toPlainObject(row.business_hours, {});
-    const sectionOrderRaw = toPlainObject(row.section_order, []);
-    const sectionOrder = Array.isArray(sectionOrderRaw) ? sectionOrderRaw : [];
-    const qrCode = toPlainObject(row.qr_code, {});
     const owners = Array.isArray(row.owners) ? row.owners : [];
 
     return {
@@ -709,41 +700,22 @@ async function getStores(options = {}) {
       subdomain_created_at: row.subdomain_created_at,
       subdomainLastModified: row.subdomain_last_modified,
       subdomain_last_modified: row.subdomain_last_modified,
+      // 기본 정보는 stores 테이블에서 직접 가져온 값 사용
       basic: {
-        // 가게 기본 정보는 항상 최신 DB 값을 우선 사용하도록 정렬
-        storeName: row.name || basic.storeName || '',
-        storeSubtitle: row.subtitle || basic.storeSubtitle || '',
-        storePhone: row.phone || basic.storePhone || '',
-        storeAddress: row.address || basic.storeAddress || ''
+        storeName: row.name || '',
+        storeSubtitle: row.subtitle || '',
+        storePhone: row.phone || '',
+        storeAddress: row.address || ''
       },
-      discount: {
-        title: discount.title || '',
-        enabled: Boolean(discount.enabled),
-        description: discount.description || ''
-      },
-      delivery: {
-        baeminUrl: delivery.baeminUrl || '',
-        ttaengUrl: delivery.ttaengUrl || '',
-        yogiyoUrl: delivery.yogiyoUrl || '',
-        coupangUrl: delivery.coupangUrl || '',
-        deliveryOrder: Array.isArray(delivery.deliveryOrder) ? delivery.deliveryOrder : []
-      },
-      pickup: {
-        title: pickup.title || '',
-        enabled: Boolean(pickup.enabled),
-        description: pickup.description || ''
-      },
-      images: {
-        mainLogo: images.mainLogo || '',
-        menuImage: images.menuImage || ''
-      },
-      businessHours,
-      sectionOrder,
-      qrCode: {
-        url: qrCode.url || '',
-        filepath: qrCode.filepath || '',
-        createdAt: qrCode.createdAt || null
-      },
+      // 설정 데이터는 리스트 조회 시 제외 (성능 최적화)
+      // 필요한 경우 별도 API(/api/settings?storeId=xxx)로 조회
+      discount: { title: '', enabled: false, description: '' },
+      delivery: { baeminUrl: '', ttaengUrl: '', yogiyoUrl: '', coupangUrl: '', deliveryOrder: [] },
+      pickup: { title: '', enabled: false, description: '' },
+      images: { mainLogo: '', menuImage: '' },
+      businessHours: {},
+      sectionOrder: [],
+      qrCode: { url: '', filepath: '', createdAt: null },
       createdAt: row.created_at,
       updatedAt: row.last_modified,
       owners
