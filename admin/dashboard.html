@@ -4265,7 +4265,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge">v1.6.11-staging</div>
+                    <div class="version-badge">v1.6.13-staging</div>
                 </div>
                 <a href="/admin/release-notes" class="release-notes-btn">
                     릴리즈 노트
@@ -11451,11 +11451,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 if (!storesListEl) return;
 
                 // 최근 6개 가게만 가져오기 (빠른 로딩)
+                // 홈 페이지에서는 owner 정보 불필요 (성능 최적화)
                 const query = new URLSearchParams({
                     page: '1',
                     pageSize: '6',
                     sortBy: 'createdAt',
-                    sortOrder: 'desc'
+                    sortOrder: 'desc',
+                    includeOwners: 'false' // owner 정보 제외 (성능 최적화)
                 });
 
                 // 점주 계정일 때는 본인 가게만 보이도록 필터링 (슈퍼어드민이 아닐 때)

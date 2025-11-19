@@ -590,7 +590,8 @@ async function getStores(options = {}) {
     pageSize: 20,
     sortBy: 'createdAt',
     sortOrder: undefined,
-    includeSummary: true
+    includeSummary: true,
+    includeOwners: true // owner 정보 포함 여부 (성능 최적화)
   };
 
   const finalOptions = { ...defaultOptions, ...normalizedOptions };
@@ -726,7 +727,9 @@ async function getStores(options = {}) {
   if (total > 0) {
     const startIdx = filterParams.length + 1;
     const endIdx = filterParams.length + 2;
-    const dataSql = `
+    
+    // owner 정보 포함 여부에 따라 쿼리 분리 (성능 최적화)
+    const dataSql = finalOptions.includeOwners !== false ? `
       WITH filtered AS (
         SELECT
           s.id,
@@ -797,6 +800,53 @@ async function getStores(options = {}) {
         p.row_number
       FROM page p
       LEFT JOIN owner_list ON owner_list.store_id = p.id
+      ORDER BY p.row_number
+    ` : `
+      -- owner 정보 제외 버전 (성능 최적화)
+      WITH filtered AS (
+        SELECT
+          s.id,
+          s.name,
+          s.subtitle,
+          s.phone,
+          s.address,
+          s.status,
+          s.subdomain,
+          s.subdomain_status,
+          s.subdomain_created_at,
+          s.subdomain_last_modified,
+          s."order",
+          s.created_at,
+          s.last_modified,
+          s.paused_at,
+          ROW_NUMBER() OVER (${orderClause}) AS row_number
+        FROM stores s
+        ${ownerJoinClause}
+        ${filterWhere}
+      ),
+      page AS (
+        SELECT *
+        FROM filtered
+        WHERE row_number BETWEEN $${startIdx} AND $${endIdx}
+      )
+      SELECT
+        p.id,
+        p.name,
+        p.subtitle,
+        p.phone,
+        p.address,
+        p.status,
+        p.subdomain,
+        p.subdomain_status,
+        p.subdomain_created_at,
+        p.subdomain_last_modified,
+        p."order",
+        p.created_at,
+        p.last_modified,
+        p.paused_at,
+        '[]'::json AS owners,
+        p.row_number
+      FROM page p
       ORDER BY p.row_number
     `;
 

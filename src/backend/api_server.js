@@ -1159,6 +1159,10 @@ class APIRouter {
         finalOwnerId = requestOwnerId;
       }
 
+      // 점주 계정일 때는 owner 정보가 필요 없으면 제외 (성능 최적화)
+      // 슈퍼어드민이나 가게 관리 섹션에서만 owner 정보 필요
+      const includeOwners = query.includeOwners !== 'false' && (isSuperAdmin || query.includeOwners === 'true');
+
       const options = {
         storeId: storeId || null,
         ownerId: finalOwnerId || null,
@@ -1169,7 +1173,8 @@ class APIRouter {
         pageSize: parseInt(pageSize, 10) || 20,
         sortBy: sortBy || 'createdAt',
         sortOrder: sortOrder || undefined,
-        includeSummary
+        includeSummary,
+        includeOwners // owner 정보 포함 여부 (성능 최적화)
       };
 
       const stores = await dbServices.getStores(options);
