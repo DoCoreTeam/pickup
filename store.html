@@ -33,7 +33,15 @@
         --radius-lg: 16px;
       }
 
-      * { box-sizing: border-box; }
+      * { 
+        box-sizing: border-box; 
+        max-width: 100%;
+      }
+      
+      img, video, iframe {
+        max-width: 100%;
+        height: auto;
+      }
       html { 
         height: 100%;
         overflow-x: hidden;
@@ -207,6 +215,12 @@
         box-sizing: border-box;
         overflow-x: hidden;
         position: relative;
+      }
+      
+      /* 모든 요소가 컨테이너를 넘지 않도록 강제 */
+      .container > * {
+        max-width: 100%;
+        overflow-x: hidden;
       }
 
       /* 서비스명 헤더 */
@@ -2443,9 +2457,9 @@
         
         const modalContent = document.createElement('div');
         modalContent.style.cssText = `
-          max-width: calc(100% - 40px);
+          max-width: calc(100vw - 40px);
           max-height: calc(100vh - 40px);
-          width: 100%;
+          width: calc(100% - 40px);
           background: white;
           border-radius: 12px;
           padding: 20px;
@@ -2455,6 +2469,8 @@
           flex-direction: column;
           box-sizing: border-box;
           margin: 20px;
+          overflow-x: hidden;
+          overflow-y: auto;
         `;
 
         const closeBtn = document.createElement('button');
@@ -2479,66 +2495,51 @@
         imageLink.style.cssText = `
           display: block;
           width: 100%;
+          max-width: 100%;
           cursor: zoom-in;
           text-decoration: none;
           margin-bottom: 20px;
+          overflow: hidden;
+          box-sizing: border-box;
         `;
         
-        // 디바이스 정보 기반 이미지 최적화
-        const deviceWidth = window.innerWidth || screen.width;
-        const deviceHeight = window.innerHeight || screen.height;
-        const isMobile = deviceWidth <= 768;
-        const isTablet = deviceWidth > 768 && deviceWidth <= 1024;
-        
-        // 디바이스별 최적 이미지 크기 계산
-        let maxImageWidth = '100%';
-        let maxImageHeight = '70vh';
-        
-        if (isMobile) {
-          // 모바일: 화면 너비의 95% 이하, 높이는 60vh 이하
-          maxImageWidth = '95%';
-          maxImageHeight = '60vh';
-        } else if (isTablet) {
-          // 태블릿: 화면 너비의 85% 이하, 높이는 65vh 이하
-          maxImageWidth = '85%';
-          maxImageHeight = '65vh';
-        } else {
-          // 데스크톱: 화면 너비의 80% 이하, 높이는 70vh 이하
-          maxImageWidth = '80%';
-          maxImageHeight = '70vh';
-        }
+        // 모달 콘텐츠 너비 계산 (padding 20px * 2 = 40px, margin 20px * 2 = 40px)
+        const modalContentWidth = window.innerWidth - 40 - 40; // 화면 너비 - 좌우 margin - 좌우 padding
+        const maxImageDisplayWidth = Math.min(modalContentWidth, window.innerWidth - 80);
         
         const menuImg = document.createElement('img');
         menuImg.src = imageSrc;
         menuImg.alt = '메뉴 이미지 (클릭하여 새 창에서 확대 보기)';
         menuImg.style.cssText = `
           width: 100%;
-          max-width: ${maxImageWidth};
-          max-height: ${maxImageHeight};
+          max-width: 100%;
           height: auto;
+          max-height: calc(100vh - 160px);
           object-fit: contain;
           border-radius: 8px;
           box-sizing: border-box;
           display: block;
           margin: 0 auto;
           transition: opacity 0.2s ease;
+          user-select: none;
+          -webkit-user-select: none;
+          pointer-events: auto;
         `;
         
-        // 이미지 호버 효과 (데스크톱)
-        if (!isMobile) {
-          imageLink.onmouseenter = () => {
-            menuImg.style.opacity = '0.9';
-          };
-          imageLink.onmouseleave = () => {
-            menuImg.style.opacity = '1';
-          };
-        }
+        // 이미지 로드 시 너비 확인 및 조정
+        menuImg.onload = () => {
+          if (menuImg.naturalWidth > maxImageDisplayWidth) {
+            menuImg.style.width = '100%';
+            menuImg.style.maxWidth = '100%';
+          }
+        };
         
         // 이미지 클릭 시 새 창에서 열기 (브라우저 기본 확대 기능 사용)
         imageLink.onclick = (e) => {
           e.stopPropagation(); // 모달 닫기 방지
-          // target="_blank"로 이미 설정되어 있어서 브라우저가 자동으로 새 창에서 열음
-          // 추가 처리 불필요
+          e.preventDefault(); // 기본 링크 동작 방지
+          // 새 창에서 이미지 열기 (브라우저 기본 확대 기능 사용)
+          window.open(imageSrc, '_blank', 'noopener,noreferrer');
         };
         
         imageLink.appendChild(menuImg);
