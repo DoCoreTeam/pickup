@@ -37,7 +37,6 @@
       html { 
         height: 100%;
         overflow-x: hidden;
-        max-width: 100vw;
         width: 100%;
       }
       body { 
@@ -50,8 +49,8 @@
         line-height: 1.6;
         overflow-x: hidden;
         overflow-y: auto;
-        max-width: 100vw;
         width: 100%;
+        max-width: 100%;
         -webkit-overflow-scrolling: touch;
         -webkit-text-size-adjust: 100%;
         -ms-text-size-adjust: 100%;
@@ -59,6 +58,7 @@
         min-height: 100vh;
         touch-action: pan-y;
         overscroll-behavior-y: contain;
+        position: relative;
       }
 
 
@@ -974,8 +974,8 @@
       @media (max-width: 480px) {
         .container {
           padding: 12px 8px 20px;
-          max-width: 100vw;
-          width: 100vw;
+          max-width: 100%;
+          width: 100%;
         }
         
         .store-hero, .delivery-section, .address-section {
@@ -2159,9 +2159,10 @@
           position: fixed;
           top: 0;
           left: 0;
-          width: 100vw;
-          height: 100vh;
-          max-width: 100vw;
+          right: 0;
+          bottom: 0;
+          width: 100%;
+          height: 100%;
           background: rgba(0, 0, 0, 0.8);
           display: flex;
           align-items: center;
@@ -2170,13 +2171,14 @@
           cursor: pointer;
           animation: fadeIn 0.3s ease-out;
           overflow-y: auto;
+          overflow-x: hidden;
           -webkit-overflow-scrolling: touch;
         `;
 
         const modalContent = document.createElement('div');
         modalContent.style.cssText = `
-          max-width: 90vw;
-          max-height: 90vh;
+          max-width: calc(100% - 40px);
+          max-height: calc(100vh - 40px);
           width: 100%;
           background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
           border: 2px solid #0ea5e9;
@@ -2411,9 +2413,10 @@
           position: fixed;
           top: 0;
           left: 0;
-          width: 100vw;
-          height: 100vh;
-          max-width: 100vw;
+          right: 0;
+          bottom: 0;
+          width: 100%;
+          height: 100%;
           background: rgba(0, 0, 0, 0.8);
           display: flex;
           align-items: center;
@@ -2440,8 +2443,8 @@
         
         const modalContent = document.createElement('div');
         modalContent.style.cssText = `
-          max-width: 90vw;
-          max-height: 90vh;
+          max-width: calc(100% - 40px);
+          max-height: calc(100vh - 40px);
           width: 100%;
           background: white;
           border-radius: 12px;
@@ -2641,9 +2644,10 @@
           position: fixed;
           top: 0;
           left: 0;
-          width: 100vw;
-          height: 100vh;
-          max-width: 100vw;
+          right: 0;
+          bottom: 0;
+          width: 100%;
+          height: 100%;
           background: rgba(15, 23, 42, 0.92);
           display: flex;
           align-items: center;
@@ -2652,13 +2656,14 @@
           box-sizing: border-box;
           z-index: 1200;
           overflow-y: auto;
+          overflow-x: hidden;
           -webkit-overflow-scrolling: touch;
         `;
 
         const modalContent = document.createElement('div');
         modalContent.style.cssText = `
           width: 100%;
-          max-width: min(440px, 90vw);
+          max-width: min(440px, calc(100% - 40px));
           background: #0f172a;
           border-radius: 18px;
           padding: 18px;
@@ -3000,9 +3005,10 @@
           position: fixed;
           top: 0;
           left: 0;
-          width: 100vw;
-          height: 100vh;
-          max-width: 100vw;
+          right: 0;
+          bottom: 0;
+          width: 100%;
+          height: 100%;
           background: rgba(0, 0, 0, 0.7);
           display: flex;
           align-items: center;
@@ -3016,7 +3022,7 @@
         `;
         
         modal.innerHTML = `
-          <div style="background: white; border-radius: 16px; padding: 24px; max-width: min(400px, 90vw); width: 100%; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); box-sizing: border-box;">
+          <div style="background: white; border-radius: 16px; padding: 24px; max-width: min(400px, calc(100% - 40px)); width: 100%; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); box-sizing: border-box;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
               <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: #1e293b;">📅 전체 영업시간</h3>
               <button onclick="this.closest('div').parentElement.remove()" style="background: none; border: none; font-size: 24px; color: #94a3b8; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s;">×</button>
