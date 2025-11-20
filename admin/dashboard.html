@@ -9654,9 +9654,19 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     
                     // 이미지 설정도 캐시에서 즉시 업데이트
                     if (shouldUpdateField('images') && cached.images) {
+                        // [진단] 캐시 데이터 로그 출력
+                        console.log('🔍 [CACHE DEBUG] Main:', cached.images.mainLogo, 'Menu:', cached.images.menuImage);
+                        console.log('🔍 [CACHE DEBUG] Main Type:', typeof cached.images.mainLogo, 'Menu Type:', typeof cached.images.menuImage);
+                        
                         if (typeof updateImagePreview === 'function') {
-                            updateImagePreview('mainLogo', cached.images.mainLogo);
-                            updateImagePreview('menuImage', cached.images.menuImage);
+                            // 방어 코드: 객체/문자열 모두 처리
+                            const mainLogoSrc = typeof cached.images.mainLogo === 'object' ? cached.images.mainLogo?.src : cached.images.mainLogo;
+                            const menuImageSrc = typeof cached.images.menuImage === 'object' ? cached.images.menuImage?.src : cached.images.menuImage;
+                            
+                            console.log('🔍 [CACHE DEBUG] Processed Main:', mainLogoSrc, 'Processed Menu:', menuImageSrc);
+                            
+                            updateImagePreview('mainLogo', mainLogoSrc);
+                            updateImagePreview('menuImage', menuImageSrc);
                         }
                         if (typeof updateVideoPreview === 'function') {
                             updateVideoPreview('promoVideo', cached.images.promoVideo);
@@ -9722,9 +9732,16 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             
                             // 이미지 설정도 최신 데이터로 업데이트
                             if (shouldUpdateField('images') && latestSettings.images) {
+                                // [진단] 최신 데이터 로그 출력
+                                console.log('🔍 [LATEST DEBUG] Main:', latestSettings.images.mainLogo, 'Menu:', latestSettings.images.menuImage);
+                                
                                 if (typeof updateImagePreview === 'function') {
-                                    updateImagePreview('mainLogo', latestSettings.images.mainLogo);
-                                    updateImagePreview('menuImage', latestSettings.images.menuImage);
+                                    // 방어 코드: 객체/문자열 모두 처리
+                                    const mainLogoSrc = typeof latestSettings.images.mainLogo === 'object' ? latestSettings.images.mainLogo?.src : latestSettings.images.mainLogo;
+                                    const menuImageSrc = typeof latestSettings.images.menuImage === 'object' ? latestSettings.images.menuImage?.src : latestSettings.images.menuImage;
+                                    
+                                    updateImagePreview('mainLogo', mainLogoSrc);
+                                    updateImagePreview('menuImage', menuImageSrc);
                                 }
                                 if (typeof updateVideoPreview === 'function') {
                                     updateVideoPreview('promoVideo', latestSettings.images.promoVideo);
@@ -9908,12 +9925,22 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 // 이미지 설정 (images 필드가 요청되었거나 전체 요청인 경우만)
                 if (shouldUpdateField('images') && settings.images) {
+                    // [진단] 데이터 로그 출력
+                    console.log('🔍 [MEDIA DEBUG] Main:', settings.images.mainLogo, 'Menu:', settings.images.menuImage);
+                    console.log('🔍 [MEDIA DEBUG] Main Type:', typeof settings.images.mainLogo, 'Menu Type:', typeof settings.images.menuImage);
+                    
                     if (typeof updateImagePreview === 'function') {
-                    updateImagePreview('mainLogo', settings.images.mainLogo);
-                    updateImagePreview('menuImage', settings.images.menuImage);
+                        // 방어 코드: 객체/문자열 모두 처리
+                        const mainLogoSrc = typeof settings.images.mainLogo === 'object' ? settings.images.mainLogo?.src : settings.images.mainLogo;
+                        const menuImageSrc = typeof settings.images.menuImage === 'object' ? settings.images.menuImage?.src : settings.images.menuImage;
+                        
+                        console.log('🔍 [MEDIA DEBUG] Processed Main:', mainLogoSrc, 'Processed Menu:', menuImageSrc);
+                        
+                        updateImagePreview('mainLogo', mainLogoSrc);
+                        updateImagePreview('menuImage', menuImageSrc);
                     }
                     if (typeof updateVideoPreview === 'function') {
-                    updateVideoPreview('promoVideo', settings.images.promoVideo);
+                        updateVideoPreview('promoVideo', settings.images.promoVideo);
                     }
                 }
                 
@@ -12199,8 +12226,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         
         // 이미지 미리보기 업데이트 (안정화된 버전)
         function updateImagePreview(imageType, imageData) {
+            // [진단] 함수 호출 로그
+            console.log(`🔍 [updateImagePreview] ${imageType}:`, imageData, 'Type:', typeof imageData);
+            
             const preview = document.getElementById(`${imageType}Preview`);
             const uploadArea = document.getElementById(`${imageType}Area`);
+            
+            console.log(`🔍 [updateImagePreview] Elements found - Preview:`, !!preview, 'UploadArea:', !!uploadArea);
             
             if (!preview) {
                 console.warn('이미지 미리보기 요소를 찾을 수 없습니다:', `${imageType}Preview`);
