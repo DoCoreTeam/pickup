@@ -880,6 +880,7 @@ class APIRouter {
           handler = this.deleteDomainQR.bind(this);
         }
       }
+      } // if (!handler) 블록 닫기
 
       // 정적 라우트 확인
       if (!handler) {
