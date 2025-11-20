@@ -8722,7 +8722,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             // 가게 설정에서 로고 URL 가져오기
                             const settings = await apiRequest(`${API_BASE}/settings?storeId=${storeId}`);
                             if (settings && settings.basic && settings.basic.storeLogo) {
-                                logoImg.src = settings.basic.storeLogo;
+                                // 캐시 방지를 위해 타임스탬프 추가
+                                const timestamp = new Date().getTime();
+                                const logoUrl = settings.basic.storeLogo;
+                                const imageUrlWithCacheBust = logoUrl.includes('?') 
+                                    ? `${logoUrl}&t=${timestamp}` 
+                                    : `${logoUrl}?t=${timestamp}`;
+                                logoImg.src = imageUrlWithCacheBust;
                                 logoImg.alt = `${selectedStore.name} 로고`;
                             } else {
                                 logoImg.src = '/assets/images/icons/default-store.png';
