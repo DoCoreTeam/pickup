@@ -11858,6 +11858,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             console.log('🔍 [DEBUG] processImageFile 시작:', { file, imageType, fileSize: (file.size / (1024 * 1024)).toFixed(2) + 'MB' });
             
             try {
+                // 파일 크기 계산 (MB 단위)
+                const fileSizeMB = file.size / 1024 / 1024; // MB 단위 변환
+                
                 const currentStoreId = await getCurrentStoreId();
                 console.log('🔍 [DEBUG] 현재 가게 ID:', currentStoreId);
                 
@@ -11868,10 +11871,10 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     return;
                 }
                 
-                // 파일 크기 확인 (50MB 제한 - 압축 전 원본 크기)
-                if (file.size > 50 * 1024 * 1024) {
-                    showStatus('이미지 파일 크기는 50MB 이하여야 합니다.', 'error');
-                    updateProgressBar(imageType, 0, '업로드 실패: 파일 크기는 50MB 이하여야 합니다.', true);
+                // 파일 크기 확인 (10MB 제한 - Base64 방식에 맞게 조정)
+                if (fileSizeMB > 10) {
+                    showStatus(`파일 크기가 너무 큽니다 (${fileSizeMB.toFixed(1)}MB). 10MB 이하의 이미지를 선택해주세요.`, 'error');
+                    updateProgressBar(imageType, 0, `업로드 실패: 파일 크기 ${fileSizeMB.toFixed(1)}MB > 10MB`, true);
                     setTimeout(() => hideProgressBar(imageType), 3000);
                     return;
                 }
