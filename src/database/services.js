@@ -3331,42 +3331,85 @@ async function getAmbassadorStats(storeId = null, ambassadorId = null, options =
   }
   
   // 엠버서더별 통계 (방문 수, 전화 연결 수) - 서브쿼리로 최적화
-  // 날짜 필터가 있으면 서브쿼리에 적용, 없으면 전체 조회
-  const visitSubquery = visitDateFilter 
-    ? `(SELECT ambassador_id, COUNT(*) AS visit_count, COUNT(DISTINCT visitor_phone) AS unique_visitors FROM ambassador_visits ${visitDateFilter} GROUP BY ambassador_id)`
-    : `(SELECT ambassador_id, COUNT(*) AS visit_count, COUNT(DISTINCT visitor_phone) AS unique_visitors FROM ambassador_visits GROUP BY ambassador_id)`;
+  // 날짜 필터가 없으면 더 간단한 쿼리 사용
+  let statsQuery;
+  let queryParams = [...params];
   
-  const callSubquery = callDateFilter
-    ? `(SELECT ambassador_id, COUNT(*) AS call_count, COUNT(DISTINCT caller_phone) AS unique_callers FROM ambassador_call_logs ${callDateFilter} GROUP BY ambassador_id)`
-    : `(SELECT ambassador_id, COUNT(*) AS call_count, COUNT(DISTINCT caller_phone) AS unique_callers FROM ambassador_call_logs GROUP BY ambassador_id)`;
-  
-  const statsQuery = `
-    SELECT 
-      a.id AS ambassador_id,
-      a.name AS ambassador_name,
-      a.ambassador_key,
-      a.store_id,
-      COALESCE(visit_stats.visit_count, 0) AS visit_count,
-      COALESCE(call_stats.call_count, 0) AS call_count,
-      COALESCE(visit_stats.unique_visitors, 0) AS unique_visitors,
-      COALESCE(call_stats.unique_callers, 0) AS unique_callers
-    FROM store_ambassadors a
-    LEFT JOIN ${visitSubquery} visit_stats ON visit_stats.ambassador_id = a.id
-    LEFT JOIN ${callSubquery} call_stats ON call_stats.ambassador_id = a.id
-    ${whereClause}
-    ORDER BY a.created_at DESC
-  `;
-  
-  // 날짜 필터 파라미터를 쿼리 파라미터에 추가
-  const finalParams = [...params];
-  if (visitDateFilter) {
-    finalParams.push(...visitDateParams);
+  if (!startDate && !endDate) {
+    // 날짜 필터가 없으면 서브쿼리 사용 (가장 빠름)
+    statsQuery = `
+      SELECT 
+        a.id AS ambassador_id,
+        a.name AS ambassador_name,
+        a.ambassador_key,
+        a.store_id,
+        COALESCE(visit_stats.visit_count, 0) AS visit_count,
+        COALESCE(call_stats.call_count, 0) AS call_count,
+        COALESCE(visit_stats.unique_visitors, 0) AS unique_visitors,
+        COALESCE(call_stats.unique_callers, 0) AS unique_callers
+      FROM store_ambassadors a
+      LEFT JOIN (
+        SELECT ambassador_id, COUNT(*) AS visit_count, COUNT(DISTINCT visitor_phone) AS unique_visitors
+        FROM ambassador_visits
+        GROUP BY ambassador_id
+      ) visit_stats ON visit_stats.ambassador_id = a.id
+      LEFT JOIN (
+        SELECT ambassador_id, COUNT(*) AS call_count, COUNT(DISTINCT caller_phone) AS unique_callers
+        FROM ambassador_call_logs
+        GROUP BY ambassador_id
+      ) call_stats ON call_stats.ambassador_id = a.id
+      ${whereClause}
+      ORDER BY a.created_at DESC
+    `;
+  } else {
+    // 날짜 필터가 있으면 조건부 집계 사용
+    let visitDateConditions = '';
+    let callDateConditions = '';
+    let visitParamIndex = paramIndex;
+    let callParamIndex = paramIndex;
+    
+    if (startDate) {
+      visitDateConditions += ` AND visited_at >= $${visitParamIndex++}`;
+      callDateConditions += ` AND called_at >= $${callParamIndex++}`;
+      queryParams.push(startDate);
+      queryParams.push(startDate);
+    }
+    if (endDate) {
+      visitDateConditions += ` AND visited_at <= $${visitParamIndex++}`;
+      callDateConditions += ` AND called_at <= $${callParamIndex++}`;
+      queryParams.push(endDate);
+      queryParams.push(endDate);
+    }
+    
+    statsQuery = `
+      SELECT 
+        a.id AS ambassador_id,
+        a.name AS ambassador_name,
+        a.ambassador_key,
+        a.store_id,
+        COALESCE(visit_stats.visit_count, 0) AS visit_count,
+        COALESCE(call_stats.call_count, 0) AS call_count,
+        COALESCE(visit_stats.unique_visitors, 0) AS unique_visitors,
+        COALESCE(call_stats.unique_callers, 0) AS unique_callers
+      FROM store_ambassadors a
+      LEFT JOIN (
+        SELECT ambassador_id, COUNT(*) AS visit_count, COUNT(DISTINCT visitor_phone) AS unique_visitors
+        FROM ambassador_visits
+        WHERE 1=1${visitDateConditions}
+        GROUP BY ambassador_id
+      ) visit_stats ON visit_stats.ambassador_id = a.id
+      LEFT JOIN (
+        SELECT ambassador_id, COUNT(*) AS call_count, COUNT(DISTINCT caller_phone) AS unique_callers
+        FROM ambassador_call_logs
+        WHERE 1=1${callDateConditions}
+        GROUP BY ambassador_id
+      ) call_stats ON call_stats.ambassador_id = a.id
+      ${whereClause}
+      ORDER BY a.created_at DESC
+    `;
   }
-  if (callDateFilter) {
-    finalParams.push(...callDateParams);
-  }
   
-  const statsResult = await db.query(statsQuery, finalParams);
+  const statsResult = await db.query(statsQuery, queryParams);
   
   // 전화번호별 통계 (어떤 엠버서더를 통해 방문/전화했는지)
   // 날짜 파라미터 재사용을 위해 파라미터 인덱스 재설정
