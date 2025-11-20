@@ -3249,20 +3249,32 @@ async function logAmbassadorCall(ambassadorId, storeId, callerPhone, userAgent =
     throw new Error('필수 정보가 누락되었습니다.');
   }
   
-  const result = await db.query(`
-    INSERT INTO ambassador_call_logs (
-      ambassador_id, store_id, caller_phone, called_at, user_agent, ip_address
-    ) VALUES ($1, $2, $3, CURRENT_TIMESTAMP, $4, $5)
-    RETURNING *
-  `, [ambassadorId, storeId, callerPhone, userAgent, ipAddress]);
-  
-  return {
-    id: result.rows[0].id,
-    ambassadorId: result.rows[0].ambassador_id,
-    storeId: result.rows[0].store_id,
-    callerPhone: result.rows[0].caller_phone,
-    calledAt: result.rows[0].called_at ? result.rows[0].called_at.toISOString() : null
-  };
+  try {
+    const result = await db.query(`
+      INSERT INTO ambassador_call_logs (
+        ambassador_id, store_id, caller_phone, called_at, user_agent, ip_address
+      ) VALUES ($1, $2, $3, CURRENT_TIMESTAMP, $4, $5)
+      RETURNING *
+    `, [ambassadorId, storeId, callerPhone, userAgent, ipAddress]);
+    
+    console.log('[DB] 엠버서더 전화 연결 기록 저장 성공:', {
+      id: result.rows[0].id,
+      ambassadorId,
+      storeId,
+      callerPhone: callerPhone.substring(0, 3) + '****' // 개인정보 보호
+    });
+    
+    return {
+      id: result.rows[0].id,
+      ambassadorId: result.rows[0].ambassador_id,
+      storeId: result.rows[0].store_id,
+      callerPhone: result.rows[0].caller_phone,
+      calledAt: result.rows[0].called_at ? result.rows[0].called_at.toISOString() : null
+    };
+  } catch (error) {
+    console.error('[DB] 엠버서더 전화 연결 기록 저장 실패:', error);
+    throw error;
+  }
 }
 
 // 엠버서더 통계 조회
@@ -3318,26 +3330,43 @@ async function getAmbassadorStats(storeId = null, ambassadorId = null, options =
     }
   }
   
-  // 엠버서더별 통계 (방문 수, 전화 연결 수)
+  // 엠버서더별 통계 (방문 수, 전화 연결 수) - 서브쿼리로 최적화
+  // 날짜 필터가 있으면 서브쿼리에 적용, 없으면 전체 조회
+  const visitSubquery = visitDateFilter 
+    ? `(SELECT ambassador_id, COUNT(*) AS visit_count, COUNT(DISTINCT visitor_phone) AS unique_visitors FROM ambassador_visits ${visitDateFilter} GROUP BY ambassador_id)`
+    : `(SELECT ambassador_id, COUNT(*) AS visit_count, COUNT(DISTINCT visitor_phone) AS unique_visitors FROM ambassador_visits GROUP BY ambassador_id)`;
+  
+  const callSubquery = callDateFilter
+    ? `(SELECT ambassador_id, COUNT(*) AS call_count, COUNT(DISTINCT caller_phone) AS unique_callers FROM ambassador_call_logs ${callDateFilter} GROUP BY ambassador_id)`
+    : `(SELECT ambassador_id, COUNT(*) AS call_count, COUNT(DISTINCT caller_phone) AS unique_callers FROM ambassador_call_logs GROUP BY ambassador_id)`;
+  
   const statsQuery = `
     SELECT 
       a.id AS ambassador_id,
       a.name AS ambassador_name,
       a.ambassador_key,
       a.store_id,
-      COUNT(DISTINCT v.id) AS visit_count,
-      COUNT(DISTINCT c.id) AS call_count,
-      COUNT(DISTINCT v.visitor_phone) AS unique_visitors,
-      COUNT(DISTINCT c.caller_phone) AS unique_callers
+      COALESCE(visit_stats.visit_count, 0) AS visit_count,
+      COALESCE(call_stats.call_count, 0) AS call_count,
+      COALESCE(visit_stats.unique_visitors, 0) AS unique_visitors,
+      COALESCE(call_stats.unique_callers, 0) AS unique_callers
     FROM store_ambassadors a
-    LEFT JOIN ambassador_visits v ON v.ambassador_id = a.id${visitDateFilter}
-    LEFT JOIN ambassador_call_logs c ON c.ambassador_id = a.id${callDateFilter}
+    LEFT JOIN ${visitSubquery} visit_stats ON visit_stats.ambassador_id = a.id
+    LEFT JOIN ${callSubquery} call_stats ON call_stats.ambassador_id = a.id
     ${whereClause}
-    GROUP BY a.id, a.name, a.ambassador_key, a.store_id
     ORDER BY a.created_at DESC
   `;
   
-  const statsResult = await db.query(statsQuery, params);
+  // 날짜 필터 파라미터를 쿼리 파라미터에 추가
+  const finalParams = [...params];
+  if (visitDateFilter) {
+    finalParams.push(...visitDateParams);
+  }
+  if (callDateFilter) {
+    finalParams.push(...callDateParams);
+  }
+  
+  const statsResult = await db.query(statsQuery, finalParams);
   
   // 전화번호별 통계 (어떤 엠버서더를 통해 방문/전화했는지)
   // 날짜 파라미터 재사용을 위해 파라미터 인덱스 재설정
@@ -3399,6 +3428,8 @@ async function getAmbassadorStats(storeId = null, ambassadorId = null, options =
     ? `WHERE ${phoneWhereConditions.join(' AND ')}` 
     : '';
   
+  // 전화번호별 통계는 필요할 때만 조회 (성능 최적화)
+  // 데이터가 많을 경우 느릴 수 있으므로 기본 통계만 반환
   const phoneStatsQuery = `
     SELECT 
       COALESCE(v.visitor_phone, c.caller_phone) AS phone,
@@ -3411,8 +3442,9 @@ async function getAmbassadorStats(storeId = null, ambassadorId = null, options =
     LEFT JOIN ambassador_visits v ON v.ambassador_id = a.id${phoneVisitDateFilter}
     LEFT JOIN ambassador_call_logs c ON c.ambassador_id = a.id${phoneCallDateFilter}
     ${finalPhoneWhereClause}
-    GROUP BY phone, a.id, a.name
+    GROUP BY COALESCE(v.visitor_phone, c.caller_phone), a.id, a.name
     ORDER BY last_activity DESC
+    LIMIT 100
   `;
   
     const phoneStatsResult = await db.query(phoneStatsQuery, phoneParams);
