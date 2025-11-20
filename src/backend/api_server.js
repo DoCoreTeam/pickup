@@ -536,6 +536,9 @@ class APIRouter {
     // GET /api/settings - 설정 조회
     this.routes.set('GET /api/settings', this.getSettings.bind(this));
     
+    // GET /api/version - 애플리케이션 버전 조회
+    this.routes.set('GET /api/version', this.getVersion.bind(this));
+    
     // GET /api/superadmin/info - 슈퍼어드민 정보 조회
     this.routes.set('GET /api/superadmin/info', this.getSuperAdminInfo.bind(this));
     
@@ -1881,6 +1884,39 @@ class APIRouter {
     return cookieAuth || sessionAuth;
   }
 
+  // 애플리케이션 버전 조회 (package.json에서 읽기)
+  async getVersion(req, res, parsedUrl) {
+    try {
+      const packageJsonPath = path.join(__dirname, '../../package.json');
+      let version = '1.0.0';
+      
+      try {
+        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+        version = packageJson.version || '1.0.0';
+      } catch (error) {
+        log('WARN', 'package.json 읽기 실패, 기본 버전 사용', { error: error.message });
+      }
+      
+      // 브랜치 정보 추가 (환경 변수에서 확인)
+      const branch = process.env.BRANCH || process.env.RAILWAY_GIT_BRANCH || 'main';
+      const versionWithBranch = branch === 'main' || branch === 'master' 
+        ? `v${version}` 
+        : `v${version}-${branch}`;
+      
+      sendJsonResponse(res, 200, {
+        success: true,
+        data: {
+          version: version,
+          versionWithBranch: versionWithBranch,
+          branch: branch
+        }
+      });
+    } catch (error) {
+      log('ERROR', '버전 조회 실패', { error: error.message });
+      sendErrorResponse(res, 500, '버전 정보를 가져올 수 없습니다.');
+    }
+  }
+
   // DB 통계 조회 (슈퍼어드민 전용)
   async getDbStats(req, res, parsedUrl) {
     try {
@@ -1919,6 +1955,39 @@ class APIRouter {
     } catch (error) {
       log('ERROR', 'DB 통계 리셋 실패', error);
       sendErrorResponse(res, 500, 'DB 통계 리셋 실패');
+    }
+  }
+
+  // 애플리케이션 버전 조회 (package.json에서 읽기)
+  async getVersion(req, res, parsedUrl) {
+    try {
+      const packageJsonPath = path.join(__dirname, '../../package.json');
+      let version = '1.0.0';
+      
+      try {
+        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+        version = packageJson.version || '1.0.0';
+      } catch (error) {
+        log('WARN', 'package.json 읽기 실패, 기본 버전 사용', { error: error.message });
+      }
+      
+      // 브랜치 정보 추가 (환경 변수에서 확인)
+      const branch = process.env.BRANCH || process.env.RAILWAY_GIT_BRANCH || 'main';
+      const versionWithBranch = branch === 'main' || branch === 'master' 
+        ? `v${version}` 
+        : `v${version}-${branch}`;
+      
+      sendJsonResponse(res, 200, {
+        success: true,
+        data: {
+          version: version,
+          versionWithBranch: versionWithBranch,
+          branch: branch
+        }
+      });
+    } catch (error) {
+      log('ERROR', '버전 조회 실패', { error: error.message });
+      sendErrorResponse(res, 500, '버전 정보를 가져올 수 없습니다.');
     }
   }
 

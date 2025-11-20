@@ -4313,7 +4313,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge">v1.6.15-staging</div>
+                    <div class="version-badge" id="versionBadge">v1.0.0</div>
                 </div>
                 <a href="/admin/release-notes" class="release-notes-btn">
                     릴리즈 노트
@@ -11483,6 +11483,32 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 progressElement.classList.add('error');
             } else {
                 progressElement.classList.remove('error');
+            }
+        }
+        
+        // 버전 배지 자동 업데이트 함수
+        async function updateVersionBadge() {
+            try {
+                const response = await fetch(`${API_BASE}/version`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const result = await response.json();
+                const versionText = result?.data?.versionWithBranch || `v${result?.data?.version || '1.0.0'}`;
+                
+                const versionBadge = document.getElementById('versionBadge');
+                if (versionBadge) {
+                    versionBadge.textContent = versionText;
+                }
+                
+                // 페이지 전체에서 version-badge 클래스를 가진 모든 요소 업데이트
+                const allVersionBadges = document.querySelectorAll('.version-badge:not(#versionBadge)');
+                allVersionBadges.forEach(badge => {
+                    badge.textContent = versionText;
+                });
+            } catch (error) {
+                console.warn('버전 정보 업데이트 실패:', error);
+                // 실패해도 기본값 유지
             }
         }
         
