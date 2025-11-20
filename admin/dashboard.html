@@ -15853,6 +15853,39 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     </div>
                 `;
                 }).join('');
+                
+                // 통계는 백그라운드에서 비동기로 로드 (성능 개선)
+                // 목록이 먼저 표시되고, 통계는 나중에 업데이트됨
+                Promise.all(ambassadors.map(amb => 
+                    apiRequest(`${API_BASE}/ambassadors/stats?storeId=${currentStoreId}&ambassadorId=${amb.id}`, 'GET', null, 1, false, {}, 5000)
+                        .then(res => ({ id: amb.id, stats: res?.data || null }))
+                        .catch(err => {
+                            // 타임아웃 등 에러는 무시하고 기본값 반환
+                            console.warn(`엠버서더 ${amb.id} 통계 조회 실패:`, err.message);
+                            return { id: amb.id, stats: null };
+                        })
+                )).then(statsResults => {
+                    const statsMap = {};
+                    statsResults.forEach(result => {
+                        if (result.stats && result.stats.ambassadors && result.stats.ambassadors.length > 0) {
+                            statsMap[result.id] = result.stats.ambassadors[0];
+                        }
+                    });
+                    
+                    // 통계만 업데이트 (전체 재렌더링 없이)
+                    ambassadors.forEach(amb => {
+                        const stats = statsMap[amb.id] || { visitCount: 0, callCount: 0, uniqueVisitors: 0, uniqueCallers: 0 };
+                        const card = document.querySelector(`[data-ambassador-id="${amb.id}"]`);
+                        if (card) {
+                            const visitCountEl = card.querySelector('.ambassador-visit-count');
+                            const callCountEl = card.querySelector('.ambassador-call-count');
+                            if (visitCountEl) visitCountEl.textContent = (stats.visitCount || 0).toString();
+                            if (callCountEl) callCountEl.textContent = (stats.callCount || 0).toString();
+                        }
+                    });
+                }).catch(err => {
+                    console.warn('엠버서더 통계 로드 실패 (무시):', err);
+                });
             } catch (error) {
                 console.error('엠버서더 목록 로드 실패:', error);
                 const listEl = document.getElementById('ambassadorsList');
