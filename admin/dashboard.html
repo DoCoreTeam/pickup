@@ -5617,11 +5617,11 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }, 500);
         }
 
-        // 세션 타임아웃 설정 (기본 30분, 설정 가능)
+        // 세션 타임아웃 설정 (기본 2시간, 설정 가능)
         // URL 파라미터에서 타임아웃 시간을 받을 수 있음 (예: ?sessionTimeout=60 -> 60분)
         const urlParams = new URLSearchParams(window.location.search);
         const urlSessionTimeout = urlParams.get('sessionTimeout');
-        let SESSION_TIMEOUT_MS = parseInt(sessionStorage.getItem('session_timeout_ms')) || (30 * 60 * 1000); // 기본 30분
+        let SESSION_TIMEOUT_MS = parseInt(sessionStorage.getItem('session_timeout_ms')) || (2 * 60 * 60 * 1000); // 기본 2시간
         
         // URL 파라미터에서 타임아웃 시간이 제공되면 업데이트
         if (urlSessionTimeout) {
@@ -5659,7 +5659,12 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
             
             // 세션이 유효하면 만료 시간 갱신 (활동 시 자동 연장)
-            setSessionExpiry(SESSION_TIMEOUT_MS);
+            // 단, 만료 시간이 10분 이하로 남았을 때만 갱신 (너무 자주 갱신하지 않음)
+            const timeRemaining = expiryTime - now;
+            const tenMinutes = 10 * 60 * 1000;
+            if (timeRemaining <= tenMinutes) {
+                setSessionExpiry(SESSION_TIMEOUT_MS);
+            }
             return true;
         }
         
@@ -16039,13 +16044,31 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         }
         
         // 엠버서더 링크 복사
-        function copyAmbassadorLink(ambassadorId) {
-            const linkInput = document.getElementById(`ambassadorLink_${ambassadorId}`);
-            if (!linkInput) return;
-            
-            linkInput.select();
-            document.execCommand('copy');
-            showToast('링크가 클립보드에 복사되었습니다.', 'success');
+        async function copyAmbassadorLink(ambassadorId) {
+            try {
+                const linkInput = document.getElementById(`ambassadorLink_${ambassadorId}`);
+                if (!linkInput) {
+                    showToast('링크를 찾을 수 없습니다.', 'error');
+                    return;
+                }
+                
+                const linkText = linkInput.value;
+                
+                // 최신 클립보드 API 사용 (실패 시 fallback)
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(linkText);
+                } else {
+                    // 구형 브라우저 지원
+                    linkInput.select();
+                    linkInput.setSelectionRange(0, 99999); // 모바일 지원
+                    document.execCommand('copy');
+                }
+                
+                showToast('링크가 클립보드에 복사되었습니다.', 'success');
+            } catch (error) {
+                console.error('링크 복사 실패:', error);
+                showToast('링크 복사에 실패했습니다.', 'error');
+            }
         }
         
         // 엠버서더 통계 조회 모달 열기
