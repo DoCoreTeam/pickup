@@ -11695,21 +11695,33 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
         }
         
-        // DOM이 준비되면 즉시 버전 배지 업데이트
+        // DOM이 준비되면 즉시 버전 배지 업데이트 (여러 시점에서 실행 보장)
+        function initVersionBadge() {
+            // 짧은 지연을 두고 실행 (DOM 완전 준비 보장)
+            setTimeout(() => {
+                updateVersionBadge();
+            }, 100);
+        }
+        
         if (document.readyState === 'loading') {
             // DOM이 아직 로딩 중이면 DOMContentLoaded 이벤트 기다림
-            document.addEventListener('DOMContentLoaded', function() {
-                updateVersionBadge();
-            });
+            document.addEventListener('DOMContentLoaded', initVersionBadge);
         } else {
             // DOM이 이미 준비되었으면 즉시 실행
-            updateVersionBadge();
+            initVersionBadge();
         }
         
         // window.onload에서도 한 번 더 실행 (확실하게)
         window.addEventListener('load', function() {
-            updateVersionBadge();
+            setTimeout(() => {
+                updateVersionBadge();
+            }, 200);
         });
+        
+        // 스크립트가 실행되는 즉시에도 한 번 시도
+        setTimeout(() => {
+            updateVersionBadge();
+        }, 500);
         
         // 프로그래스바 숨기기 함수
         function hideProgressBar(imageType) {
