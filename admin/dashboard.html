@@ -3135,6 +3135,50 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         .upload-progress.error .upload-progress-text {
             color: #dc2626;
         }
+        
+        /* 안전한 이미지 로딩 스피너 */
+        .image-upload-area.loading::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 32px;
+            height: 32px;
+            margin: -16px 0 0 -16px;
+            border: 3px solid #e5e7eb;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            z-index: 10;
+        }
+        
+        .image-upload-area.loading::after {
+            content: '이미지 로딩 중...';
+            position: absolute;
+            top: 60%;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #6b7280;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 10;
+        }
+        
+        .image-upload-area.loading {
+            position: relative;
+            pointer-events: none;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* 이미지 없음 텍스트 스타일 */
+        .no-image-text {
+            user-select: none;
+            pointer-events: none;
+        }
 
         /* 배달앱 그리드 설정 스타일 */
         .delivery-grid-section {
@@ -12098,7 +12142,62 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 processVideoFile(files[0], videoType);
             }
         }
-        // 이미지 미리보기 업데이트
+        // 안전한 이미지 로딩 함수 (깜빡임/엑박 방지)
+        function safeLoadImage(imgElement, imageUrl) {
+            if (!imgElement) return;
+            
+            const parent = imgElement.parentElement;
+            if (!parent) return;
+            
+            // 1. 로딩 표시 (스피너 추가)
+            parent.classList.add('loading');
+            imgElement.style.display = 'none';
+            
+            // 기존 에러 메시지 제거
+            const existingError = parent.querySelector('.no-image-text');
+            if (existingError) {
+                existingError.remove();
+            }
+            
+            const tempImg = new Image();
+            // 캐시 방지 적용
+            const timestamp = new Date().getTime();
+            const imageUrlWithCacheBust = imageUrl.includes('?') 
+                ? `${imageUrl}&t=${timestamp}` 
+                : `${imageUrl}?t=${timestamp}`;
+            tempImg.src = imageUrlWithCacheBust;
+            
+            tempImg.onload = () => {
+                // 2. 로딩 성공 시
+                parent.classList.remove('loading');
+                imgElement.src = tempImg.src;
+                imgElement.style.display = 'block';
+                imgElement.style.opacity = '0';
+                imgElement.style.transition = 'opacity 0.3s ease';
+                // 부드러운 fade-in 효과
+                setTimeout(() => {
+                    imgElement.style.opacity = '1';
+                }, 10);
+                parent.classList.add('has-image');
+            };
+            
+            tempImg.onerror = () => {
+                // 3. 로딩 실패 시 (파일 삭제됨 등)
+                parent.classList.remove('loading');
+                imgElement.style.display = 'none';
+                parent.classList.remove('has-image');
+                // 엑박 대신 대체 텍스트 표시
+                if (!parent.querySelector('.no-image-text')) {
+                    const noImageDiv = document.createElement('div');
+                    noImageDiv.className = 'no-image-text';
+                    noImageDiv.style.cssText = 'width:100%;height:200px;background:#f9fafb;border:2px dashed #e5e7eb;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:14px;font-weight:500;margin-top:8px;';
+                    noImageDiv.textContent = '등록된 이미지가 없습니다';
+                    parent.appendChild(noImageDiv);
+                }
+            };
+        }
+        
+        // 이미지 미리보기 업데이트 (안정화된 버전)
         function updateImagePreview(imageType, imageData) {
             const preview = document.getElementById(`${imageType}Preview`);
             const uploadArea = document.getElementById(`${imageType}Area`);
@@ -12125,57 +12224,35 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 imageData = null;
             }
             
-            // 이미지 로드 실패 방어 코드 추가
-            preview.onerror = function() {
-                console.warn('이미지 로드 실패:', { imageType, imageData, src: this.src });
-                this.style.display = 'none';
-                // 엑박 아이콘 대신 "이미지 없음" 박스 표시
-                const errorBox = document.createElement('div');
-                errorBox.className = 'image-error-placeholder';
-                errorBox.style.cssText = 'width:100%;height:200px;background:#f3f4f6;border:2px dashed #d1d5db;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#6b7280;font-size:14px;margin-top:8px;';
-                errorBox.textContent = '이미지를 불러올 수 없습니다';
-                
-                // 기존 error placeholder가 있으면 제거
-                const existingError = uploadArea.querySelector('.image-error-placeholder');
-                if (existingError) {
-                    existingError.remove();
-                }
-                
-                if (uploadArea) {
-                    uploadArea.appendChild(errorBox);
-                    uploadArea.classList.remove('has-image');
-                }
-            };
-            
             if (imageData) {
-                // 이미지가 있으면 error placeholder 제거
-                const existingError = uploadArea ? uploadArea.querySelector('.image-error-placeholder') : null;
+                // 기존 에러 placeholder 제거
+                const existingError = uploadArea ? uploadArea.querySelector('.no-image-text') : null;
                 if (existingError) {
                     existingError.remove();
                 }
                 
-                // 이미지 소스 설정 (캐시 방지를 위해 타임스탬프 추가)
-                const timestamp = new Date().getTime();
-                const imageUrlWithCacheBust = imageData.includes('?') 
-                    ? `${imageData}&t=${timestamp}` 
-                    : `${imageData}?t=${timestamp}`;
-                preview.src = imageUrlWithCacheBust;
-                preview.style.display = 'block';
-                if (uploadArea) {
-                    uploadArea.classList.add('has-image');
-                }
+                // 안전한 이미지 로딩 사용
+                safeLoadImage(preview, imageData);
             } else {
                 // 이미지 데이터가 없으면 미리보기 숨김
                 preview.style.display = 'none';
                 preview.src = ''; // 빈 문자열로 설정하여 로드 시도 방지
                 if (uploadArea) {
                     uploadArea.classList.remove('has-image');
+                    uploadArea.classList.remove('loading');
                     
-                    // error placeholder도 제거
-                    const existingError = uploadArea.querySelector('.image-error-placeholder');
+                    // 기존 에러 메시지 제거
+                    const existingError = uploadArea.querySelector('.no-image-text');
                     if (existingError) {
                         existingError.remove();
                     }
+                    
+                    // "등록된 이미지가 없습니다" 메시지 표시
+                    const noImageDiv = document.createElement('div');
+                    noImageDiv.className = 'no-image-text';
+                    noImageDiv.style.cssText = 'width:100%;height:200px;background:#f9fafb;border:2px dashed #e5e7eb;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:14px;font-weight:500;margin-top:8px;';
+                    noImageDiv.textContent = '등록된 이미지가 없습니다';
+                    uploadArea.appendChild(noImageDiv);
                 }
             }
         }
