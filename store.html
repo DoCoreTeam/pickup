@@ -3160,13 +3160,35 @@
           
           // 엠버서더를 통해 접근한 경우 전화 연결 기록
           if (ambassadorId && visitorPhone && currentStoreId) {
+            console.log('[DEBUG] 전화 연결 기록 시작:', {
+              ambassadorId: parseInt(ambassadorId, 10),
+              storeId: currentStoreId,
+              callerPhone: visitorPhone.substring(0, 3) + '****'
+            });
             // 비동기로 전화 연결 기록 (실제 연결 여부는 확인 불가, 버튼 클릭으로 추정)
             apiRequest(`${API_BASE}/ambassadors/calls`, 'POST', {
               ambassadorId: parseInt(ambassadorId, 10),
               storeId: currentStoreId,
               callerPhone: visitorPhone
+            }).then(response => {
+              console.log('[DEBUG] 전화 연결 기록 성공:', response);
             }).catch(err => {
-              console.error('전화 연결 기록 실패:', err);
+              console.error('[DEBUG] 전화 연결 기록 실패:', {
+                error: err.message,
+                stack: err.stack,
+                ambassadorId: parseInt(ambassadorId, 10),
+                storeId: currentStoreId,
+                callerPhone: visitorPhone.substring(0, 3) + '****'
+              });
+            });
+          } else {
+            console.log('[DEBUG] 전화 연결 기록 건너뜀:', {
+              hasAmbassadorId: !!ambassadorId,
+              hasVisitorPhone: !!visitorPhone,
+              hasCurrentStoreId: !!currentStoreId,
+              ambassadorId,
+              visitorPhone: visitorPhone ? visitorPhone.substring(0, 3) + '****' : null,
+              currentStoreId
             });
           }
           
@@ -3315,14 +3337,26 @@
           }
           
           // 방문 기록 저장
+          console.log('[DEBUG] 방문 기록 저장 시작:', {
+            ambassadorId: ambassador.id,
+            storeId: ambassador.storeId,
+            visitorPhone: visitorPhone.substring(0, 3) + '****'
+          });
           try {
-            await apiRequest(`${API_BASE}/ambassadors/visits`, 'POST', {
+            const visitResponse = await apiRequest(`${API_BASE}/ambassadors/visits`, 'POST', {
               ambassadorId: ambassador.id,
               storeId: ambassador.storeId,
               visitorPhone: visitorPhone
             }, 1, false, {}, 10000); // 타임아웃 10초, 재시도 1회
+            console.log('[DEBUG] 방문 기록 저장 성공:', visitResponse);
           } catch (error) {
-            console.error('방문 기록 저장 실패:', error);
+            console.error('[DEBUG] 방문 기록 저장 실패:', {
+              error: error.message,
+              stack: error.stack,
+              ambassadorId: ambassador.id,
+              storeId: ambassador.storeId,
+              visitorPhone: visitorPhone.substring(0, 3) + '****'
+            });
             // 방문 기록 저장 실패해도 계속 진행
           }
           

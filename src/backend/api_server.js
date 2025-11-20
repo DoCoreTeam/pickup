@@ -4816,16 +4816,29 @@ class APIRouter {
   
   // 엠버서더 방문 기록
   async logAmbassadorVisit(req, res, parsedUrl) {
+    log('INFO', '엠버서더 방문 기록 API 호출됨', { method: req.method, url: req.url });
+    
     if (this.dbConnected && !this.dbConnected()) {
+      log('ERROR', '데이터베이스 연결 실패');
       sendErrorResponse(res, 503, '데이터베이스 연결이 실패했습니다.');
       return;
     }
     
     try {
       const body = await parseRequestBody(req);
+      log('INFO', '방문 기록 요청 본문 파싱 완료', { body: body ? { ...body, visitorPhone: body.visitorPhone ? body.visitorPhone.substring(0, 3) + '****' : null } : null });
+      
       const { ambassadorId, storeId, visitorPhone } = body || {};
       
+      log('INFO', '방문 기록 파라미터 확인', { 
+        ambassadorId, 
+        storeId, 
+        hasVisitorPhone: !!visitorPhone,
+        visitorPhoneLength: visitorPhone ? visitorPhone.length : 0
+      });
+      
       if (!ambassadorId || !storeId || !visitorPhone) {
+        log('ERROR', '방문 기록 필수 정보 누락', { ambassadorId, storeId, hasVisitorPhone: !!visitorPhone });
         sendErrorResponse(res, 400, '필수 정보가 누락되었습니다.');
         return;
       }
@@ -4836,30 +4849,57 @@ class APIRouter {
                        req.socket?.remoteAddress || 
                        '';
       
-      await dbServices.logAmbassadorVisit(ambassadorId, storeId, visitorPhone, userAgent, ipAddress);
+      log('INFO', '방문 기록 DB 저장 시작', { 
+        ambassadorId, 
+        storeId, 
+        visitorPhone: visitorPhone.substring(0, 3) + '****',
+        hasUserAgent: !!userAgent,
+        hasIpAddress: !!ipAddress
+      });
+      
+      const result = await dbServices.logAmbassadorVisit(ambassadorId, storeId, visitorPhone, userAgent, ipAddress);
+      
+      log('INFO', '방문 기록 DB 저장 성공', { resultId: result?.id });
       
       sendJsonResponse(res, 201, {
         success: true,
         message: '방문 기록이 저장되었습니다.'
       });
     } catch (error) {
-      log('ERROR', '엠버서더 방문 기록 실패', error);
+      log('ERROR', '엠버서더 방문 기록 실패', { 
+        error: error.message, 
+        stack: error.stack,
+        body: req.body
+      });
       sendErrorResponse(res, 500, error.message || '방문 기록 저장에 실패했습니다.');
     }
   }
   
   // 엠버서더 전화 연결 기록
   async logAmbassadorCall(req, res, parsedUrl) {
+    log('INFO', '엠버서더 전화 연결 기록 API 호출됨', { method: req.method, url: req.url });
+    
     if (this.dbConnected && !this.dbConnected()) {
+      log('ERROR', '데이터베이스 연결 실패');
       sendErrorResponse(res, 503, '데이터베이스 연결이 실패했습니다.');
       return;
     }
     
     try {
       const body = await parseRequestBody(req);
+      log('INFO', '전화 연결 기록 요청 본문 파싱 완료', { body: body ? { ...body, callerPhone: body.callerPhone ? body.callerPhone.substring(0, 3) + '****' : null } : null });
+      
       const { ambassadorId, storeId, callerPhone } = body || {};
       
+      log('INFO', '전화 연결 기록 파라미터 확인', { 
+        ambassadorId, 
+        storeId, 
+        hasCallerPhone: !!callerPhone,
+        callerPhoneLength: callerPhone ? callerPhone.length : 0
+      });
+      
       if (!ambassadorId || !storeId || !callerPhone) {
+        log('ERROR', '전화 연결 기록 필수 정보 누락', { ambassadorId, storeId, hasCallerPhone: !!callerPhone });
         sendErrorResponse(res, 400, '필수 정보가 누락되었습니다.');
         return;
       }
@@ -4870,14 +4910,28 @@ class APIRouter {
                        req.socket?.remoteAddress || 
                        '';
       
-      await dbServices.logAmbassadorCall(ambassadorId, storeId, callerPhone, userAgent, ipAddress);
+      log('INFO', '전화 연결 기록 DB 저장 시작', { 
+        ambassadorId, 
+        storeId, 
+        callerPhone: callerPhone.substring(0, 3) + '****',
+        hasUserAgent: !!userAgent,
+        hasIpAddress: !!ipAddress
+      });
+      
+      const result = await dbServices.logAmbassadorCall(ambassadorId, storeId, callerPhone, userAgent, ipAddress);
+      
+      log('INFO', '전화 연결 기록 DB 저장 성공', { resultId: result?.id });
       
       sendJsonResponse(res, 201, {
         success: true,
         message: '전화 연결 기록이 저장되었습니다.'
       });
     } catch (error) {
-      log('ERROR', '엠버서더 전화 연결 기록 실패', error);
+      log('ERROR', '엠버서더 전화 연결 기록 실패', { 
+        error: error.message, 
+        stack: error.stack,
+        body: req.body
+      });
       sendErrorResponse(res, 500, error.message || '전화 연결 기록 저장에 실패했습니다.');
     }
   }
