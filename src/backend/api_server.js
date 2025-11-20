@@ -860,26 +860,26 @@ class APIRouter {
           handler = this.getQRCodesByStore.bind(this, storeId);
         }
       } else if (pathname.startsWith('/api/qr/')) {
-              const parts = pathname.split('/');
-              if (parts.length >= 4 && parts[3]) { // /api/qr/:storeId
-                const storeId = parts[3];
-                if (method === 'DELETE') {
-                  handler = this.deleteQrCode.bind(this);
-                }
-              }
-            } else if (pathname === '/api/ai/generate-content') {
-              if (method === 'POST') {
-                handler = this.generateAIContent.bind(this);
-              }
-            } else if (pathname === '/api/generate-domain-qr') {
-              if (method === 'POST') {
-                handler = this.generateDomainQR.bind(this);
-              }
-            } else if (pathname === '/api/delete-domain-qr') {
-              if (method === 'DELETE') {
-                handler = this.deleteDomainQR.bind(this);
-              }
-            }
+        const parts = pathname.split('/');
+        if (parts.length >= 4 && parts[3]) { // /api/qr/:storeId
+          const storeId = parts[3];
+          if (method === 'DELETE') {
+            handler = this.deleteQrCode.bind(this);
+          }
+        }
+      } else if (pathname === '/api/ai/generate-content') {
+        if (method === 'POST') {
+          handler = this.generateAIContent.bind(this);
+        }
+      } else if (pathname === '/api/generate-domain-qr') {
+        if (method === 'POST') {
+          handler = this.generateDomainQR.bind(this);
+        }
+      } else if (pathname === '/api/delete-domain-qr') {
+        if (method === 'DELETE') {
+          handler = this.deleteDomainQR.bind(this);
+        }
+      }
 
       // 정적 라우트 확인
       if (!handler) {
