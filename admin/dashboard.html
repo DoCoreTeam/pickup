@@ -15876,10 +15876,17 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                                 // 세션 만료는 상위에서 처리
                                 throw new Error('세션 만료');
                             }
+                            console.warn(`엠버서더 ${amb.id} 통계 조회 HTTP 에러:`, response.status);
                             return { id: amb.id, stats: null };
                         }
                         const res = await response.json();
-                        return { id: amb.id, stats: res?.data || null };
+                        // 응답 구조 확인: res.success와 res.data 확인
+                        if (res && res.success && res.data) {
+                            return { id: amb.id, stats: res.data };
+                        } else {
+                            console.warn(`엠버서더 ${amb.id} 통계 조회 응답 형식 오류:`, res);
+                            return { id: amb.id, stats: null };
+                        }
                     })
                     .catch(err => {
                         // 타임아웃, 네트워크 에러, 세션 만료 모두 무시하고 기본값 반환
@@ -15897,8 +15904,12 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 })).then(statsResults => {
                     const statsMap = {};
                     statsResults.forEach(result => {
-                        if (result.stats && result.stats.ambassadors && result.stats.ambassadors.length > 0) {
-                            statsMap[result.id] = result.stats.ambassadors[0];
+                        // 응답 구조: stats.ambassadors 배열에서 해당 ambassadorId 찾기
+                        if (result.stats && result.stats.ambassadors && Array.isArray(result.stats.ambassadors)) {
+                            const ambassadorStat = result.stats.ambassadors.find(a => a.ambassadorId === result.id);
+                            if (ambassadorStat) {
+                                statsMap[result.id] = ambassadorStat;
+                            }
                         }
                     });
                     
@@ -15909,10 +15920,21 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         if (card) {
                             const visitCountEl = card.querySelector('.ambassador-visit-count');
                             const callCountEl = card.querySelector('.ambassador-call-count');
-                            if (visitCountEl) visitCountEl.textContent = (stats.visitCount || 0).toString();
-                            if (callCountEl) callCountEl.textContent = (stats.callCount || 0).toString();
+                            if (visitCountEl) {
+                                visitCountEl.textContent = (stats.visitCount || 0).toString();
+                            }
+                            if (callCountEl) {
+                                callCountEl.textContent = (stats.callCount || 0).toString();
+                            }
                         }
                     });
+                    
+                    // 디버깅용 로그
+                    if (Object.keys(statsMap).length > 0) {
+                        console.log('엠버서더 통계 업데이트 완료:', statsMap);
+                    } else {
+                        console.warn('엠버서더 통계가 없습니다 (모든 조회가 실패했거나 데이터가 없음)');
+                    }
                 }).catch(err => {
                     console.warn('엠버서더 통계 로드 실패 (무시):', err);
                 });
