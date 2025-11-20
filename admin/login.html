@@ -205,8 +205,8 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    // 세션 타임아웃 설정 (기본 30분, 설정 가능)
-                    const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 기본 30분
+                    // 세션 타임아웃 설정 (기본 2시간, 설정 가능)
+                    const SESSION_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 기본 2시간
                     const expiresAt = Date.now() + SESSION_TIMEOUT_MS;
                     sessionStorage.setItem('session_expires_at', expiresAt.toString());
                     sessionStorage.setItem('session_timeout_ms', SESSION_TIMEOUT_MS.toString());
