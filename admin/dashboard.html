@@ -11661,30 +11661,10 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
         }
         
-        // 버전 배지 자동 업데이트 함수 (즉시 실행)
-        (function() {
-            fetch('/api/version')
-                .then(res => res.json())
-                .then(data => {
-                    const badge = document.getElementById('app-version-badge');
-                    if (badge) {
-                        const versionText = data?.data?.versionWithBranch || `v${data?.data?.version || '1.0.0'}`;
-                        badge.textContent = versionText;
-                    }
-                })
-                .catch(e => {
-                    console.error('버전 로드 실패:', e);
-                    const badge = document.getElementById('app-version-badge');
-                    if (badge) {
-                        badge.textContent = 'v1.0.0';
-                    }
-                });
-        })();
-        
-        // 기존 updateVersionBadge 함수 (호환성 유지)
+        // 버전 배지 자동 업데이트 함수
         async function updateVersionBadge() {
             try {
-                const response = await fetch(`${API_BASE}/version`);
+                const response = await fetch('/api/version');
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
@@ -11695,6 +11675,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 const versionBadge = document.getElementById('app-version-badge') || document.getElementById('versionBadge');
                 if (versionBadge) {
                     versionBadge.textContent = versionText;
+                    console.log('✅ 버전 배지 업데이트 완료:', versionText);
+                } else {
+                    console.warn('⚠️ 버전 배지 요소를 찾을 수 없습니다');
                 }
                 
                 // 페이지 전체에서 version-badge 클래스를 가진 모든 요소 업데이트
@@ -11703,7 +11686,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     badge.textContent = versionText;
                 });
             } catch (error) {
-                console.warn('버전 정보 업데이트 실패:', error);
+                console.error('❌ 버전 정보 업데이트 실패:', error);
                 // 실패해도 기본값 유지
                 const versionBadge = document.getElementById('app-version-badge') || document.getElementById('versionBadge');
                 if (versionBadge) {
@@ -11711,6 +11694,22 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 }
             }
         }
+        
+        // DOM이 준비되면 즉시 버전 배지 업데이트
+        if (document.readyState === 'loading') {
+            // DOM이 아직 로딩 중이면 DOMContentLoaded 이벤트 기다림
+            document.addEventListener('DOMContentLoaded', function() {
+                updateVersionBadge();
+            });
+        } else {
+            // DOM이 이미 준비되었으면 즉시 실행
+            updateVersionBadge();
+        }
+        
+        // window.onload에서도 한 번 더 실행 (확실하게)
+        window.addEventListener('load', function() {
+            updateVersionBadge();
+        });
         
         // 프로그래스바 숨기기 함수
         function hideProgressBar(imageType) {
