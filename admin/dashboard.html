@@ -9313,13 +9313,18 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         // 가게 재개
         async function resumeStore(storeId) {
             try {
+                GlobalLoader.show('가게를 재개하는 중...', false);
+                
                 await apiRequest(`${API_BASE}/stores/${storeId}/resume`, 'POST');
+                
+                GlobalLoader.hide();
                 showToast('가게가 재개되었습니다.', 'success', '성공');
                 
                 // 전체 목록을 다시 가져와서 통계 재계산
                 window.shouldReloadAllStores = true;
                 await loadStoreList();
             } catch (error) {
+                GlobalLoader.hide();
                 console.error('가게 재개 실패:', error);
                 showToast('가게 재개에 실패했습니다.', 'error', '오류');
             }
