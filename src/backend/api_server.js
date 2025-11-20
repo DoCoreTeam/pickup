@@ -869,8 +869,7 @@ class APIRouter {
                   log('DEBUG', 'A/B 테스트 설정 저장 라우트 매칭', { storeId, method, pathname });
                   handler = (req, res, parsedUrl) => this.saveAbTestSettingsHandler(storeId, req, res, parsedUrl);
                 }
-              } else if (subPath === 'upload-image' && method === 'POST') {
-                handler = (req, res, parsedUrl) => this.uploadImage(storeId, req, res, parsedUrl);
+              // upload-image 라우트 제거 (Base64 저장으로 변경)
               } else if (subPath === 'upload-video' && method === 'POST') {
                 handler = (req, res, parsedUrl) => this.uploadVideo(storeId, req, res, parsedUrl);
               }
@@ -2182,20 +2181,20 @@ class APIRouter {
           }
           
           if (allowedFields.has('images') || allowedFields.has('*')) {
-            // Base64 데이터가 있으면 URL로 변환 (하위 호환성)
+            // 이미지 데이터 처리 (Base64 우선, 파일 경로 호환성 유지)
             const images = settings.images || {};
             const processedImages = {};
             
             for (const [key, value] of Object.entries(images)) {
               if (typeof value === 'string') {
-                // Base64 데이터인 경우 (data:image/... 형식)
+                // Base64 데이터인 경우 (data:image/... 형식) - 우선 처리
                 if (value.startsWith('data:image/')) {
-                  // Base64 데이터는 그대로 반환 (기존 데이터 호환성)
-                  // TODO: 마이그레이션 스크립트로 파일로 변환 후 URL로 교체
                   processedImages[key] = value;
+                  log('INFO', `Base64 이미지 반환: ${key} (${Math.round(value.length/1024)}KB)`);
                 } else if (value.startsWith('/assets/uploads/')) {
-                  // 이미 URL인 경우 그대로 반환
+                  // 기존 파일 경로 (Railway에서 삭제될 수 있음)
                   processedImages[key] = value;
+                  log('WARN', `파일 경로 반환: ${key} (Railway에서 삭제될 수 있음)`);
                 } else if (value) {
                   // 기타 경우 (빈 문자열이 아닌 경우)
                   processedImages[key] = value;
