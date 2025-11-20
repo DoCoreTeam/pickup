@@ -11664,11 +11664,22 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         // 버전 배지 자동 업데이트 함수
         async function updateVersionBadge() {
             try {
-                const response = await fetch('/api/version');
+                // 캐시 방지를 위해 타임스탬프 추가
+                const timestamp = new Date().getTime();
+                const response = await fetch(`/api/version?t=${timestamp}`, {
+                    cache: 'no-cache',
+                    headers: {
+                        'Cache-Control': 'no-cache'
+                    }
+                });
+                
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
+                
                 const result = await response.json();
+                console.log('🔍 [DEBUG] 버전 API 응답:', result);
+                
                 const versionText = result?.data?.versionWithBranch || `v${result?.data?.version || '1.0.0'}`;
                 
                 // app-version-badge ID를 우선 사용
@@ -11677,7 +11688,15 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     versionBadge.textContent = versionText;
                     console.log('✅ 버전 배지 업데이트 완료:', versionText);
                 } else {
-                    console.warn('⚠️ 버전 배지 요소를 찾을 수 없습니다');
+                    console.warn('⚠️ 버전 배지 요소를 찾을 수 없습니다. DOM을 확인하세요.');
+                    // 요소를 찾을 수 없으면 1초 후 재시도
+                    setTimeout(() => {
+                        const retryBadge = document.getElementById('app-version-badge') || document.getElementById('versionBadge');
+                        if (retryBadge) {
+                            retryBadge.textContent = versionText;
+                            console.log('✅ 버전 배지 재시도 성공:', versionText);
+                        }
+                    }, 1000);
                 }
                 
                 // 페이지 전체에서 version-badge 클래스를 가진 모든 요소 업데이트
@@ -11687,6 +11706,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 });
             } catch (error) {
                 console.error('❌ 버전 정보 업데이트 실패:', error);
+                console.error('❌ 에러 상세:', error.message, error.stack);
                 // 실패해도 기본값 유지
                 const versionBadge = document.getElementById('app-version-badge') || document.getElementById('versionBadge');
                 if (versionBadge) {
