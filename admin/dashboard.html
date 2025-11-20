@@ -11655,19 +11655,24 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 const result = await response.json();
                 const versionText = result?.data?.versionWithBranch || `v${result?.data?.version || '1.0.0'}`;
                 
-                const versionBadge = document.getElementById('versionBadge');
+                // app-version-badge ID를 우선 사용
+                const versionBadge = document.getElementById('app-version-badge') || document.getElementById('versionBadge');
                 if (versionBadge) {
                     versionBadge.textContent = versionText;
                 }
                 
                 // 페이지 전체에서 version-badge 클래스를 가진 모든 요소 업데이트
-                const allVersionBadges = document.querySelectorAll('.version-badge:not(#versionBadge)');
+                const allVersionBadges = document.querySelectorAll('.version-badge:not(#app-version-badge):not(#versionBadge)');
                 allVersionBadges.forEach(badge => {
                     badge.textContent = versionText;
                 });
             } catch (error) {
                 console.warn('버전 정보 업데이트 실패:', error);
                 // 실패해도 기본값 유지
+                const versionBadge = document.getElementById('app-version-badge') || document.getElementById('versionBadge');
+                if (versionBadge) {
+                    versionBadge.textContent = 'v1.0.0';
+                }
             }
         }
         
