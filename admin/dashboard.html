@@ -16045,7 +16045,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         
         // 엠버서더 링크 복사
         function copyAmbassadorLink(ambassadorId, event) {
-            // 이벤트 전파 중단 (중요: 이벤트 버블링 방지)
+            // 이벤트 전파 중단 (중요: 이벤트 버블링 방지로 세션 체크 트리거 방지)
             if (event) {
                 event.stopPropagation();
                 event.preventDefault();
@@ -16064,42 +16064,38 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     return false;
                 }
                 
-                // 입력 필드 선택 및 복사 (가장 안정적인 방법)
+                // 입력 필드 선택
                 linkInput.select();
                 linkInput.setSelectionRange(0, 99999); // 모바일 지원
                 
+                // 클립보드 복사 시도 (동기적으로 처리)
                 let copied = false;
                 try {
-                    // 최신 클립보드 API 시도 (동기적으로 처리)
-                    if (navigator.clipboard && navigator.clipboard.writeText) {
-                        navigator.clipboard.writeText(linkText).then(() => {
-                            copied = true;
-                            showToast('링크가 클립보드에 복사되었습니다.', 'success');
-                        }).catch(() => {
-                            // 실패 시 fallback 사용
-                            fallbackCopy();
-                        });
-                        // 비동기 처리 중이므로 바로 반환하지 않고 fallback도 시도
-                        fallbackCopy();
-                    } else {
-                        fallbackCopy();
+                    // document.execCommand를 먼저 시도 (가장 안정적)
+                    copied = document.execCommand('copy');
+                    
+                    if (copied) {
+                        showToast('링크가 클립보드에 복사되었습니다.', 'success');
+                        return false; // 기본 동작 방지
                     }
-                } catch (e) {
-                    fallbackCopy();
+                } catch (err) {
+                    console.warn('execCommand 복사 실패:', err);
                 }
                 
-                function fallbackCopy() {
-                    try {
-                        copied = document.execCommand('copy');
-                        if (copied) {
-                            showToast('링크가 클립보드에 복사되었습니다.', 'success');
-                        } else {
-                            showToast('링크 복사에 실패했습니다. 수동으로 복사해주세요.', 'error');
-                        }
-                    } catch (err) {
-                        console.error('링크 복사 실패:', err);
+                // execCommand 실패 시 최신 클립보드 API 시도
+                if (!copied && navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(linkText).then(() => {
+                        showToast('링크가 클립보드에 복사되었습니다.', 'success');
+                    }).catch((err) => {
+                        console.error('클립보드 API 복사 실패:', err);
                         showToast('링크 복사에 실패했습니다. 수동으로 복사해주세요.', 'error');
-                    }
+                    });
+                    return false;
+                }
+                
+                // 둘 다 실패한 경우
+                if (!copied) {
+                    showToast('링크 복사에 실패했습니다. 수동으로 복사해주세요.', 'error');
                 }
                 
                 return false; // 기본 동작 방지
