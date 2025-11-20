@@ -6302,9 +6302,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             // 타임아웃으로 인한 취소인 경우
                             if (attempt === retries) {
                                 console.warn('API 요청이 타임아웃되었습니다:', url);
-                                // 네트워크 타임아웃은 세션 만료가 아니므로 계속 진행
-                                // 단, 세션 만료 시간은 갱신하지 않음 (네트워크 문제로 인한 실패)
-                                throw new Error('요청 시간이 초과되었습니다. 네트워크 연결을 확인해주세요.');
+                                // 타임아웃이 발생하면 세션 만료로 간주하고 로그인 페이지로 리다이렉트
+                                clearSessionAndRedirect('요청 시간이 초과되었습니다. 다시 로그인해주세요.');
+                                throw new Error('요청 시간이 초과되었습니다. 다시 로그인해주세요.');
                             }
                             // 중간 시도에서 취소된 경우 (의도적인 취소일 수 있음)
                             console.debug(`API 요청 취소됨 (시도 ${attempt}/${retries}):`, url);
@@ -15810,33 +15810,16 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     return;
                 }
                 
-                // 각 엠버서더별 통계 조회
-                const statsPromises = ambassadors.map(amb => 
-                    apiRequest(`${API_BASE}/ambassadors/stats?storeId=${currentStoreId}&ambassadorId=${amb.id}`, 'GET')
-                        .then(res => ({ id: amb.id, stats: res?.data || null }))
-                        .catch(() => ({ id: amb.id, stats: null }))
-                );
-                const statsResults = await Promise.all(statsPromises);
-                const statsMap = {};
-                statsResults.forEach(result => {
-                    if (result.stats && result.stats.ambassadors && result.stats.ambassadors.length > 0) {
-                        statsMap[result.id] = result.stats.ambassadors[0];
-                    }
-                });
-                
+                // 먼저 목록만 표시 (빠른 로딩)
                 listEl.innerHTML = ambassadors.map(amb => {
-                    const stats = statsMap[amb.id] || { visitCount: 0, callCount: 0, uniqueVisitors: 0, uniqueCallers: 0 };
+                    // 기본 통계는 0으로 표시하고, 통계는 별도로 비동기 로드
+                    const stats = { visitCount: 0, callCount: 0, uniqueVisitors: 0, uniqueCallers: 0 };
                     return `
-                    <div class="ambassador-card" style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid #e5e7eb;">
+                    <div class="ambassador-card" data-ambassador-id="${amb.id}" style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid #e5e7eb;">
                         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
                             <div style="flex: 1;">
                                 <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600; color: #1f2937;">${escapeHtml(amb.name || '이름 없음')}</h3>
-                                <div style="display: flex; flex-wrap: wrap; gap: 12px; font-size: 14px; color: #6b7280;">
-                                    ${amb.phone ? `<div>📞 ${escapeHtml(amb.phone)}</div>` : ''}
-                                    ${amb.email ? `<div>📧 ${escapeHtml(amb.email)}</div>` : ''}
-                                    ${amb.birthDate ? `<div>🎂 ${escapeHtml(amb.birthDate)}</div>` : ''}
-                                </div>
-                                ${amb.address ? `<div style="margin-top: 8px; font-size: 14px; color: #6b7280;">📍 ${escapeHtml(amb.address)}</div>` : ''}
+                                ${amb.email ? `<div style="font-size: 14px; color: #6b7280; margin-top: 4px;">📧 ${escapeHtml(amb.email)}</div>` : ''}
                             </div>
                             <div style="display: flex; gap: 8px;">
                                 <button onclick="openAmbassadorStats(${amb.id}, '${escapeHtml(amb.name || '이름 없음')}')" class="btn btn-primary" style="padding: 8px 16px; font-size: 14px;">통계</button>
@@ -15847,11 +15830,11 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         <div style="border-top: 1px solid #e5e7eb; padding-top: 16px; margin-top: 16px;">
                             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px;">
                                 <div style="background: #f0f9ff; padding: 12px; border-radius: 8px; text-align: center;">
-                                    <div style="font-size: 24px; font-weight: 700; color: #0369a1; margin-bottom: 4px;">${stats.visitCount || 0}</div>
+                                    <div class="ambassador-visit-count" style="font-size: 24px; font-weight: 700; color: #0369a1; margin-bottom: 4px;">${stats.visitCount || 0}</div>
                                     <div style="font-size: 12px; color: #075985;">방문 수</div>
                                 </div>
                                 <div style="background: #fef3c7; padding: 12px; border-radius: 8px; text-align: center;">
-                                    <div style="font-size: 24px; font-weight: 700; color: #92400e; margin-bottom: 4px;">${stats.callCount || 0}</div>
+                                    <div class="ambassador-call-count" style="font-size: 24px; font-weight: 700; color: #92400e; margin-bottom: 4px;">${stats.callCount || 0}</div>
                                     <div style="font-size: 12px; color: #78350f;">전화 연결</div>
                                 </div>
                             </div>
@@ -15862,8 +15845,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                                     <button onclick="copyAmbassadorLink(${amb.id})" class="btn btn-primary" style="padding: 8px 16px; font-size: 14px;">복사</button>
                                 </div>
                             </div>
-                            <div style="font-size: 12px; color: #9ca3af;">
-                                ⚠️ 이 링크를 받은 사람은 전화번호를 입력해야 가게 페이지에 접근할 수 있습니다.
+                            <div style="background: #fef3c7; padding: 12px; border-radius: 8px; margin-top: 12px; font-size: 13px; color: #78350f; line-height: 1.5;">
+                                <strong>📱 링크 접속 시 안내:</strong><br>
+                                이 링크를 받은 고객은 전화번호를 입력하면 가게 페이지에 접근할 수 있습니다. 전화 버튼을 클릭하면 할인 혜택이 적용됩니다.
                             </div>
                         </div>
                     </div>
@@ -15899,9 +15883,6 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     
                     if (ambassador) {
                         document.getElementById('ambassadorName').value = ambassador.name || '';
-                        document.getElementById('ambassadorBirthDate').value = ambassador.birthDate || '';
-                        document.getElementById('ambassadorPhone').value = ambassador.phone || '';
-                        document.getElementById('ambassadorAddress').value = ambassador.address || '';
                         document.getElementById('ambassadorEmail').value = ambassador.email || '';
                         document.getElementById('ambassadorModal').dataset.ambassadorId = ambassadorId;
                         document.getElementById('ambassadorModalTitle').textContent = '엠버서더 수정';
@@ -15915,9 +15896,6 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             } else {
                 // 추가 모드
                 document.getElementById('ambassadorName').value = '';
-                document.getElementById('ambassadorBirthDate').value = '';
-                document.getElementById('ambassadorPhone').value = '';
-                document.getElementById('ambassadorAddress').value = '';
                 document.getElementById('ambassadorEmail').value = '';
                 document.getElementById('ambassadorModal').dataset.ambassadorId = '';
                 document.getElementById('ambassadorModalTitle').textContent = '엠버서더 추가';
@@ -15945,20 +15923,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             <input type="text" id="ambassadorName" class="form-input" placeholder="엠버서더 이름을 입력하세요" required>
                         </div>
                         <div class="form-group">
-                            <label for="ambassadorBirthDate">생년월일</label>
-                            <input type="date" id="ambassadorBirthDate" class="form-input">
-                        </div>
-                        <div class="form-group">
-                            <label for="ambassadorPhone">전화번호</label>
-                            <input type="tel" id="ambassadorPhone" class="form-input" placeholder="010-1234-5678">
-                        </div>
-                        <div class="form-group">
                             <label for="ambassadorEmail">이메일</label>
                             <input type="email" id="ambassadorEmail" class="form-input" placeholder="example@email.com">
-                        </div>
-                        <div class="form-group">
-                            <label for="ambassadorAddress">주소</label>
-                            <textarea id="ambassadorAddress" class="form-input" rows="2" placeholder="주소를 입력하세요"></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -15996,19 +15962,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     return;
                 }
                 
-                const birthDate = document.getElementById('ambassadorBirthDate').value || null;
-                const phone = document.getElementById('ambassadorPhone').value.trim() || null;
                 const email = document.getElementById('ambassadorEmail').value.trim() || null;
-                const address = document.getElementById('ambassadorAddress').value.trim() || null;
                 
                 if (ambassadorId) {
                     // 수정
                     await apiRequest(`${API_BASE}/ambassadors/${ambassadorId}`, 'PUT', {
                         name,
-                        birthDate,
-                        phone,
-                        email,
-                        address
+                        email
                     });
                     showToast('엠버서더 정보가 수정되었습니다.', 'success');
                 } else {
@@ -16016,10 +15976,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     await apiRequest(`${API_BASE}/ambassadors`, 'POST', {
                         storeId: currentStoreId,
                         name,
-                        birthDate,
-                        phone,
-                        email,
-                        address
+                        email
                     });
                     showToast('엠버서더가 추가되었습니다.', 'success');
                 }
