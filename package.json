@@ -1,6 +1,6 @@
 {
   "name": "pickup-service",
-  "version": "1.0.0",
+  "version": "1.6.75",
   "private": true,
   "description": "픽업 서비스 - PostgreSQL 데이터베이스 사용",
   "author": "DOCORE",
