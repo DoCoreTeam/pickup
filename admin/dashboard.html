@@ -11524,22 +11524,33 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     return;
                 }
                 
-                // 단계 1: 파일 선택 즉시 10% 표시
-                updateProgressBar(imageType, 10, '이미지 압축 중...');
+                // 단계 1: 파일 선택 즉시 프로그래스바 표시 및 압축 시작
+                updateProgressBar(imageType, 5, '이미지 최적화 중... (0~50%)');
                 
                 // 이미지 압축 (최대 너비: 1920px, 최대 용량: 1MB)
                 // 기본값은 원본 파일 (압축 실패 시 원본 사용)
                 let compressedFile = file;
                 
                 try {
+                    // 압축 진행률 시뮬레이션 (5% -> 50%)
+                    const compressionProgress = setInterval(() => {
+                        const currentProgress = parseInt(document.getElementById(`${imageType}ProgressFill`)?.style.width || '5');
+                        if (currentProgress < 50) {
+                            const newProgress = Math.min(currentProgress + 5, 50);
+                            updateProgressBar(imageType, newProgress, `이미지 최적화 중... (${newProgress}%)`);
+                        }
+                    }, 100);
+                    
                     compressedFile = await compressImage(file, 1920, 1);
+                    clearInterval(compressionProgress);
+                    updateProgressBar(imageType, 50, '이미지 최적화 완료!');
                 } catch (error) {
                     console.warn('이미지 압축 실패, 원본 사용:', error);
                     // 압축 실패해도 원본 파일로 계속 진행
                 }
                 
-                // 단계 2: 압축 완료, 서버 전송 시작 직전 50% 표시
-                updateProgressBar(imageType, 50, '서버 업로드 중...');
+                // 단계 2: 서버 전송 시작 (XMLHttpRequest로 실제 진행률 추적)
+                updateProgressBar(imageType, 51, '서버로 전송 중... (51~99%)');
                 
                 // FormData 생성 (multipart/form-data)
                 const formData = new FormData();
@@ -11548,21 +11559,64 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 console.log('🔍 [DEBUG] 이미지 업로드 시작:', { imageType, originalSize: file.size, compressedSize: compressedFile.size });
                 
-                // 이미지 업로드 API 호출
-                const uploadResponse = await fetch(`${API_BASE}/store/${currentStoreId}/upload-image`, {
-                    method: 'POST',
-                    body: formData
+                // XMLHttpRequest를 사용하여 실제 업로드 진행률 추적
+                const uploadResponse = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    
+                    // 업로드 진행률 이벤트
+                    xhr.upload.addEventListener('progress', (event) => {
+                        if (event.lengthComputable) {
+                            // 51% ~ 99% 범위에서 진행률 표시
+                            const uploadProgress = Math.floor(51 + (event.loaded / event.total) * 48);
+                            const percent = Math.min(uploadProgress, 99);
+                            updateProgressBar(imageType, percent, `서버로 전송 중... (${percent}%)`);
+                        }
+                    });
+                    
+                    // 업로드 완료 이벤트
+                    xhr.addEventListener('load', () => {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            try {
+                                const result = JSON.parse(xhr.responseText);
+                                resolve({
+                                    ok: true,
+                                    status: xhr.status,
+                                    json: async () => result
+                                });
+                            } catch (e) {
+                                resolve({
+                                    ok: true,
+                                    status: xhr.status,
+                                    json: async () => ({ success: true, data: {} })
+                                });
+                            }
+                        } else {
+                            try {
+                                const errorData = JSON.parse(xhr.responseText);
+                                reject(new Error(errorData.message || `HTTP 오류: ${xhr.status}`));
+                            } catch (e) {
+                                reject(new Error(`HTTP 오류: ${xhr.status}`));
+                            }
+                        }
+                    });
+                    
+                    // 에러 이벤트
+                    xhr.addEventListener('error', () => {
+                        reject(new Error('네트워크 오류가 발생했습니다.'));
+                    });
+                    
+                    // 타임아웃 이벤트
+                    xhr.addEventListener('timeout', () => {
+                        reject(new Error('업로드 시간이 초과되었습니다.'));
+                    });
+                    
+                    xhr.open('POST', `${API_BASE}/store/${currentStoreId}/upload-image`);
+                    xhr.timeout = 60000; // 60초 타임아웃
+                    xhr.send(formData);
                 });
                 
-                if (!uploadResponse.ok) {
-                    const errorData = await uploadResponse.json().catch(() => ({ message: '업로드 실패' }));
-                    const errorMessage = errorData.message || '이미지 업로드에 실패했습니다.';
-                    updateProgressBar(imageType, 100, `업로드 실패: ${errorMessage}`, true);
-                    throw new Error(errorMessage);
-                }
-                
                 // 단계 3: 업로드 완료 100% 표시
-                updateProgressBar(imageType, 100, '업로드 완료!');
+                updateProgressBar(imageType, 100, '완료! (100%)');
                 
                 const uploadResult = await uploadResponse.json();
                 console.log('🔍 [DEBUG] 이미지 업로드 성공:', uploadResult);

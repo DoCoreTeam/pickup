@@ -1134,7 +1134,20 @@ class APIRouter {
       
       // 보안을 위해 상위 디렉토리 접근 방지 (업로드된 이미지는 예외)
       const uploadsBasePath = path.join(__dirname, '../../assets/uploads');
-      if (!filePath.startsWith(publicPath) && !filePath.startsWith(uploadsBasePath)) {
+      const normalizedUploadsPath = path.normalize(uploadsBasePath);
+      const normalizedFilePath = path.normalize(filePath);
+      
+      // 업로드된 이미지 경로인지 확인
+      const isUploadedImage = pathname.startsWith('/assets/uploads/');
+      
+      if (!filePath.startsWith(publicPath) && !normalizedFilePath.startsWith(normalizedUploadsPath)) {
+        // 업로드된 이미지인데 경로가 안 맞으면 404
+        if (isUploadedImage) {
+          log('WARN', '업로드된 이미지 파일을 찾을 수 없음', { pathname, filePath, uploadsBasePath: normalizedUploadsPath });
+          logRequest(method, pathname, 404);
+          sendErrorResponse(res, 404, 'Image Not Found');
+          return;
+        }
         logRequest(method, pathname, 403);
         sendErrorResponse(res, 403, 'Forbidden');
         return;
@@ -1147,7 +1160,10 @@ class APIRouter {
         return;
       }
 
-      // 404 처리
+      // 404 처리 (특히 업로드된 이미지의 경우 상세 로깅)
+      if (isUploadedImage) {
+        log('WARN', '업로드된 이미지 파일 서빙 실패', { pathname, filePath, exists: fs.existsSync(filePath) });
+      }
       logRequest(method, pathname, 404);
       sendErrorResponse(res, 404, 'Not Found');
 
