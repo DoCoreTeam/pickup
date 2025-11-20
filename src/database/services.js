@@ -16,8 +16,10 @@ const db = require('./connection');
 let historyTablesEnsured = false;
 let singleOwnerConstraintEnsured = false;
 let storeSettingsColumnsEnsured = false;
+let ambassadorTablesEnsured = false;
 let historyTablesAvailable = true;
 let storeSettingsColumnsAvailable = true;
+let ambassadorTablesAvailable = true;
 
 // 백엔드 메모리 캐싱 (TTL 기반) - DB 요청 최소화
 const cache = new Map();
@@ -2852,6 +2854,104 @@ async function ensureSingleOwnerConstraint() {
   }
 }
 
+// 엠버서더 테이블 생성 및 인덱스 설정
+async function ensureAmbassadorTables() {
+  if (ambassadorTablesEnsured || !ambassadorTablesAvailable) return;
+  
+  try {
+    // 1. store_ambassadors 테이블 생성 (엠버서더 정보)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS store_ambassadors (
+        id SERIAL PRIMARY KEY,
+        store_id VARCHAR(255) NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        birth_date DATE,
+        phone VARCHAR(20),
+        address TEXT,
+        email VARCHAR(255),
+        ambassador_key VARCHAR(64) UNIQUE NOT NULL,
+        status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 2. ambassador_visits 테이블 생성 (방문 추적 - 전화번호 입력)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS ambassador_visits (
+        id SERIAL PRIMARY KEY,
+        ambassador_id INTEGER NOT NULL REFERENCES store_ambassadors(id) ON DELETE CASCADE,
+        store_id VARCHAR(255) NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+        visitor_phone VARCHAR(20) NOT NULL,
+        visited_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        user_agent TEXT,
+        ip_address VARCHAR(45)
+      )
+    `);
+
+    // 3. ambassador_call_logs 테이블 생성 (전화 연결 추적)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS ambassador_call_logs (
+        id SERIAL PRIMARY KEY,
+        ambassador_id INTEGER NOT NULL REFERENCES store_ambassadors(id) ON DELETE CASCADE,
+        store_id VARCHAR(255) NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+        caller_phone VARCHAR(20) NOT NULL,
+        called_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        user_agent TEXT,
+        ip_address VARCHAR(45)
+      )
+    `);
+
+    // 인덱스 생성
+    try {
+      // store_ambassadors 인덱스
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_store_ambassadors_store_id ON store_ambassadors(store_id)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_store_ambassadors_key ON store_ambassadors(ambassador_key)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_store_ambassadors_status ON store_ambassadors(status)`);
+      
+      // ambassador_visits 인덱스
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_ambassador_visits_ambassador_id ON ambassador_visits(ambassador_id, visited_at DESC)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_ambassador_visits_store_id ON ambassador_visits(store_id, visited_at DESC)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_ambassador_visits_phone ON ambassador_visits(visitor_phone, visited_at DESC)`);
+      
+      // ambassador_call_logs 인덱스
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_ambassador_call_logs_ambassador_id ON ambassador_call_logs(ambassador_id, called_at DESC)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_ambassador_call_logs_store_id ON ambassador_call_logs(store_id, called_at DESC)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_ambassador_call_logs_phone ON ambassador_call_logs(caller_phone, called_at DESC)`);
+      
+      // 복합 인덱스 (통계 조회 최적화)
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_ambassador_visits_store_phone ON ambassador_visits(store_id, visitor_phone, visited_at DESC)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_ambassador_call_logs_store_phone ON ambassador_call_logs(store_id, caller_phone, called_at DESC)`);
+      
+      console.log('[DB] 엠버서더 테이블 인덱스 생성 완료');
+    } catch (error) {
+      console.warn('[DB] 엠버서더 인덱스 생성 실패 (권한 문제일 수 있음):', error.message);
+    }
+
+    // 테이블 통계 정보 업데이트
+    try {
+      await db.query('ANALYZE store_ambassadors');
+      await db.query('ANALYZE ambassador_visits');
+      await db.query('ANALYZE ambassador_call_logs');
+      console.log('[DB] 엠버서더 테이블 통계 정보 업데이트 완료');
+    } catch (analyzeError) {
+      console.warn('[DB] 엠버서더 테이블 ANALYZE 실행 실패 (권한 문제일 수 있음):', analyzeError.message);
+    }
+
+    ambassadorTablesEnsured = true;
+    console.log('[DB] 엠버서더 테이블 생성 완료');
+  } catch (error) {
+    if (error?.code === '42501') {
+      console.warn('엠버서더 테이블 준비 실패: 현재 사용자에게 CREATE 권한이 없어 엠버서더 기능을 비활성화합니다.');
+      ambassadorTablesAvailable = false;
+      ambassadorTablesEnsured = true;
+      return;
+    }
+    console.error('엠버서더 테이블 준비 실패:', error);
+    throw error;
+  }
+}
+
 function buildSeoHistorySummary(settings = {}) {
   return {
     metaTitle: sanitizeString(settings.metaTitle, 120),
@@ -4023,5 +4123,6 @@ module.exports = {
   getEventSummary,
   getEventTotalsByStore,
   loadAllStoreSettingsToMemory,
-  explainAnalyzeQuery
+  explainAnalyzeQuery,
+  ensureAmbassadorTables
 };

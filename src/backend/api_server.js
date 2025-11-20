@@ -4644,6 +4644,13 @@ class APIRouter {
       } catch (error) {
         log('WARN', '⚠️ store_settings 메모리 캐시 로드 실패 (계속 진행)', { error: error.message });
       }
+      
+      // 서버 기동 시 엠버서더 테이블 생성
+      try {
+        await dbServices.ensureAmbassadorTables();
+      } catch (error) {
+        log('WARN', '⚠️ 엠버서더 테이블 생성 실패 (계속 진행)', { error: error.message });
+      }
     }
   });
 })();
