@@ -304,7 +304,15 @@
                 console.error('로그인 오류:', error);
                 errorDiv.textContent = error.message || '로그인 중 오류가 발생했습니다.';
                 errorDiv.style.display = 'block';
+                // 로딩 상태 확실히 해제
+                loadingDiv.style.display = 'none';
+                // 로그인 버튼 다시 활성화
+                const loginBtn = document.querySelector('#loginForm button[type="submit"]');
+                if (loginBtn) {
+                    loginBtn.disabled = false;
+                }
             } finally {
+                // finally에서도 확실히 로딩 상태 해제
                 loadingDiv.style.display = 'none';
             }
         });
