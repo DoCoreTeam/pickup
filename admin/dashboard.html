@@ -9654,17 +9654,16 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     
                     // 이미지 설정도 캐시에서 즉시 업데이트
                     if (shouldUpdateField('images') && cached.images) {
-                        // [진단] 캐시 데이터 로그 출력
-                        console.log('🔍 [CACHE DEBUG] Main:', cached.images.mainLogo, 'Menu:', cached.images.menuImage);
-                        console.log('🔍 [CACHE DEBUG] Main Type:', typeof cached.images.mainLogo, 'Menu Type:', typeof cached.images.menuImage);
+                        // [데이터 정규화] 캐시 데이터도 정규화
+                        const mainLogo = normalizeImageData(cached.images.mainLogo);
+                        const menuImage = normalizeImageData(cached.images.menuImage);
+                        
+                        const mainLogoUrl = mainLogo.src || '';
+                        const menuImageUrl = menuImage.src || '';
+                        
+                        console.log('🔍 [CACHE NORMALIZED] Main:', mainLogoUrl, 'Menu:', menuImageUrl);
                         
                         if (typeof updateImagePreview === 'function') {
-                            // 헬퍼 함수로 통합 처리
-                            const mainLogoUrl = getSafeImageUrl(cached.images.mainLogo);
-                            const menuImageUrl = getSafeImageUrl(cached.images.menuImage);
-                            
-                            console.log('🔍 [CACHE DEBUG] Processed Main:', mainLogoUrl, 'Processed Menu:', menuImageUrl);
-                            
                             updateImagePreview('mainLogo', mainLogoUrl);
                             updateImagePreview('menuImage', menuImageUrl);
                         }
@@ -9732,14 +9731,14 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             
                             // 이미지 설정도 최신 데이터로 업데이트
                             if (shouldUpdateField('images') && latestSettings.images) {
-                                // [진단] 최신 데이터 로그 출력
-                                console.log('🔍 [LATEST DEBUG] Main:', latestSettings.images.mainLogo, 'Menu:', latestSettings.images.menuImage);
+                                // [데이터 정규화] 최신 데이터도 정규화
+                                const mainLogo = normalizeImageData(latestSettings.images.mainLogo);
+                                const menuImage = normalizeImageData(latestSettings.images.menuImage);
+                                
+                                const mainLogoUrl = mainLogo.src || '';
+                                const menuImageUrl = menuImage.src || '';
                                 
                                 if (typeof updateImagePreview === 'function') {
-                                    // 헬퍼 함수로 통합 처리
-                                    const mainLogoUrl = getSafeImageUrl(latestSettings.images.mainLogo);
-                                    const menuImageUrl = getSafeImageUrl(latestSettings.images.menuImage);
-                                    
                                     updateImagePreview('mainLogo', mainLogoUrl);
                                     updateImagePreview('menuImage', menuImageUrl);
                                 }
@@ -9925,17 +9924,18 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 // 이미지 설정 (images 필드가 요청되었거나 전체 요청인 경우만)
                 if (shouldUpdateField('images') && settings.images) {
-                    // [진단] 데이터 로그 출력
-                    console.log('🔍 [MEDIA DEBUG] Main:', settings.images.mainLogo, 'Menu:', settings.images.menuImage);
-                    console.log('🔍 [MEDIA DEBUG] Main Type:', typeof settings.images.mainLogo, 'Menu Type:', typeof settings.images.menuImage);
+                    // [데이터 정규화] 무조건 객체로 변환
+                    const mainLogo = normalizeImageData(settings.images.mainLogo);
+                    const menuImage = normalizeImageData(settings.images.menuImage);
+                    
+                    // URL 추출 (없으면 빈 문자열)
+                    const mainLogoUrl = mainLogo.src || '';
+                    const menuImageUrl = menuImage.src || '';
+                    
+                    console.log('🔍 [NORMALIZED] Main:', mainLogoUrl, 'Menu:', menuImageUrl);
                     
                     if (typeof updateImagePreview === 'function') {
-                        // 헬퍼 함수로 통합 처리
-                        const mainLogoUrl = getSafeImageUrl(settings.images.mainLogo);
-                        const menuImageUrl = getSafeImageUrl(settings.images.menuImage);
-                        
-                        console.log('🔍 [MEDIA DEBUG] Processed Main:', mainLogoUrl, 'Processed Menu:', menuImageUrl);
-                        
+                        // 정규화된 URL 사용
                         updateImagePreview('mainLogo', mainLogoUrl);
                         updateImagePreview('menuImage', menuImageUrl);
                     }
@@ -11732,14 +11732,15 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
         }
         
-        // 버전 배지 자동 업데이트 함수 (간단하고 확실하게)
+        // 버전 배지 자동 업데이트 함수 (빌드 시간 포함)
         function loadVersionBadge() {
             fetch('/api/version')
                 .then(res => res.json())
                 .then(data => {
                     const versionDisplay = document.getElementById('version-display');
                     if (versionDisplay) {
-                        const versionText = data?.data?.versionWithBranch || `v${data?.data?.version || '1.0.0'}`;
+                        // 빌드 시간 포함된 버전 표시
+                        const versionText = data?.data?.versionWithTime || data?.data?.versionWithBranch || `v${data?.data?.version || '1.0.0'}`;
                         versionDisplay.innerText = versionText;
                         console.log('✅ 버전 배지 업데이트 완료:', versionText);
                     }
@@ -12169,13 +12170,28 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 processVideoFile(files[0], videoType);
             }
         }
+        // [Helper] 데이터 정규화 함수 (문자열 -> 객체 변환)
+        function normalizeImageData(data) {
+            return (typeof data === 'string' ? { src: data } : data || {});
+        }
+        
         // [Helper] 이미지 데이터가 문자열이든 객체든 무조건 URL만 뽑아내는 함수
         function getSafeImageUrl(imgData) {
             if (!imgData) return null;
-            // 객체면 .src 반환, 문자열이면 그대로 반환
-            let url = (typeof imgData === 'object' && imgData.src) ? imgData.src : imgData;
+            
+            // 데이터 정규화
+            const normalized = normalizeImageData(imgData);
+            const url = normalized.src || '';
+            
             // 유효한 URL인지 확인
             if (!url || typeof url !== 'string' || !url.trim()) return null;
+            
+            // /assets/uploads/로 시작하는지 확인
+            if (!url.startsWith('/assets/uploads/')) {
+                console.warn('이미지 경로가 올바르지 않습니다:', url);
+                return null;
+            }
+            
             // 캐시 방지 추가
             return url.includes('?') ? `${url}&t=${new Date().getTime()}` : `${url}?t=${new Date().getTime()}`;
         }
@@ -12205,7 +12221,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 // 2. 로딩 성공 시
                 parent.classList.remove('loading');
                 imgElement.src = tempImg.src;
-                imgElement.style.display = 'block';
+                // 강제 표시 (CSS 우선순위 무시)
+                imgElement.style.display = 'block !important';
+                imgElement.style.visibility = 'visible !important';
                 imgElement.style.opacity = '0';
                 imgElement.style.transition = 'opacity 0.3s ease';
                 // 부드러운 fade-in 효과
@@ -12213,6 +12231,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     imgElement.style.opacity = '1';
                 }, 10);
                 parent.classList.add('has-image');
+                console.log(`✅ 이미지 로드 성공: ${imgElement.id}`);
             };
             
             tempImg.onerror = () => {
