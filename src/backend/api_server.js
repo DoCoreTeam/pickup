@@ -4012,10 +4012,16 @@ class APIRouter {
         log('INFO', '업로드 디렉토리 생성', { path: uploadsDir });
       }
 
-      // 파일명 생성 (타임스탬프 + 이미지 타입 + 확장자)
+      // 파일명 생성 (타임스탬프 + 이미지 타입 + 확장자) - 한글/공백/특수문자 제거
       const timestamp = Date.now();
-      const filename = `${imageType}_${timestamp}.${fileExtension}`;
+      // imageType을 안전한 파일명으로 변환 (한글/공백/특수문자 제거)
+      const safeImageType = imageType.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+      // 확장자를 소문자로 변환하고 안전한 문자만 허용
+      const safeExtension = fileExtension.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'jpg';
+      const filename = `${safeImageType}_${timestamp}.${safeExtension}`;
       const filePath = path.join(uploadsDir, filename);
+      
+      log('INFO', '파일명 생성', { imageType, safeImageType, originalExtension: fileExtension, safeExtension, filename });
       
       // 파일 저장
       fs.writeFileSync(filePath, fileBuffer);

@@ -29,6 +29,11 @@
                         if (isSuperAdmin) {
                             document.body.classList.add('superadmin-mode');
                         }
+                        
+                        // 버전 배지 즉시 업데이트 (페이지 로드 시 최우선)
+                        updateVersionBadge().catch(err => {
+                            console.warn('버전 정보 로드 실패:', err);
+                        });
                     }, { once: true });
                 }
             } catch(e) {
@@ -4315,7 +4320,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge" id="versionBadge"></div>
+                    <div class="version-badge" id="app-version-badge">Loading...</div>
                 </div>
                 <a href="/admin/release-notes" class="release-notes-btn">
                     릴리즈 노트
@@ -12057,11 +12062,31 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             const preview = document.getElementById(`${imageType}Preview`);
             const uploadArea = document.getElementById(`${imageType}Area`);
             
-            if (!preview) return;
+            if (!preview) {
+                console.warn('이미지 미리보기 요소를 찾을 수 없습니다:', `${imageType}Preview`);
+                return;
+            }
+            
+            // 경로 검증: imageData가 유효한 URL인지 확인
+            if (imageData && typeof imageData === 'string') {
+                // undefined, null, 빈 문자열 체크
+                if (!imageData.trim()) {
+                    console.warn('이미지 데이터가 비어있습니다:', imageType);
+                    imageData = null;
+                } 
+                // /assets/uploads/로 시작하는지 확인
+                else if (!imageData.startsWith('/assets/uploads/')) {
+                    console.warn('이미지 경로가 올바르지 않습니다:', imageData, imageType);
+                    // 잘못된 경로면 null로 처리하여 기본 이미지로 표시
+                    imageData = null;
+                }
+            } else {
+                imageData = null;
+            }
             
             // 이미지 로드 실패 방어 코드 추가
             preview.onerror = function() {
-                console.warn('이미지 로드 실패:', imageData);
+                console.warn('이미지 로드 실패:', { imageType, imageData, src: this.src });
                 this.style.display = 'none';
                 // 엑박 아이콘 대신 "이미지 없음" 박스 표시
                 const errorBox = document.createElement('div');
@@ -12075,28 +12100,37 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     existingError.remove();
                 }
                 
-                uploadArea.appendChild(errorBox);
-                uploadArea.classList.remove('has-image');
+                if (uploadArea) {
+                    uploadArea.appendChild(errorBox);
+                    uploadArea.classList.remove('has-image');
+                }
             };
             
             if (imageData) {
                 // 이미지가 있으면 error placeholder 제거
-                const existingError = uploadArea.querySelector('.image-error-placeholder');
+                const existingError = uploadArea ? uploadArea.querySelector('.image-error-placeholder') : null;
                 if (existingError) {
                     existingError.remove();
                 }
                 
+                // 이미지 소스 설정 (이미 로드 실패하면 onerror 호출됨)
                 preview.src = imageData;
                 preview.style.display = 'block';
-                uploadArea.classList.add('has-image');
+                if (uploadArea) {
+                    uploadArea.classList.add('has-image');
+                }
             } else {
+                // 이미지 데이터가 없으면 미리보기 숨김
                 preview.style.display = 'none';
-                uploadArea.classList.remove('has-image');
-                
-                // error placeholder도 제거
-                const existingError = uploadArea.querySelector('.image-error-placeholder');
-                if (existingError) {
-                    existingError.remove();
+                preview.src = ''; // 빈 문자열로 설정하여 로드 시도 방지
+                if (uploadArea) {
+                    uploadArea.classList.remove('has-image');
+                    
+                    // error placeholder도 제거
+                    const existingError = uploadArea.querySelector('.image-error-placeholder');
+                    if (existingError) {
+                        existingError.remove();
+                    }
                 }
             }
         }
