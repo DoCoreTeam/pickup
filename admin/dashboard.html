@@ -11342,39 +11342,50 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
         }
 
-        // 이미지 파일 처리
+        // 이미지 파일 처리 (파일 업로드 방식)
         async function processImageFile(file, imageType) {
             console.log('🔍 [DEBUG] processImageFile 시작:', { file, imageType });
-            const reader = new FileReader();
             
-            reader.onload = async function(e) {
-                try {
-                    const imageData = e.target.result;
-                    console.log('🔍 [DEBUG] 이미지 데이터 로드됨:', { imageDataLength: imageData.length });
-                    
-                    const currentStoreId = await getCurrentStoreId();
-                    console.log('🔍 [DEBUG] 현재 가게 ID:', currentStoreId);
-                    
-                    if (!currentStoreId) {
-                        showStatus('가게를 먼저 선택해주세요.', 'error');
-                        return;
-                    }
-                    
-                    // 기존 설정 가져오기 (GET /api/settings 사용)
-                    const settingsResponse = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`);
-                    const settings = settingsResponse?.data || settingsResponse || {};
-                    console.log('🔍 [DEBUG] 기존 설정 로드됨:', settings);
-                    
-                    // images 객체 병합 (기존 이미지 유지)
-                    const updatedSettings = {
-                        ...settings,
-                        images: {
-                            ...(settings.images || {}),
-                            [imageType]: imageData
-                        }
-                    };
-                    
-                    console.log('🔍 [DEBUG] 저장할 설정:', { images: updatedSettings.images });
+            try {
+                const currentStoreId = await getCurrentStoreId();
+                console.log('🔍 [DEBUG] 현재 가게 ID:', currentStoreId);
+                
+                if (!currentStoreId) {
+                    showStatus('가게를 먼저 선택해주세요.', 'error');
+                    return;
+                }
+                
+                // 파일 크기 확인 (10MB 제한)
+                if (file.size > 10 * 1024 * 1024) {
+                    showStatus('이미지 파일 크기는 10MB 이하여야 합니다.', 'error');
+                    return;
+                }
+                
+                // FormData 생성 (multipart/form-data)
+                const formData = new FormData();
+                formData.append('image', file);
+                formData.append('imageType', imageType);
+                
+                console.log('🔍 [DEBUG] 이미지 업로드 시작:', { imageType, fileSize: file.size });
+                
+                // 이미지 업로드 API 호출
+                const uploadResponse = await fetch(`${API_BASE}/store/${currentStoreId}/upload-image`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!uploadResponse.ok) {
+                    const errorData = await uploadResponse.json().catch(() => ({ message: '업로드 실패' }));
+                    throw new Error(errorData.message || '이미지 업로드에 실패했습니다.');
+                }
+                
+                const uploadResult = await uploadResponse.json();
+                console.log('🔍 [DEBUG] 이미지 업로드 성공:', uploadResult);
+                
+                const imageUrl = uploadResult.data?.imageUrl;
+                if (!imageUrl) {
+                    throw new Error('이미지 URL을 받지 못했습니다.');
+                }
                     
                     await apiRequest(`${API_BASE}/store/${currentStoreId}/settings`, 'POST', updatedSettings);
                     

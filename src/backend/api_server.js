@@ -2006,10 +2006,31 @@ class APIRouter {
           }
           
           if (allowedFields.has('images') || allowedFields.has('*')) {
-            responseData.images = settings.images || {
-              mainLogo: '',
-              menuImage: '',
-            };
+            // Base64 데이터가 있으면 URL로 변환 (하위 호환성)
+            const images = settings.images || {};
+            const processedImages = {};
+            
+            for (const [key, value] of Object.entries(images)) {
+              if (typeof value === 'string') {
+                // Base64 데이터인 경우 (data:image/... 형식)
+                if (value.startsWith('data:image/')) {
+                  // Base64 데이터는 그대로 반환 (기존 데이터 호환성)
+                  // TODO: 마이그레이션 스크립트로 파일로 변환 후 URL로 교체
+                  processedImages[key] = value;
+                } else if (value.startsWith('/assets/uploads/')) {
+                  // 이미 URL인 경우 그대로 반환
+                  processedImages[key] = value;
+                } else if (value) {
+                  // 기타 경우 (빈 문자열이 아닌 경우)
+                  processedImages[key] = value;
+                }
+              } else if (value) {
+                // 객체인 경우 (동영상 등) 그대로 반환
+                processedImages[key] = value;
+              }
+            }
+            
+            responseData.images = processedImages;
           }
           
           if (allowedFields.has('businessHours') || allowedFields.has('*')) {
@@ -3710,10 +3731,8 @@ class APIRouter {
     }
   }
 
-  // 이미지 업로드 핸들러 (Base64 데이터베이스 저장 방식)
-  // 참고: 프론트엔드에서 이미 Base64로 변환하여 settings.images에 저장하므로
-  // 이 엔드포인트는 호환성을 위해 유지하되, 파일 시스템 저장은 제거하고
-  // Base64 데이터를 받아서 데이터베이스에 저장하도록 변경
+  // 이미지 업로드 핸들러 (파일 시스템 저장 방식)
+  // 이미지를 /assets/uploads/{storeId}/ 폴더에 저장하고, DB에는 파일 경로(URL)만 저장
   async uploadImage(storeId, req, res, parsedUrl) {
     try {
       if (!storeId) {
@@ -3730,19 +3749,13 @@ class APIRouter {
         return;
       }
 
-      // 요청 본문 파싱 (JSON 또는 multipart/form-data)
-      let body, imageData, imageType;
+      // 요청 본문 파싱 (multipart/form-data만 지원)
+      let imageType, fileBuffer, fileExtension, mimeType;
       
       try {
         const contentType = req.headers['content-type'] || '';
         
-        if (contentType.includes('application/json')) {
-          // JSON 요청: Base64 데이터 직접 전송
-          body = await parseRequestBody(req);
-          imageData = body.imageData || body.data;
-          imageType = body.imageType || 'mainLogo';
-        } else if (contentType.includes('multipart/form-data')) {
-          // multipart 요청: Base64로 변환
+        if (contentType.includes('multipart/form-data')) {
           const parsed = await parseMultipartFormData(req);
           const file = parsed.files?.image;
           
@@ -3751,11 +3764,48 @@ class APIRouter {
             return;
           }
           
-          // 파일을 Base64로 변환
-          imageData = `data:${file.mimetype || 'image/png'};base64,${file.buffer.toString('base64')}`;
+          fileBuffer = file.buffer;
           imageType = parsed.fields?.imageType || 'mainLogo';
+          mimeType = file.contentType || 'image/png';
+          
+          // 파일 확장자 결정
+          const filename = file.filename || '';
+          if (filename.includes('.')) {
+            fileExtension = filename.split('.').pop().toLowerCase();
+          } else {
+            // MIME 타입에서 확장자 추출
+            const mimeToExt = {
+              'image/jpeg': 'jpg',
+              'image/jpg': 'jpg',
+              'image/png': 'png',
+              'image/gif': 'gif',
+              'image/webp': 'webp'
+            };
+            fileExtension = mimeToExt[mimeType] || 'png';
+          }
+        } else if (contentType.includes('application/json')) {
+          // JSON 요청: Base64 데이터를 파일로 변환 (하위 호환성)
+          const body = await parseRequestBody(req);
+          const imageData = body.imageData || body.data;
+          imageType = body.imageType || 'mainLogo';
+          
+          if (!imageData) {
+            sendErrorResponse(res, 400, '이미지 데이터가 필요합니다.');
+            return;
+          }
+          
+          // Base64 데이터를 Buffer로 변환
+          const base64Match = imageData.match(/^data:image\/(\w+);base64,(.+)$/);
+          if (!base64Match) {
+            sendErrorResponse(res, 400, '유효하지 않은 Base64 이미지 데이터입니다.');
+            return;
+          }
+          
+          mimeType = `image/${base64Match[1]}`;
+          fileExtension = base64Match[1] === 'jpeg' ? 'jpg' : base64Match[1];
+          fileBuffer = Buffer.from(base64Match[2], 'base64');
         } else {
-          sendErrorResponse(res, 400, '지원하지 않는 Content-Type입니다.');
+          sendErrorResponse(res, 400, '지원하지 않는 Content-Type입니다. multipart/form-data 또는 application/json을 사용해주세요.');
           return;
         }
       } catch (parseError) {
@@ -3764,43 +3814,77 @@ class APIRouter {
         return;
       }
 
-      if (!imageData) {
+      if (!fileBuffer || fileBuffer.length === 0) {
         log('ERROR', '이미지 업로드 실패: 이미지 데이터 없음', { storeId });
         sendErrorResponse(res, 400, '이미지 데이터가 필요합니다.');
         return;
       }
 
-      // Base64 데이터 크기 확인 (10MB 제한, Base64는 원본보다 약 33% 큼)
-      const base64Size = imageData.length;
-      const estimatedSize = (base64Size * 3) / 4;
-      if (estimatedSize > 10 * 1024 * 1024) {
-        log('ERROR', '이미지 업로드 실패: 파일 크기 초과', { storeId, estimatedSize });
+      // 파일 크기 확인 (10MB 제한)
+      if (fileBuffer.length > 10 * 1024 * 1024) {
+        log('ERROR', '이미지 업로드 실패: 파일 크기 초과', { storeId, size: fileBuffer.length });
         sendErrorResponse(res, 400, '이미지 파일 크기는 10MB 이하여야 합니다.');
         return;
       }
+
+      // 업로드 디렉토리 경로 설정
+      const uploadsDir = path.join(__dirname, '../../assets/uploads', storeId);
+      
+      // 디렉토리가 없으면 생성
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+        log('INFO', '업로드 디렉토리 생성', { path: uploadsDir });
+      }
+
+      // 파일명 생성 (타임스탬프 + 이미지 타입 + 확장자)
+      const timestamp = Date.now();
+      const filename = `${imageType}_${timestamp}.${fileExtension}`;
+      const filePath = path.join(uploadsDir, filename);
+      
+      // 파일 저장
+      fs.writeFileSync(filePath, fileBuffer);
+      log('INFO', '이미지 파일 저장 완료', { storeId, filePath, size: fileBuffer.length });
+
+      // 파일 URL 생성 (웹에서 접근 가능한 경로)
+      const imageUrl = `/assets/uploads/${storeId}/${filename}`;
 
       // 현재 설정 가져오기
       const currentSettings = await dbServices.getStoreSettings(storeId);
       const settings = currentSettings || {};
       settings.images = settings.images || {};
       
-      // Base64 데이터를 settings.images에 저장
-      settings.images[imageType] = imageData;
+      // 기존 이미지 파일이 있으면 삭제 (선택적 - 디스크 공간 절약)
+      const oldImageUrl = settings.images[imageType];
+      if (oldImageUrl && oldImageUrl.startsWith('/assets/uploads/')) {
+        try {
+          const oldFilePath = path.join(__dirname, '../../', oldImageUrl);
+          if (fs.existsSync(oldFilePath)) {
+            fs.unlinkSync(oldFilePath);
+            log('INFO', '기존 이미지 파일 삭제', { oldFilePath });
+          }
+        } catch (deleteError) {
+          log('WARN', '기존 이미지 파일 삭제 실패 (무시)', { error: deleteError.message });
+        }
+      }
+      
+      // 파일 URL을 settings.images에 저장
+      settings.images[imageType] = imageUrl;
 
       // 데이터베이스에 저장
       await dbServices.updateStoreSettings(storeId, settings);
 
-      log('INFO', '이미지 업로드 완료 (DB 저장)', { storeId, imageType, dataSize: base64Size });
+      log('INFO', '이미지 업로드 완료 (파일 시스템 저장)', { storeId, imageType, imageUrl, size: fileBuffer.length });
 
       // 응답 반환
       sendJsonResponse(res, 200, {
         success: true,
         data: {
           imageType: imageType,
-          size: estimatedSize,
+          imageUrl: imageUrl,
+          size: fileBuffer.length,
           stored: true
         },
-        message: '이미지가 데이터베이스에 저장되었습니다.'
+        message: '이미지가 업로드되어 저장되었습니다.'
       });
     } catch (error) {
       log('ERROR', '이미지 업로드 실패: 예상치 못한 오류', { storeId, error: error.message, stack: error.stack });
