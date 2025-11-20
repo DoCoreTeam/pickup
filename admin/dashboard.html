@@ -10043,12 +10043,19 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 // 캐시에 없으면 API 호출 (비동기, 백그라운드)
                 if (!subdomainValue && currentStoreId) {
-                    loadDomainSettings().then(() => {
-                        // 도메인 설정 로드 완료 후 요약 다시 렌더링
+                    // 중복 호출 방지: 이미 로드되었으면 건너뛰기
+                    if (!domainSettingsLoaded) {
+                        loadDomainSettings().then(() => {
+                            // 도메인 설정 로드 완료 후 요약 다시 렌더링 (loadDomainSettings 호출 제거)
+                            renderBasicSummary();
+                        }).catch(err => {
+                            console.warn('도메인 설정 로드 실패 (백그라운드):', err);
+                            // 에러 발생 시 즉시 재시도하지 않음
+                        });
+                    } else {
+                        // 이미 로드되었으면 요약만 업데이트
                         renderBasicSummary();
-                    }).catch(err => {
-                        console.warn('도메인 설정 로드 실패 (백그라운드):', err);
-                    });
+                    }
                 }
             }
 
@@ -13754,8 +13761,20 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
         }
 
-        async function loadDomainSettings() {
+        // loadDomainSettings 중복 호출 방지 플래그
+        let isLoadingDomainSettings = false;
+        let domainSettingsLoaded = false;
+        
+        async function loadDomainSettings(forceReload = false) {
+            // 중복 호출 방지: 이미 로딩 중이면 무시
+            if (isLoadingDomainSettings) {
+                console.warn('⚠️ [도메인 설정] 이미 로딩 중입니다. 중복 호출 무시');
+                return;
+            }
+            
             try {
+                isLoadingDomainSettings = true;
+                
                 updateCurrentDomain();
                 const currentStoreId = getCurrentStoreId(); // 동기 함수로 변경
                 if (!currentStoreId) {
@@ -13764,33 +13783,58 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     updateDomainSummaryView('', null);
                     applyDomainSettingsPermissions({});
                     updateDomainQrSection('', null);
+                    domainSettingsLoaded = true;
                     return;
                 }
 
-                // 캐시 확인
-                const cacheKey = `domain_settings_${currentStoreId}`;
-                const cached = window.sessionCache?.get(cacheKey);
-                
-                if (cached) {
-                    console.log('✅ [캐시] 도메인 설정 즉시 표시');
-                    const domainSettings = cached;
-                    const subdomain = domainSettings.subdomain || '';
-                    document.getElementById('subdomain').value = subdomain;
-                    currentDomainQrInfo = {
-                        url: domainSettings.qrCode?.url || '',
-                        domainUrl: domainSettings.qrCode?.domainUrl || ''
-                    };
-                    updateDomainSummaryView(subdomain, currentDomainQrInfo);
-                    applyDomainSettingsPermissions(domainSettings);
-                    updateDomainQrSection(subdomain, currentDomainQrInfo);
+                // 캐시 확인 (forceReload가 false일 때만)
+                if (!forceReload) {
+                    const cacheKey = `domain_settings_${currentStoreId}`;
+                    const cached = window.sessionCache?.get(cacheKey);
                     
-                    // 기본 정보 섹션이 활성화되어 있으면 요약도 업데이트
-                    const basicSection = document.getElementById('basic');
-                    if (basicSection && basicSection.style.display !== 'none') {
-                        renderBasicSummary();
+                    if (cached && domainSettingsLoaded) {
+                        // 이미 로드되었고 캐시도 있으면 UI 업데이트만 (로그 제거)
+                        const domainSettings = cached;
+                        const subdomain = domainSettings.subdomain || '';
+                        document.getElementById('subdomain').value = subdomain;
+                        currentDomainQrInfo = {
+                            url: domainSettings.qrCode?.url || '',
+                            domainUrl: domainSettings.qrCode?.domainUrl || ''
+                        };
+                        updateDomainSummaryView(subdomain, currentDomainQrInfo);
+                        applyDomainSettingsPermissions(domainSettings);
+                        updateDomainQrSection(subdomain, currentDomainQrInfo);
+                        
+                        // 기본 정보 섹션이 활성화되어 있으면 요약도 업데이트 (단, loadDomainSettings 호출 제거)
+                        const basicSection = document.getElementById('basic');
+                        if (basicSection && basicSection.style.display !== 'none') {
+                            // renderBasicSummary 내부에서 loadDomainSettings를 호출하지 않도록 주의
+                            renderBasicSummary();
+                        }
+                        
+                        return; // 캐시에서 가져온 경우 즉시 반환
+                    } else                 if (cached && !domainSettingsLoaded) {
+                        // 캐시는 있지만 처음 로드하는 경우만 처리
+                        const domainSettings = cached;
+                        const subdomain = domainSettings.subdomain || '';
+                        document.getElementById('subdomain').value = subdomain;
+                        currentDomainQrInfo = {
+                            url: domainSettings.qrCode?.url || '',
+                            domainUrl: domainSettings.qrCode?.domainUrl || ''
+                        };
+                        updateDomainSummaryView(subdomain, currentDomainQrInfo);
+                        applyDomainSettingsPermissions(domainSettings);
+                        updateDomainQrSection(subdomain, currentDomainQrInfo);
+                        domainSettingsLoaded = true;
+                        
+                        // 기본 정보 섹션이 활성화되어 있으면 요약도 업데이트
+                        const basicSection = document.getElementById('basic');
+                        if (basicSection && basicSection.style.display !== 'none') {
+                            renderBasicSummary();
+                        }
+                        
+                        return; // 캐시에서 가져온 경우 즉시 반환
                     }
-                    
-                    return; // 캐시에서 가져온 경우 즉시 반환
                 }
 
                 // 캐시에 없을 때만 API 호출
@@ -13822,6 +13866,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         window.sessionCache.set(cacheKey, domainSettings);
                     }
                     
+                    domainSettingsLoaded = true;
+                    
                     // 기본 정보 섹션이 활성화되어 있으면 요약도 업데이트
                     const basicSection = document.getElementById('basic');
                     if (basicSection && basicSection.style.display !== 'none') {
@@ -13852,11 +13898,17 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 }
             } catch (error) {
                 console.error('도메인 설정 로드 실패:', error);
+                // 에러 발생 시 즉시 재시도하지 않고 에러 메시지만 표시하고 멈춤
                 document.getElementById('subdomain').value = '';
                 currentDomainQrInfo = { url: '', domainUrl: '' };
                 updateDomainSummaryView('', null);
                 applyDomainSettingsPermissions({});
                 updateDomainQrSection('', null);
+                domainSettingsLoaded = true; // 에러 발생해도 플래그 설정하여 무한 재시도 방지
+                // 에러 토스트는 호출하는 쪽에서 처리하도록 함 (여기서는 조용히 실패)
+            } finally {
+                // 항상 플래그 해제 (성공/실패 관계없이)
+                isLoadingDomainSettings = false;
             }
         }
         
@@ -13949,14 +14001,15 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             if (domainQrGenerateBtn) {
                 // 슈퍼어드민 또는 점주 계정이 QR을 생성할 수 있음 (QR이 없고 서브도메인이 있으며 잠금 상태가 아닐 때)
                 const canGenerate = (IS_SUPERADMIN || IS_STORE_OWNER) && !hasQr && hasSubdomain && !qrLocked;
-                console.log('QR 생성 버튼 표시 조건:', { 
-                    IS_SUPERADMIN, 
-                    IS_STORE_OWNER,
-                    hasQr, 
-                    hasSubdomain, 
-                    qrLocked, 
-                    canGenerate 
-                });
+                // 로그 제거 (무한 루프 원인 제거)
+                // console.log('QR 생성 버튼 표시 조건:', { 
+                //     IS_SUPERADMIN, 
+                //     IS_STORE_OWNER,
+                //     hasQr, 
+                //     hasSubdomain, 
+                //     qrLocked, 
+                //     canGenerate 
+                // });
                 domainQrGenerateBtn.style.display = canGenerate ? 'inline-flex' : 'none';
             }
         }
