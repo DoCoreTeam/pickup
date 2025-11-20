@@ -4315,7 +4315,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge" id="versionBadge">v1.0.0</div>
+                    <div class="version-badge" id="versionBadge"></div>
                 </div>
                 <a href="/admin/release-notes" class="release-notes-btn">
                     릴리즈 노트
@@ -9319,15 +9319,60 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
         }
 
-        // 가게 입점 승인
-        async function approveStore(storeId) {
+        // 가게 입점 승인 확인 모달 표시
+        function showApproveStoreModal(storeId) {
+            const container = document.getElementById('toastContainer') || createToastContainer();
+            
+            const modal = document.createElement('div');
+            modal.className = 'toast input-modal';
+            modal.id = 'approveStoreModal';
+            
+            modal.innerHTML = `
+                <div class="toast-header">
+                    <span class="toast-icon" style="background: #3b82f6;">✓</span>
+                    <span class="toast-title">가게 입점 승인</span>
+                    <button class="toast-close" onclick="closeApproveStoreModal()">×</button>
+                </div>
+                <div class="toast-message">
+                    이 가게의 입점 요청을 승인하시겠습니까?<br>
+                    승인 후 가게가 활성화되어 고객에게 노출됩니다.
+                </div>
+                <div class="toast-actions" style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
+                    <button onclick="closeApproveStoreModal()" class="btn" style="background: #e5e7eb; color: #374151; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">취소</button>
+                    <button onclick="confirmApproveStore('${storeId}')" class="btn btn-primary" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">승인</button>
+                </div>
+            `;
+            
+            container.appendChild(modal);
+            setTimeout(() => {
+                modal.classList.add('show');
+            }, 10);
+        }
+        
+        // 가게 입점 승인 모달 닫기
+        function closeApproveStoreModal() {
+            const modal = document.getElementById('approveStoreModal');
+            if (modal) {
+                modal.classList.remove('show');
+                setTimeout(() => {
+                    if (modal.parentElement) {
+                        modal.parentElement.removeChild(modal);
+                    }
+                }, 300);
+            }
+        }
+        
+        // 가게 입점 승인 실행
+        async function confirmApproveStore(storeId) {
+            closeApproveStoreModal();
+            
             try {
                 GlobalLoader.show('가게 입점을 승인하는 중...', false);
                 
                 const response = await apiRequest(`${API_BASE}/stores/${storeId}/approve`, 'POST');
                 
                 GlobalLoader.hide();
-                alert(response?.message || '가게 입점 요청이 승인되었습니다.');
+                showToast(response?.message || '가게 입점 요청이 승인되었습니다.', 'success', '승인 완료');
                 
                 // 전체 목록을 다시 가져와서 통계 재계산
                 window.shouldReloadAllStores = true;
@@ -9335,8 +9380,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             } catch (error) {
                 GlobalLoader.hide();
                 console.error('가게 승인 실패:', error);
-                alert(error.message || '가게 승인에 실패했습니다.');
+                showToast(error.message || '가게 승인에 실패했습니다.', 'error', '승인 실패');
             }
+        }
+        
+        // 가게 입점 승인 (기존 함수명 유지 - 모달 표시로 변경)
+        async function approveStore(storeId) {
+            showApproveStoreModal(storeId);
         }
 
         // 가게 일시정지
