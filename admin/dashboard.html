@@ -4246,7 +4246,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 <div id="selectedStoreCard" class="selected-store-card">
                     <div class="selected-store-header">
                         <div class="selected-store-logo" id="selectedStoreLogo">
-                            <img src="/assets/images/icons/default-store.png" alt="가게 로고" class="store-logo-img">
+                            <img src="/assets/images/icons/default-store.png" alt="가게 로고" class="store-logo-img" onerror="this.src='/assets/images/icons/default-store.png'; this.onerror=null;">
                         </div>
                         <div class="selected-store-label">선택된 가게</div>
                     </div>
@@ -8761,6 +8761,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     if (logoElement) {
                         const logoImg = logoElement.querySelector('.store-logo-img');
                         if (logoImg) {
+                            // 이미지 로드 실패 방어 코드
+                            logoImg.onerror = function() {
+                                console.warn('가게 로고 이미지 로드 실패:', logoUrl);
+                                this.src = '/assets/images/icons/default-store.png';
+                                this.alt = '기본 가게 로고';
+                            };
+                            
                             // 캐시에서 로고 확인
                             if (cachedSettings) {
                                 const cachedLogo = cachedSettings.images?.mainLogo || cachedSettings.basic?.storeLogo;
@@ -8797,14 +8804,22 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             if (logoElement) {
                                 const logoImg = logoElement.querySelector('.store-logo-img');
                                 if (logoImg) {
-                                    const newLogoUrl = storeSettings?.images?.mainLogo || storeSettings?.basic?.storeLogo;
-                                    if (newLogoUrl) {
-                                        logoImg.src = newLogoUrl;
-                                        logoImg.alt = selectedStore.name ? `${selectedStore.name} 로고` : '기본 가게 로고';
-                                    } else {
-                                        logoImg.src = '/assets/images/icons/default-store.png';
-                                        logoImg.alt = '기본 가게 로고';
-                                    }
+                            const newLogoUrl = storeSettings?.images?.mainLogo || storeSettings?.basic?.storeLogo;
+                            
+                            // 이미지 로드 실패 방어 코드
+                            logoImg.onerror = function() {
+                                console.warn('가게 로고 이미지 로드 실패:', newLogoUrl);
+                                this.src = '/assets/images/icons/default-store.png';
+                                this.alt = '기본 가게 로고';
+                            };
+                            
+                            if (newLogoUrl) {
+                                logoImg.src = newLogoUrl;
+                                logoImg.alt = selectedStore.name ? `${selectedStore.name} 로고` : '기본 가게 로고';
+                            } else {
+                                logoImg.src = '/assets/images/icons/default-store.png';
+                                logoImg.alt = '기본 가게 로고';
+                            }
                                 }
                             }
                         } catch (error) {
@@ -11817,6 +11832,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     if (logoElement) {
                         const logoImg = logoElement.querySelector('.store-logo-img');
                         if (logoImg) {
+                            // 이미지 로드 실패 방어 코드
+                            logoImg.onerror = function() {
+                                console.warn('가게 로고 이미지 로드 실패:', imageUrl);
+                                this.src = '/assets/images/icons/default-store.png';
+                                this.alt = '기본 가게 로고';
+                            };
+                            
                             logoImg.src = imageUrl;
                             logoImg.alt = `${document.getElementById('selectedStoreName')?.textContent || '가게'} 로고`;
                         }
