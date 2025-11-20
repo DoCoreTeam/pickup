@@ -114,35 +114,46 @@ function sendErrorResponse(res, statusCode, message) {
 }
 
 // 요청 본문 파싱
+// [Fix] 대용량(50MB) 데이터 수신이 가능한 파서로 교체
 function parseRequestBody(req) {
   return new Promise((resolve, reject) => {
-    let body = '';
-    let bodySize = 0;
-    const maxSize = 50 * 1024 * 1024; // 50MB 제한
+    let body = [];
     
-    req.on('data', chunk => {
-      bodySize += chunk.length;
-      if (bodySize > maxSize) {
+    req.on('data', (chunk) => {
+      body.push(chunk);
+      // 50MB 제한 (안전장치)
+      if (Buffer.concat(body).length > 50 * 1024 * 1024) {
+        console.error(`❌ Payload Too Large: ${Math.round(Buffer.concat(body).length / (1024 * 1024))}MB > 50MB`);
+        reject(new Error('Payload Too Large (50MB Limit)'));
         req.destroy();
-        reject(new Error('요청 본문이 너무 큽니다. 최대 50MB까지 허용됩니다.'));
-        return;
       }
-      body += chunk.toString('utf8');
     });
-    
+
     req.on('end', () => {
       try {
+        const buffer = Buffer.concat(body);
+        const stringBody = buffer.toString();
+        
+        console.log(`📦 요청 바디 수신 완료: ${Math.round(buffer.length / 1024)}KB`);
+        
         if (req.headers['content-type']?.includes('application/json')) {
-          resolve(JSON.parse(body));
+          // JSON 파싱 시도
+          if (!stringBody) return resolve({});
+          resolve(JSON.parse(stringBody));
         } else {
-          resolve(querystring.parse(body));
+          // 쿼리스트링 파싱
+          resolve(querystring.parse(stringBody));
         }
       } catch (error) {
-        reject(error);
+        console.error('[Body Parser Error]', error);
+        reject(new Error('Invalid JSON Data'));
       }
     });
-    
-    req.on('error', reject);
+
+    req.on('error', (err) => {
+      console.error('[Request Error]', err);
+      reject(err);
+    });
   });
 }
 
