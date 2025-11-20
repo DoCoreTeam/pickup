@@ -11901,142 +11901,92 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     // 압축 실패해도 원본 파일로 계속 진행
                 }
                 
-                // 단계 2: 서버 전송 시작 (XMLHttpRequest로 실제 진행률 추적)
-                updateProgressBar(imageType, 51, '서버로 전송 중... (51~99%)');
+                // 단계 2: Base64 변환 및 압축 (200KB 이하)
+                updateProgressBar(imageType, 50, 'Base64 변환 중...');
                 
-                // FormData 생성 (multipart/form-data)
-                const formData = new FormData();
-                formData.append('image', compressedFile);
-                formData.append('imageType', imageType);
+                const base64Data = await compressImageToBase64(file, 200);
+                const compressedSizeKB = Math.round((base64Data.length * 3) / 4 / 1024);
+                console.log(`📊 압축 결과: ${fileSizeMB.toFixed(1)}MB → ${compressedSizeKB}KB`);
                 
-                console.log('🔍 [DEBUG] 이미지 업로드 시작:', { imageType, originalSize: file.size, compressedSize: compressedFile.size });
+                console.log('🔍 [DEBUG] Base64 저장 시작:', { imageType, originalSize: file.size, compressedSizeKB });
                 
-                // XMLHttpRequest를 사용하여 실제 업로드 진행률 추적
-                const uploadResponse = await new Promise((resolve, reject) => {
-                    const xhr = new XMLHttpRequest();
+                // 설정 업데이트 API 호출 (Base64 데이터 전송)
+                updateProgressBar(imageType, 75, `서버로 전송 중... (${compressedSizeKB}KB)`);
+                
+                const updateData = {
+                    images: {
+                        [imageType]: base64Data
+                    }
+                };
+                
+                const response = await apiRequest(`${API_BASE}/store/${currentStoreId}/settings`, 'PUT', updateData);
                     
-                    // 업로드 진행률 이벤트
-                    xhr.upload.addEventListener('progress', (event) => {
-                        if (event.lengthComputable) {
-                            // 51% ~ 99% 범위에서 진행률 표시
-                            const uploadProgress = Math.floor(51 + (event.loaded / event.total) * 48);
-                            const percent = Math.min(uploadProgress, 99);
-                            updateProgressBar(imageType, percent, `서버로 전송 중... (${percent}%)`);
-                        }
-                    });
-                    
-                    // 업로드 완료 이벤트
-                    xhr.addEventListener('load', () => {
-                        if (xhr.status >= 200 && xhr.status < 300) {
-                            try {
-                                const result = JSON.parse(xhr.responseText);
-                                resolve({
-                                    ok: true,
-                                    status: xhr.status,
-                                    json: async () => result
-                                });
-                            } catch (e) {
-                                resolve({
-                                    ok: true,
-                                    status: xhr.status,
-                                    json: async () => ({ success: true, data: {} })
-                                });
-                            }
-                        } else {
-                            try {
-                                const errorData = JSON.parse(xhr.responseText);
-                                reject(new Error(errorData.message || `HTTP 오류: ${xhr.status}`));
-                            } catch (e) {
-                                reject(new Error(`HTTP 오류: ${xhr.status}`));
-                            }
-                        }
-                    });
-                    
-                    // 에러 이벤트
-                    xhr.addEventListener('error', () => {
-                        reject(new Error('네트워크 오류가 발생했습니다.'));
-                    });
-                    
-                    // 타임아웃 이벤트
-                    xhr.addEventListener('timeout', () => {
-                        reject(new Error('업로드 시간이 초과되었습니다.'));
-                    });
-                    
-                    xhr.open('POST', `${API_BASE}/store/${currentStoreId}/upload-image`);
-                    xhr.timeout = 60000; // 60초 타임아웃
-                    xhr.send(formData);
-                });
                 
-                // 단계 3: 업로드 완료 100% 표시
-                updateProgressBar(imageType, 100, '완료! (100%)');
+                // 단계 3: 저장 완료 100% 표시
+                updateProgressBar(imageType, 100, '저장 완료!');
                 
-                const uploadResult = await uploadResponse.json();
-                console.log('🔍 [DEBUG] 이미지 업로드 성공:', uploadResult);
-                
-                const imageUrl = uploadResult.data?.imageUrl;
-                if (!imageUrl) {
-                    updateProgressBar(imageType, 100, '업로드 실패: 이미지 URL을 받지 못했습니다.', true);
-                    throw new Error('이미지 URL을 받지 못했습니다.');
+                if (response.success) {
+                    console.log(`✅ 이미지 저장 성공 (Base64): ${compressedSizeKB}KB`);
+                } else {
+                    throw new Error(response.message || response.error?.message || '알 수 없는 저장 오류가 발생했습니다.');
                 }
                 
-                // 캐시 무효화 (최신 데이터 반영)
-                const cacheKey = `settings_${currentStoreId}`;
-                if (window.sessionCache) {
-                    window.sessionCache.clear(cacheKey);
-                }
-                
-                // 현재 설정 업데이트 (즉시 반영)
-                if (window.currentSettings) {
-                    window.currentSettings.images = window.currentSettings.images || {};
-                    window.currentSettings.images[imageType] = imageUrl;
-                }
-                
-                // 이미지 미리보기 업데이트
-                updateImagePreview(imageType, imageUrl);
-                
-                // 설정 가이드 자동 갱신
-                await refreshSetupGuideIfVisible();
+                // 즉시 미리보기 업데이트 (Base64 데이터 사용)
+                updateImagePreview(imageType, base64Data);
                 
                 // 사이드바 즉시 업데이트 (로고 변경 시 바로 반영)
                 if (imageType === 'mainLogo') {
-                    // 즉시 사이드바 로고 업데이트
                     const logoElement = document.getElementById('selectedStoreLogo');
                     if (logoElement) {
                         const logoImg = logoElement.querySelector('.store-logo-img');
                         if (logoImg) {
-                            // 이미지 로드 실패 방어 코드
-                            logoImg.onerror = function() {
-                                console.warn('가게 로고 이미지 로드 실패:', imageUrl);
-                                this.src = '/assets/images/icons/default-store.png';
-                                this.alt = '기본 가게 로고';
-                            };
-                            
-                            // 캐시 방지를 위해 타임스탬프 추가
-                            const timestamp = new Date().getTime();
-                            const imageUrlWithCacheBust = imageUrl.includes('?') 
-                                ? `${imageUrl}&t=${timestamp}` 
-                                : `${imageUrl}?t=${timestamp}`;
-                            logoImg.src = imageUrlWithCacheBust;
+                            logoImg.src = base64Data;
                             logoImg.alt = `${document.getElementById('selectedStoreName')?.textContent || '가게'} 로고`;
                         }
                     }
                     
-                    // 백그라운드에서 최신 데이터로 사이드바 업데이트 (최신 상태 유지)
+                    // 백그라운드에서 최신 데이터로 사이드바 업데이트
                     updateSelectedStoreCard(currentStoreId).catch(err => 
                         console.warn('사이드바 업데이트 실패 (백그라운드):', err)
                     );
                 }
                 
                 // 0.5초 후 프로그래스바 숨기기
-                hideProgressBar(imageType);
+                setTimeout(() => hideProgressBar(imageType), 500);
                 
-                showToast(`${imageType === 'mainLogo' ? '로고' : '메뉴판'} 이미지가 업로드되어 저장되었습니다!`, 'success', '저장 완료');
+                showToast(`${imageType === 'mainLogo' ? '로고' : '메뉴판'} 이미지가 저장되었습니다! (${compressedSizeKB}KB)`, 'success', '저장 완료');
             } catch (error) {
-                console.error('이미지 저장 오류:', error);
-                showStatus('이미지 저장에 실패했습니다.', 'error');
-                // 에러 상태는 이미 updateProgressBar에서 처리됨
+                console.error('이미지 저장 실패:', error);
+                
+                // 상세 에러 메시지 추출
+                let errorMessage = error.message;
+                if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                    errorMessage = '네트워크 오류: 서버에 연결할 수 없습니다.';
+                } else if (error.message.includes('413') || error.message.includes('Payload Too Large')) {
+                    errorMessage = '파일 크기가 너무 큽니다. 더 작은 이미지를 선택해주세요.';
+                } else if (error.message.includes('500') || error.message.includes('Internal Server Error')) {
+                    errorMessage = 'DB 저장 오류: 서버에서 처리 중 문제가 발생했습니다.';
+                } else if (error.message.includes('timeout')) {
+                    errorMessage = '요청 시간 초과: 네트워크 연결을 확인해주세요.';
+                }
+                
+                updateProgressBar(imageType, 100, `저장 실패: ${errorMessage}`, true);
+                
                 // 3초 후 프로그래스바 숨기기
-                setTimeout(() => hideProgressBar(imageType), 3000);
+                setTimeout(() => {
+                    hideProgressBar(imageType);
+                }, 3000);
+                
+                // 상세 에러 메시지와 함께 알림 표시
+                showToast(`이미지 저장 실패: ${errorMessage}`, 'error', '저장 실패');
+                
+                // 개발자용 상세 로그
+                console.error('📋 상세 에러 정보:', {
+                    originalError: error,
+                    errorName: error.name,
+                    errorMessage: error.message,
+                    errorStack: error.stack
+                });
             }
         }
 
