@@ -31,9 +31,9 @@
                         }
                         
                         // 버전 배지 즉시 업데이트 (페이지 로드 시 최우선)
-                        updateVersionBadge().catch(err => {
-                            console.warn('버전 정보 로드 실패:', err);
-                        });
+                        if (typeof loadVersionBadge === 'function') {
+                            loadVersionBadge();
+                        }
                     }, { once: true });
                 }
             } catch(e) {
@@ -4320,7 +4320,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             <!-- 사이드바 하단 (버전 정보 & 릴리즈 노트) - 항상 하단 고정 -->
             <div class="sidebar-footer">
                 <div class="version-info">
-                    <div class="version-badge" id="app-version-badge">Loading...</div>
+                    <span id="version-display" class="version-badge"></span>
                 </div>
                 <a href="/admin/release-notes" class="release-notes-btn">
                     릴리즈 노트
