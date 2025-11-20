@@ -15923,29 +15923,45 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     });
                 })).then(statsResults => {
                     const statsMap = {};
+                    console.log('[DEBUG] 통계 조회 결과:', statsResults);
+                    
                     statsResults.forEach(result => {
+                        console.log(`[DEBUG] 엠버서더 ${result.id} 통계 결과:`, result.stats);
                         // 응답 구조: stats.ambassadors 배열에서 해당 ambassadorId 찾기
                         if (result.stats && result.stats.ambassadors && Array.isArray(result.stats.ambassadors)) {
+                            console.log(`[DEBUG] 엠버서더 ${result.id} 통계 배열:`, result.stats.ambassadors);
                             const ambassadorStat = result.stats.ambassadors.find(a => a.ambassadorId === result.id);
+                            console.log(`[DEBUG] 엠버서더 ${result.id} 매칭된 통계:`, ambassadorStat);
                             if (ambassadorStat) {
                                 statsMap[result.id] = ambassadorStat;
+                            } else {
+                                console.warn(`[DEBUG] 엠버서더 ${result.id}에 대한 통계를 찾을 수 없음. 배열:`, result.stats.ambassadors);
                             }
+                        } else {
+                            console.warn(`[DEBUG] 엠버서더 ${result.id} 통계 응답 구조 오류:`, result.stats);
                         }
                     });
+                    
+                    console.log('[DEBUG] 최종 통계 맵:', statsMap);
                     
                     // 통계만 업데이트 (전체 재렌더링 없이)
                     ambassadors.forEach(amb => {
                         const stats = statsMap[amb.id] || { visitCount: 0, callCount: 0, uniqueVisitors: 0, uniqueCallers: 0 };
+                        console.log(`[DEBUG] 엠버서더 ${amb.id} 표시할 통계:`, stats);
                         const card = document.querySelector(`[data-ambassador-id="${amb.id}"]`);
                         if (card) {
                             const visitCountEl = card.querySelector('.ambassador-visit-count');
                             const callCountEl = card.querySelector('.ambassador-call-count');
                             if (visitCountEl) {
                                 visitCountEl.textContent = (stats.visitCount || 0).toString();
+                                console.log(`[DEBUG] 엠버서더 ${amb.id} 방문 수 업데이트:`, stats.visitCount);
                             }
                             if (callCountEl) {
                                 callCountEl.textContent = (stats.callCount || 0).toString();
+                                console.log(`[DEBUG] 엠버서더 ${amb.id} 전화 연결 수 업데이트:`, stats.callCount);
                             }
+                        } else {
+                            console.warn(`[DEBUG] 엠버서더 ${amb.id} 카드를 찾을 수 없음`);
                         }
                     });
                     
