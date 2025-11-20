@@ -11659,7 +11659,15 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     }
                 }
 
-                const response = await apiRequest(`${API_BASE}/stores?${query.toString()}`, 'GET', null, 3, false);
+                let response;
+                try {
+                    response = await apiRequest(`${API_BASE}/stores?${query.toString()}`, 'GET', null, 3, false);
+                } catch (error) {
+                    console.error('홈 가게 목록 로드 실패:', error);
+                    storesListEl.innerHTML = '<div class="home-loading" style="color: #ef4444;">가게 목록을 불러오지 못했습니다. 페이지를 새로고침해주세요.</div>';
+                    return;
+                }
+                
                 const stores = normalizeStoreListResponse(response);
                 
                 // 점주 계정일 때는 본인과 연결된 가게만 추가 필터링
