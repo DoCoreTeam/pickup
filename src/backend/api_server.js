@@ -678,6 +678,67 @@ class APIRouter {
         return;
       }
 
+      // [최우선 처리] /assets/uploads/ 경로는 API 라우팅보다 먼저 처리
+      if (pathname.startsWith('/assets/uploads/')) {
+        const uploadsPath = pathname.substring('/assets/uploads/'.length);
+        const uploadsBasePath = path.join(__dirname, '../../assets/uploads');
+        const filePath = path.join(uploadsBasePath, uploadsPath);
+        
+        // 정규화하여 보안 확인
+        const normalizedUploadsPath = path.normalize(uploadsBasePath);
+        const normalizedFilePath = path.normalize(filePath);
+        
+        if (!normalizedFilePath.startsWith(normalizedUploadsPath)) {
+          // 경로 탈출 시도 방지
+          logRequest(method, pathname, 403);
+          sendErrorResponse(res, 403, 'Forbidden');
+          return;
+        }
+        
+        // 파일 존재 확인 및 서빙
+        if (fs.existsSync(filePath)) {
+          const stat = fs.statSync(filePath);
+          if (stat.isFile()) {
+            // 정상 파일 서빙
+            const ext = path.extname(filePath);
+            const contentType = mime.lookup(ext) || 'application/octet-stream';
+            setCorsHeaders(res);
+            res.setHeader('Content-Type', contentType);
+            res.setHeader('Content-Length', stat.size);
+            
+            // 이미지 캐싱 설정
+            if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(ext)) {
+              res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+            }
+            
+            const fileStream = fs.createReadStream(filePath);
+            fileStream.on('error', (err) => {
+              log('ERROR', '이미지 파일 스트림 오류', { pathname, error: err.message });
+              sendErrorResponse(res, 500, 'File Read Error');
+            });
+            fileStream.pipe(res);
+            
+            const responseTime = Date.now() - startTime;
+            logRequest(method, pathname, 200, responseTime);
+            return;
+          }
+        }
+        
+        // 파일이 없을 때: 404 대신 빈 1x1 투명 PNG 반환 (엑박 방지)
+        log('WARN', '업로드된 이미지 파일을 찾을 수 없음 (기본 이미지 반환)', { pathname, filePath });
+        const placeholderPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+        setCorsHeaders(res);
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Content-Length', placeholderPng.length);
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.writeHead(200);
+        res.end(placeholderPng);
+        
+        const responseTime = Date.now() - startTime;
+        logRequest(method, pathname, 200, responseTime);
+        return;
+      }
+
       // 정적 라우트 먼저 확인 (동적 라우트보다 우선)
       const routeKey = `${method} ${pathname}`;
       let handler = this.routes.get(routeKey);
