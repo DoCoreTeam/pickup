@@ -3436,7 +3436,12 @@ async function getAmbassadorStats(storeId = null, ambassadorId = null, options =
       callCount: parseInt(row.call_count) || 0,
       lastActivity: row.last_activity ? row.last_activity.toISOString() : null
     }))
-  };
+    };
+  } catch (error) {
+    console.error('[DB] 엠버서더 통계 조회 실패:', error);
+    console.error('[DB] 쿼리 파라미터:', { storeId, ambassadorId, startDate, endDate });
+    throw error;
+  }
 }
 
 function buildSeoHistorySummary(settings = {}) {
