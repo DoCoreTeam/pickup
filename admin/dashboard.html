@@ -15810,7 +15810,23 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     return;
                 }
                 
-                listEl.innerHTML = ambassadors.map(amb => `
+                // 각 엠버서더별 통계 조회
+                const statsPromises = ambassadors.map(amb => 
+                    apiRequest(`${API_BASE}/ambassadors/stats?storeId=${currentStoreId}&ambassadorId=${amb.id}`, 'GET')
+                        .then(res => ({ id: amb.id, stats: res?.data || null }))
+                        .catch(() => ({ id: amb.id, stats: null }))
+                );
+                const statsResults = await Promise.all(statsPromises);
+                const statsMap = {};
+                statsResults.forEach(result => {
+                    if (result.stats && result.stats.ambassadors && result.stats.ambassadors.length > 0) {
+                        statsMap[result.id] = result.stats.ambassadors[0];
+                    }
+                });
+                
+                listEl.innerHTML = ambassadors.map(amb => {
+                    const stats = statsMap[amb.id] || { visitCount: 0, callCount: 0, uniqueVisitors: 0, uniqueCallers: 0 };
+                    return `
                     <div class="ambassador-card" style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid #e5e7eb;">
                         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
                             <div style="flex: 1;">
@@ -15823,11 +15839,22 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                                 ${amb.address ? `<div style="margin-top: 8px; font-size: 14px; color: #6b7280;">📍 ${escapeHtml(amb.address)}</div>` : ''}
                             </div>
                             <div style="display: flex; gap: 8px;">
+                                <button onclick="openAmbassadorStats(${amb.id}, '${escapeHtml(amb.name || '이름 없음')}')" class="btn btn-primary" style="padding: 8px 16px; font-size: 14px;">통계</button>
                                 <button onclick="openAmbassadorModal(${amb.id})" class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;">수정</button>
                                 <button onclick="deleteAmbassador(${amb.id})" class="btn btn-danger" style="padding: 8px 16px; font-size: 14px;">삭제</button>
                             </div>
                         </div>
                         <div style="border-top: 1px solid #e5e7eb; padding-top: 16px; margin-top: 16px;">
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px;">
+                                <div style="background: #f0f9ff; padding: 12px; border-radius: 8px; text-align: center;">
+                                    <div style="font-size: 24px; font-weight: 700; color: #0369a1; margin-bottom: 4px;">${stats.visitCount || 0}</div>
+                                    <div style="font-size: 12px; color: #075985;">방문 수</div>
+                                </div>
+                                <div style="background: #fef3c7; padding: 12px; border-radius: 8px; text-align: center;">
+                                    <div style="font-size: 24px; font-weight: 700; color: #92400e; margin-bottom: 4px;">${stats.callCount || 0}</div>
+                                    <div style="font-size: 12px; color: #78350f;">전화 연결</div>
+                                </div>
+                            </div>
                             <div style="margin-bottom: 12px;">
                                 <label style="display: block; font-size: 12px; font-weight: 600; color: #6b7280; margin-bottom: 6px;">엠버서더 링크</label>
                                 <div style="display: flex; gap: 8px;">
@@ -15840,7 +15867,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             </div>
                         </div>
                     </div>
-                `).join('');
+                `;
+                }).join('');
             } catch (error) {
                 console.error('엠버서더 목록 로드 실패:', error);
                 const listEl = document.getElementById('ambassadorsList');
@@ -16028,6 +16056,115 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             linkInput.select();
             document.execCommand('copy');
             showToast('링크가 클립보드에 복사되었습니다.', 'success');
+        }
+        
+        // 엠버서더 통계 조회 모달 열기
+        async function openAmbassadorStats(ambassadorId, ambassadorName) {
+            try {
+                const currentStoreId = getCurrentStoreId();
+                if (!currentStoreId) {
+                    showToast('가게를 선택해주세요.', 'error');
+                    return;
+                }
+                
+                // 통계 조회
+                const response = await apiRequest(`${API_BASE}/ambassadors/stats?storeId=${currentStoreId}&ambassadorId=${ambassadorId}`, 'GET');
+                const stats = response?.data || { ambassadors: [], phoneStats: [] };
+                
+                const ambassadorStats = stats.ambassadors.find(a => a.ambassadorId === ambassadorId) || {
+                    visitCount: 0,
+                    callCount: 0,
+                    uniqueVisitors: 0,
+                    uniqueCallers: 0
+                };
+                
+                const phoneStats = stats.phoneStats || [];
+                
+                // 통계 모달 생성 또는 업데이트
+                let modal = document.getElementById('ambassadorStatsModal');
+                if (!modal) {
+                    modal = document.createElement('div');
+                    modal.id = 'ambassadorStatsModal';
+                    modal.className = 'modal';
+                    modal.style.display = 'none';
+                    document.body.appendChild(modal);
+                }
+                
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+                        <div class="modal-header">
+                            <h3>${escapeHtml(ambassadorName)} 통계</h3>
+                            <button class="modal-close" onclick="closeAmbassadorStatsModal()">×</button>
+                        </div>
+                        <div class="modal-body">
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px;">
+                                <div style="background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%); padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #7dd3fc;">
+                                    <div style="font-size: 32px; font-weight: 700; color: #0369a1; margin-bottom: 8px;">${ambassadorStats.visitCount || 0}</div>
+                                    <div style="font-size: 14px; font-weight: 600; color: #075985;">총 방문 수</div>
+                                </div>
+                                <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #fcd34d;">
+                                    <div style="font-size: 32px; font-weight: 700; color: #92400e; margin-bottom: 8px;">${ambassadorStats.callCount || 0}</div>
+                                    <div style="font-size: 14px; font-weight: 600; color: #78350f;">총 전화 연결</div>
+                                </div>
+                                <div style="background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #86efac;">
+                                    <div style="font-size: 32px; font-weight: 700; color: #166534; margin-bottom: 8px;">${ambassadorStats.uniqueVisitors || 0}</div>
+                                    <div style="font-size: 14px; font-weight: 600; color: #14532d;">고유 방문자</div>
+                                </div>
+                                <div style="background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%); padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #f9a8d4;">
+                                    <div style="font-size: 32px; font-weight: 700; color: #9f1239; margin-bottom: 8px;">${ambassadorStats.uniqueCallers || 0}</div>
+                                    <div style="font-size: 14px; font-weight: 600; color: #831843;">고유 전화 연결자</div>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-top: 32px;">
+                                <h4 style="margin: 0 0 16px 0; font-size: 16px; font-weight: 600; color: #1f2937;">전화번호별 통계</h4>
+                                ${phoneStats.length === 0 ? 
+                                    '<div style="padding: 20px; text-align: center; color: #6b7280; font-size: 14px;">전화번호별 통계 데이터가 없습니다.</div>' :
+                                    `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+                                        <table style="width: 100%; border-collapse: collapse;">
+                                            <thead>
+                                                <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                                                    <th style="padding: 12px; text-align: left; font-size: 14px; font-weight: 600; color: #374151;">전화번호</th>
+                                                    <th style="padding: 12px; text-align: center; font-size: 14px; font-weight: 600; color: #374151;">방문 수</th>
+                                                    <th style="padding: 12px; text-align: center; font-size: 14px; font-weight: 600; color: #374151;">전화 연결</th>
+                                                    <th style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #374151;">최근 활동</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${phoneStats.map(ps => `
+                                                    <tr style="border-bottom: 1px solid #f3f4f6;">
+                                                        <td style="padding: 12px; font-size: 14px; color: #1f2937; font-weight: 500;">${escapeHtml(ps.phone || '-')}</td>
+                                                        <td style="padding: 12px; text-align: center; font-size: 14px; color: #0369a1; font-weight: 600;">${ps.visitCount || 0}</td>
+                                                        <td style="padding: 12px; text-align: center; font-size: 14px; color: #92400e; font-weight: 600;">${ps.callCount || 0}</td>
+                                                        <td style="padding: 12px; text-align: right; font-size: 14px; color: #6b7280;">${ps.lastActivity ? new Date(ps.lastActivity).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                                                    </tr>
+                                                `).join('')}
+                                            </tbody>
+                                        </table>
+                                    </div>`
+                                }
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" onclick="closeAmbassadorStatsModal()">닫기</button>
+                        </div>
+                    </div>
+                `;
+                
+                modal.style.display = 'flex';
+                
+            } catch (error) {
+                console.error('엠버서더 통계 조회 실패:', error);
+                showToast('엠버서더 통계를 불러오지 못했습니다.', 'error');
+            }
+        }
+        
+        // 엠버서더 통계 모달 닫기
+        function closeAmbassadorStatsModal() {
+            const modal = document.getElementById('ambassadorStatsModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
         }
     </script>
 </body>
