@@ -5650,13 +5650,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
         } else {
             // 로그인된 경우 세션 만료 시간 확인
             if (!checkSessionExpiry()) {
-                // 세션이 만료되었으면 이미 리다이렉트됨
-                return;
-            }
-            
-            // 세션 만료 시간 설정 (처음 로드 시)
-            if (!sessionStorage.getItem(SESSION_EXPIRES_AT_KEY)) {
-                setSessionExpiry(SESSION_TIMEOUT_MS);
+                // 세션이 만료되었으면 이미 리다이렉트됨 (window.location.href로 이동)
+                // 여기서는 아무것도 하지 않음 (페이지가 리다이렉트됨)
+            } else {
+                // 세션 만료 시간 설정 (처음 로드 시)
+                if (!sessionStorage.getItem(SESSION_EXPIRES_AT_KEY)) {
+                    setSessionExpiry(SESSION_TIMEOUT_MS);
+                }
             }
         }
         
@@ -11868,8 +11868,8 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
         }
 
-        // 섹션 표시
-        async function showSection(sectionId) {
+        // 섹션 표시 (전역 함수로 정의)
+        window.showSection = async function(sectionId) {
             // URL 해시 업데이트 (새로고침 시 현재 섹션 유지)
             window.location.hash = sectionId;
 
