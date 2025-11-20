@@ -2848,9 +2848,19 @@
           let storeId = getStoreIdFromUrl();
           
           // 엠버서더 키로 접근한 경우 전화번호 입력 페이지 표시
+          // 단, 이미 전화번호를 입력하고 가게 페이지로 이동한 경우(storeId가 있는 경우)는 제외
           if (storeId && typeof storeId === 'object' && storeId.type === 'ambassador') {
-            await showAmbassadorPhoneInput(storeId.key);
-            return; // 전화번호 입력 후 가게 페이지로 이동하므로 여기서 종료
+            // URL에 storeId가 있으면 이미 전화번호를 입력하고 이동한 상태이므로 일반 가게 페이지 로드
+            const urlParams = new URLSearchParams(window.location.search);
+            const storeIdFromParam = urlParams.get('storeId') || urlParams.get('id');
+            if (storeIdFromParam) {
+              // storeId가 있으면 일반 가게 페이지로 처리
+              storeId = storeIdFromParam;
+            } else {
+              // storeId가 없으면 엠버서더 전화번호 입력 페이지 표시
+              await showAmbassadorPhoneInput(storeId.key);
+              return; // 전화번호 입력 후 가게 페이지로 이동하므로 여기서 종료
+            }
           }
           
           if (!storeId && !initialData) {
