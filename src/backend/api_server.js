@@ -4564,9 +4564,11 @@ class APIRouter {
     try {
       const query = parsedUrl.query || {};
       const storeId = query.storeId || null;
-      const ambassadorId = query.ambassadorId || null;
+      const ambassadorId = query.ambassadorId ? parseInt(query.ambassadorId, 10) : null;
       const startDate = query.startDate || null;
       const endDate = query.endDate || null;
+      
+      log('INFO', '엠버서더 통계 조회 요청', { storeId, ambassadorId, startDate, endDate });
       
       // 권한 확인 (점주는 자신의 가게만 조회 가능)
       const cookies = parseCookies(req.headers.cookie || '');
@@ -4592,6 +4594,12 @@ class APIRouter {
       const stats = await dbServices.getAmbassadorStats(storeId, ambassadorId, {
         startDate,
         endDate
+      });
+      
+      log('INFO', '엠버서더 통계 조회 결과', { 
+        ambassadorCount: stats?.ambassadors?.length || 0,
+        phoneStatsCount: stats?.phoneStats?.length || 0,
+        stats: stats?.ambassadors?.map(a => ({ id: a.ambassadorId, visits: a.visitCount, calls: a.callCount }))
       });
       
       sendJsonResponse(res, 200, {
