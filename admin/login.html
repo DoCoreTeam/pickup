@@ -205,6 +205,12 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    // 세션 타임아웃 설정 (기본 30분, 설정 가능)
+                    const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 기본 30분
+                    const expiresAt = Date.now() + SESSION_TIMEOUT_MS;
+                    sessionStorage.setItem('session_expires_at', expiresAt.toString());
+                    sessionStorage.setItem('session_timeout_ms', SESSION_TIMEOUT_MS.toString());
+                    
                     sessionStorage.setItem('user_role', 'superadmin');
                     sessionStorage.setItem('superadmin_logged_in', 'true');
                     sessionStorage.setItem('superadmin_username', username);
@@ -243,6 +249,12 @@
                     const result = await response.json();
 
                     if (result.success && result.owner) {
+                        // 세션 타임아웃 설정 (기본 30분, 설정 가능)
+                        const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 기본 30분
+                        const expiresAt = Date.now() + SESSION_TIMEOUT_MS;
+                        sessionStorage.setItem('session_expires_at', expiresAt.toString());
+                        sessionStorage.setItem('session_timeout_ms', SESSION_TIMEOUT_MS.toString());
+                        
                         sessionStorage.setItem('user_role', 'owner');
                         sessionStorage.setItem('owner_logged_in', 'true');
                         sessionStorage.setItem('owner_name', result.owner.name || '사장님');
@@ -296,12 +308,30 @@
             document.getElementById('loginForm').reset();
         }
 
-        // 이미 로그인된 경우 관리자 페이지로 리다이렉트
+        // URL 파라미터에서 메시지 확인 (세션 만료 등)
+        const urlParams = new URLSearchParams(window.location.search);
+        const message = urlParams.get('message');
+        if (message) {
+            const errorDiv = document.getElementById('errorMessage');
+            if (errorDiv) {
+                errorDiv.textContent = decodeURIComponent(message);
+                errorDiv.style.display = 'block';
+            }
+        }
+        
+        // 이미 로그인된 경우 관리자 페이지로 리다이렉트 (단, 세션 만료 시간 확인)
         const savedRole = sessionStorage.getItem('user_role');
-        if (savedRole === 'superadmin' && sessionStorage.getItem('superadmin_logged_in') === 'true') {
-            window.location.href = '/admin';
-        } else if (savedRole === 'owner' && sessionStorage.getItem('owner_logged_in') === 'true') {
-            window.location.href = '/admin';
+        const expiresAt = sessionStorage.getItem('session_expires_at');
+        const isSessionValid = expiresAt && Date.now() < parseInt(expiresAt);
+        
+        if ((savedRole === 'superadmin' && sessionStorage.getItem('superadmin_logged_in') === 'true') ||
+            (savedRole === 'owner' && sessionStorage.getItem('owner_logged_in') === 'true')) {
+            if (isSessionValid) {
+                window.location.href = '/admin';
+            } else {
+                // 세션이 만료되었으면 세션 초기화
+                sessionStorage.clear();
+            }
         }
 
         /**

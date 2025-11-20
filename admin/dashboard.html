@@ -5586,6 +5586,60 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }, 500);
         }
 
+        // 세션 타임아웃 설정 (기본 30분, 설정 가능)
+        // URL 파라미터에서 타임아웃 시간을 받을 수 있음 (예: ?sessionTimeout=60 -> 60분)
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlSessionTimeout = urlParams.get('sessionTimeout');
+        let SESSION_TIMEOUT_MS = parseInt(sessionStorage.getItem('session_timeout_ms')) || (30 * 60 * 1000); // 기본 30분
+        
+        // URL 파라미터에서 타임아웃 시간이 제공되면 업데이트
+        if (urlSessionTimeout) {
+            const timeoutMinutes = parseInt(urlSessionTimeout);
+            if (timeoutMinutes > 0 && timeoutMinutes <= 1440) { // 최대 24시간
+                SESSION_TIMEOUT_MS = timeoutMinutes * 60 * 1000;
+                sessionStorage.setItem('session_timeout_ms', SESSION_TIMEOUT_MS.toString());
+            }
+        }
+        
+        const SESSION_EXPIRES_AT_KEY = 'session_expires_at';
+        
+        // 세션 만료 시간 설정 및 체크 함수
+        function setSessionExpiry(timeoutMs = SESSION_TIMEOUT_MS) {
+            const expiresAt = Date.now() + timeoutMs;
+            sessionStorage.setItem(SESSION_EXPIRES_AT_KEY, expiresAt.toString());
+            sessionStorage.setItem('session_timeout_ms', timeoutMs.toString());
+        }
+        
+        function checkSessionExpiry() {
+            const expiresAt = sessionStorage.getItem(SESSION_EXPIRES_AT_KEY);
+            if (!expiresAt) {
+                // 세션 만료 시간이 없으면 로그인 페이지로 리다이렉트
+                clearSessionAndRedirect('세션이 만료되었습니다.');
+                return false;
+            }
+            
+            const now = Date.now();
+            const expiryTime = parseInt(expiresAt);
+            
+            if (now > expiryTime) {
+                // 세션이 만료됨
+                clearSessionAndRedirect('세션이 만료되었습니다. 다시 로그인해주세요.');
+                return false;
+            }
+            
+            // 세션이 유효하면 만료 시간 갱신 (활동 시 자동 연장)
+            setSessionExpiry(SESSION_TIMEOUT_MS);
+            return true;
+        }
+        
+        function clearSessionAndRedirect(message = '세션이 만료되었습니다.') {
+            // 모든 세션 데이터 제거
+            sessionStorage.clear();
+            // 로그인 페이지로 리다이렉트 (메시지 포함)
+            const redirectUrl = `/login?message=${encodeURIComponent(message)}`;
+            window.location.href = redirectUrl;
+        }
+        
         // 로그인 및 역할 확인
         const USER_ROLE = sessionStorage.getItem('user_role');
         const IS_SUPERADMIN = USER_ROLE !== 'owner' && sessionStorage.getItem('superadmin_logged_in') === 'true';
@@ -5593,7 +5647,80 @@ body:not(.owner-mode) .menu-section-title.owner-only {
 
         if (!IS_SUPERADMIN && !IS_STORE_OWNER) {
             window.location.href = '/login';
+        } else {
+            // 로그인된 경우 세션 만료 시간 확인
+            if (!checkSessionExpiry()) {
+                // 세션이 만료되었으면 이미 리다이렉트됨
+                return;
+            }
+            
+            // 세션 만료 시간 설정 (처음 로드 시)
+            if (!sessionStorage.getItem(SESSION_EXPIRES_AT_KEY)) {
+                setSessionExpiry(SESSION_TIMEOUT_MS);
+            }
         }
+        
+        // 주기적으로 세션 만료 체크 (1분마다)
+        setInterval(() => {
+            if (!checkSessionExpiry()) {
+                // 세션이 만료되었으면 리다이렉트됨
+            }
+        }, 60 * 1000); // 1분마다 체크
+        
+        // 네트워크 재연결 시 세션 확인
+        let wasOffline = false;
+        window.addEventListener('online', () => {
+            if (wasOffline) {
+                wasOffline = false;
+                console.log('✅ 네트워크 연결 복구됨, 세션 확인 중...');
+                // 네트워크 재연결 시 세션 확인
+                checkSessionWithHealthCheck();
+            }
+        });
+        
+        window.addEventListener('offline', () => {
+            wasOffline = true;
+            console.warn('⚠️ 네트워크 연결 끊김');
+        });
+        
+        // 세션 확인 헬스체크 (네트워크 재연결 시)
+        async function checkSessionWithHealthCheck() {
+            try {
+                // 간단한 헬스체크 API 호출로 세션 확인
+                const response = await fetch(`${API_BASE}/health`, {
+                    method: 'GET',
+                    signal: AbortSignal.timeout(5000) // 5초 타임아웃
+                });
+                
+                if (!response.ok) {
+                    // 헬스체크 실패 시 세션 확인
+                    if (response.status === 401 || response.status === 403) {
+                        clearSessionAndRedirect('세션이 만료되었습니다. 다시 로그인해주세요.');
+                        return false;
+                    }
+                }
+                
+                // 헬스체크 성공 시 세션 만료 시간 갱신
+                checkSessionExpiry();
+                return true;
+            } catch (error) {
+                // 네트워크 에러는 세션 만료가 아닐 수 있으므로 무시
+                console.warn('헬스체크 실패 (세션 확인 불가):', error);
+                // 하지만 세션 만료 시간은 체크
+                if (!checkSessionExpiry()) {
+                    return false;
+                }
+                return true;
+            }
+        }
+        
+        // 페이지 가시성 변경 시 세션 확인 (탭 전환 후 돌아올 때)
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                // 페이지가 다시 보일 때 세션 확인
+                checkSessionExpiry();
+            }
+        });
 
         if (IS_STORE_OWNER) {
             document.body.classList.add('owner-mode');
@@ -6113,12 +6240,21 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     }
                     
                     if (!response.ok) {
+                        // 401, 403 에러는 세션 만료로 간주
+                        if (response.status === 401 || response.status === 403) {
+                            clearSessionAndRedirect('세션이 만료되었습니다. 다시 로그인해주세요.');
+                            throw new Error('세션이 만료되었습니다.');
+                        }
+                        
                         const serverMessage = typeof payload === 'object'
                             ? payload?.error?.message || payload?.message || payload?.error
                             : null;
                         const fallbackMessage = `요청 처리 중 오류가 발생했습니다. (HTTP ${response.status})`;
                         throw new Error(serverMessage || fallbackMessage);
                     }
+                    
+                    // API 요청 성공 시 세션 만료 시간 갱신 (활동 시 자동 연장)
+                    checkSessionExpiry();
                         
                         // 로딩 바는 섹션 레벨에서 관리하므로 여기서는 숨기지 않음
                     
@@ -6135,11 +6271,23 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             // 타임아웃으로 인한 취소인 경우
                             if (attempt === retries) {
                                 console.warn('API 요청이 타임아웃되었습니다:', url);
-                                // 로딩 바는 섹션 레벨에서 관리하므로 여기서는 숨기지 않음
+                                // 네트워크 타임아웃은 세션 만료가 아니므로 계속 진행
+                                // 단, 세션 만료 시간은 갱신하지 않음 (네트워크 문제로 인한 실패)
                                 throw new Error('요청 시간이 초과되었습니다. 네트워크 연결을 확인해주세요.');
                             }
                             // 중간 시도에서 취소된 경우 (의도적인 취소일 수 있음)
                             console.debug(`API 요청 취소됨 (시도 ${attempt}/${retries}):`, url);
+                            continue;
+                        }
+                        
+                        // 네트워크 에러 (TypeError: Failed to fetch 등)
+                        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                            // 네트워크 연결 실패 - 세션 만료가 아닐 수 있으므로 재시도
+                            if (attempt === retries) {
+                                console.error('네트워크 연결 실패:', error);
+                                // 마지막 시도에서도 실패하면 네트워크 문제로 간주
+                                throw new Error('네트워크 연결에 실패했습니다. 연결 상태를 확인해주세요.');
+                            }
                             continue;
                         }
                         
