@@ -11661,87 +11661,46 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
         }
         
-        // 버전 배지 자동 업데이트 함수
-        async function updateVersionBadge() {
-            try {
-                // 캐시 방지를 위해 타임스탬프 추가
-                const timestamp = new Date().getTime();
-                const response = await fetch(`/api/version?t=${timestamp}`, {
-                    cache: 'no-cache',
-                    headers: {
-                        'Cache-Control': 'no-cache'
+        // 버전 배지 자동 업데이트 함수 (간단하고 확실하게)
+        function loadVersionBadge() {
+            fetch('/api/version')
+                .then(res => res.json())
+                .then(data => {
+                    const versionDisplay = document.getElementById('version-display');
+                    if (versionDisplay) {
+                        const versionText = data?.data?.versionWithBranch || `v${data?.data?.version || '1.0.0'}`;
+                        versionDisplay.innerText = versionText;
+                        console.log('✅ 버전 배지 업데이트 완료:', versionText);
+                    }
+                })
+                .catch(e => {
+                    console.error('❌ 버전 로드 실패:', e);
+                    const versionDisplay = document.getElementById('version-display');
+                    if (versionDisplay) {
+                        versionDisplay.innerText = '';
                     }
                 });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-                
-                const result = await response.json();
-                console.log('🔍 [DEBUG] 버전 API 응답:', result);
-                
-                const versionText = result?.data?.versionWithBranch || `v${result?.data?.version || '1.0.0'}`;
-                
-                // app-version-badge ID를 우선 사용
-                const versionBadge = document.getElementById('app-version-badge') || document.getElementById('versionBadge');
-                if (versionBadge) {
-                    versionBadge.textContent = versionText;
-                    console.log('✅ 버전 배지 업데이트 완료:', versionText);
-                } else {
-                    console.warn('⚠️ 버전 배지 요소를 찾을 수 없습니다. DOM을 확인하세요.');
-                    // 요소를 찾을 수 없으면 1초 후 재시도
-                    setTimeout(() => {
-                        const retryBadge = document.getElementById('app-version-badge') || document.getElementById('versionBadge');
-                        if (retryBadge) {
-                            retryBadge.textContent = versionText;
-                            console.log('✅ 버전 배지 재시도 성공:', versionText);
-                        }
-                    }, 1000);
-                }
-                
-                // 페이지 전체에서 version-badge 클래스를 가진 모든 요소 업데이트
-                const allVersionBadges = document.querySelectorAll('.version-badge:not(#app-version-badge):not(#versionBadge)');
-                allVersionBadges.forEach(badge => {
-                    badge.textContent = versionText;
-                });
-            } catch (error) {
-                console.error('❌ 버전 정보 업데이트 실패:', error);
-                console.error('❌ 에러 상세:', error.message, error.stack);
-                // 실패해도 기본값 유지
-                const versionBadge = document.getElementById('app-version-badge') || document.getElementById('versionBadge');
-                if (versionBadge) {
-                    versionBadge.textContent = 'v1.0.0';
-                }
-            }
         }
         
-        // DOM이 준비되면 즉시 버전 배지 업데이트 (여러 시점에서 실행 보장)
-        function initVersionBadge() {
-            // 짧은 지연을 두고 실행 (DOM 완전 준비 보장)
-            setTimeout(() => {
-                updateVersionBadge();
-            }, 100);
-        }
+        // 페이지 로드 시점에 버전 배지 업데이트 (DOMContentLoaded에서 실행)
+        document.addEventListener('DOMContentLoaded', function() {
+            loadVersionBadge();
+        });
         
-        if (document.readyState === 'loading') {
-            // DOM이 아직 로딩 중이면 DOMContentLoaded 이벤트 기다림
-            document.addEventListener('DOMContentLoaded', initVersionBadge);
-        } else {
-            // DOM이 이미 준비되었으면 즉시 실행
-            initVersionBadge();
+        // DOM이 이미 준비되었으면 즉시 실행
+        if (document.readyState !== 'loading') {
+            loadVersionBadge();
         }
         
         // window.onload에서도 한 번 더 실행 (확실하게)
         window.addEventListener('load', function() {
-            setTimeout(() => {
-                updateVersionBadge();
-            }, 200);
+            loadVersionBadge();
         });
         
-        // 스크립트가 실행되는 즉시에도 한 번 시도
-        setTimeout(() => {
-            updateVersionBadge();
-        }, 500);
+        // 기존 updateVersionBadge 함수 (호환성 유지 - 다른 곳에서 호출할 수 있음)
+        async function updateVersionBadge() {
+            loadVersionBadge();
+        }
         
         // 프로그래스바 숨기기 함수
         function hideProgressBar(imageType) {
