@@ -1100,6 +1100,14 @@ class APIRouter {
           filePath = path.join(publicPath, pathname.substring(1));
         }
       }
+      // /assets/uploads/ 경로 처리 (업로드된 이미지)
+      else if (pathname.startsWith('/assets/uploads/')) {
+        // /assets/uploads/storeId/filename 형식
+        const uploadsPath = pathname.substring('/assets/uploads/'.length);
+        filePath = path.join(__dirname, '../../assets/uploads', uploadsPath);
+        
+        log('INFO', '업로드된 이미지 요청', { pathname, filePath });
+      }
       // 기타 정적 파일
       else {
         filePath = path.join(publicPath, pathname.substring(1));
