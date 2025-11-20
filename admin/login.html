@@ -189,14 +189,28 @@
                         throw new Error('계정과 비밀번호를 입력해주세요.');
                     }
 
-                    response = await fetch(`${API_BASE}/admin/login`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                        body: JSON.stringify({ username, password }),
-                    mode: 'cors'
-                });
+                    // 로그인 요청에 타임아웃 설정
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30초 타임아웃
+                    
+                    try {
+                        response = await fetch(`${API_BASE}/admin/login`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ username, password }),
+                            mode: 'cors',
+                            signal: controller.signal
+                        });
+                        clearTimeout(timeoutId);
+                    } catch (fetchError) {
+                        clearTimeout(timeoutId);
+                        if (fetchError.name === 'AbortError') {
+                            throw new Error('요청 시간이 초과되었습니다. 네트워크 연결을 확인해주세요.');
+                        }
+                        throw fetchError;
+                    }
                 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -232,14 +246,28 @@
                         throw new Error('이메일과 비밀번호를 입력해주세요.');
                     }
 
-                    response = await fetch(`${API_BASE}/owners/login`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ email, password }),
-                        mode: 'cors'
-                    });
+                    // 로그인 요청에 타임아웃 설정
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30초 타임아웃
+                    
+                    try {
+                        response = await fetch(`${API_BASE}/owners/login`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ email, password }),
+                            mode: 'cors',
+                            signal: controller.signal
+                        });
+                        clearTimeout(timeoutId);
+                    } catch (fetchError) {
+                        clearTimeout(timeoutId);
+                        if (fetchError.name === 'AbortError') {
+                            throw new Error('요청 시간이 초과되었습니다. 네트워크 연결을 확인해주세요.');
+                        }
+                        throw fetchError;
+                    }
 
                     if (!response.ok) {
                         const errorText = await response.json().catch(() => ({}));
