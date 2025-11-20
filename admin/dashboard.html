@@ -4239,6 +4239,10 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                     UI 순서 변경
                 </div>
+                <div class="menu-item" onclick="showSection('ambassadors')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    엠버서더 관리
+                </div>
 
                 <div class="menu-section-title owner-only">사장님 전용</div>
                 <div class="menu-item owner-only" data-menu="owner-account" onclick="showSection('owner-account')">
@@ -4897,6 +4901,33 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         <div id="promoVideoMeta" style="display:none; margin-top: 12px; font-size: 13px; color: #4b5563;"></div>
                         <input type="file" id="promoVideo" class="file-input" accept="video/mp4,video/webm,video/ogg" onchange="handleVideoUpload('promoVideo', 'promoVideo')" style="display: none;">
                     </div>
+                </div>
+            </div>
+            <!-- 엠버서더 관리 -->
+            <div class="admin-section" id="ambassadors">
+                <h2 class="section-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    엠버서더 관리
+                </h2>
+                
+                <div style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-left: 4px solid #667eea; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 8px; color: #667eea; font-weight: 600; font-size: 14px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        엠버서더 정보를 등록하고 고유 링크를 생성하여 고객에게 공유하세요
+                    </div>
+                </div>
+                
+                <!-- 엠버서더 추가 버튼 -->
+                <div style="margin-bottom: 24px;">
+                    <button onclick="openAmbassadorModal()" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        엠버서더 추가
+                    </button>
+                </div>
+                
+                <!-- 엠버서더 목록 -->
+                <div id="ambassadorsList" class="ambassadors-list">
+                    <div class="loading-state">엠버서더 목록을 불러오는 중...</div>
                 </div>
             </div>
             <!-- 할인 · 픽업 안내 -->
@@ -12484,6 +12515,23 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     }
                     return;
                 }
+                
+                // 엠버서더 관리 섹션
+                if (sectionId === 'ambassadors') {
+                    // 가게 선택 확인
+                    const currentStoreId = getCurrentStoreId();
+                    if (!currentStoreId) {
+                        showStoreSelectionRequired();
+                        return;
+                    }
+                    
+                    // 엠버서더 목록 로드
+                    loadAmbassadors().catch(err => {
+                        console.error('엠버서더 목록 로드 실패:', err);
+                        showToast('엠버서더 목록을 불러오지 못했습니다.', 'error');
+                    });
+                    return;
+                }
             };
             
             // 데이터 로드 시작 (비동기, UI 전환 후)
@@ -15739,6 +15787,248 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 isLoading = false;
             }
         });
+
+        // ===== 엠버서더 관리 함수 =====
+        
+        // 엠버서더 목록 로드
+        async function loadAmbassadors() {
+            try {
+                const currentStoreId = getCurrentStoreId();
+                if (!currentStoreId) {
+                    document.getElementById('ambassadorsList').innerHTML = '<div class="loading-state">가게를 선택해주세요.</div>';
+                    return;
+                }
+                
+                const response = await apiRequest(`${API_BASE}/ambassadors?storeId=${currentStoreId}`, 'GET');
+                const ambassadors = response?.data || [];
+                
+                const listEl = document.getElementById('ambassadorsList');
+                if (!listEl) return;
+                
+                if (ambassadors.length === 0) {
+                    listEl.innerHTML = '<div class="loading-state">등록된 엠버서더가 없습니다. 엠버서더를 추가해주세요.</div>';
+                    return;
+                }
+                
+                listEl.innerHTML = ambassadors.map(amb => `
+                    <div class="ambassador-card" style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid #e5e7eb;">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
+                            <div style="flex: 1;">
+                                <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600; color: #1f2937;">${escapeHtml(amb.name || '이름 없음')}</h3>
+                                <div style="display: flex; flex-wrap: wrap; gap: 12px; font-size: 14px; color: #6b7280;">
+                                    ${amb.phone ? `<div>📞 ${escapeHtml(amb.phone)}</div>` : ''}
+                                    ${amb.email ? `<div>📧 ${escapeHtml(amb.email)}</div>` : ''}
+                                    ${amb.birthDate ? `<div>🎂 ${escapeHtml(amb.birthDate)}</div>` : ''}
+                                </div>
+                                ${amb.address ? `<div style="margin-top: 8px; font-size: 14px; color: #6b7280;">📍 ${escapeHtml(amb.address)}</div>` : ''}
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button onclick="openAmbassadorModal(${amb.id})" class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;">수정</button>
+                                <button onclick="deleteAmbassador(${amb.id})" class="btn btn-danger" style="padding: 8px 16px; font-size: 14px;">삭제</button>
+                            </div>
+                        </div>
+                        <div style="border-top: 1px solid #e5e7eb; padding-top: 16px; margin-top: 16px;">
+                            <div style="margin-bottom: 12px;">
+                                <label style="display: block; font-size: 12px; font-weight: 600; color: #6b7280; margin-bottom: 6px;">엠버서더 링크</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" id="ambassadorLink_${amb.id}" value="${window.location.origin}/ambassador/${amb.ambassadorKey}" readonly style="flex: 1; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; background: #f9fafb;">
+                                    <button onclick="copyAmbassadorLink(${amb.id})" class="btn btn-primary" style="padding: 8px 16px; font-size: 14px;">복사</button>
+                                </div>
+                            </div>
+                            <div style="font-size: 12px; color: #9ca3af;">
+                                ⚠️ 이 링크를 받은 사람은 전화번호를 입력해야 가게 페이지에 접근할 수 있습니다.
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('엠버서더 목록 로드 실패:', error);
+                const listEl = document.getElementById('ambassadorsList');
+                if (listEl) {
+                    listEl.innerHTML = '<div class="loading-state" style="color: #ef4444;">엠버서더 목록을 불러오지 못했습니다.</div>';
+                }
+                showToast('엠버서더 목록을 불러오지 못했습니다.', 'error');
+            }
+        }
+        
+        // 엠버서더 추가/수정 모달 열기
+        async function openAmbassadorModal(ambassadorId = null) {
+            const modal = document.getElementById('ambassadorModal');
+            if (!modal) {
+                // 모달이 없으면 생성
+                createAmbassadorModal();
+                openAmbassadorModal(ambassadorId);
+                return;
+            }
+            
+            // 기존 데이터 로드 (수정 모드인 경우)
+            if (ambassadorId) {
+                try {
+                    const currentStoreId = getCurrentStoreId();
+                    const response = await apiRequest(`${API_BASE}/ambassadors?storeId=${currentStoreId}`, 'GET');
+                    const ambassadors = response?.data || [];
+                    const ambassador = ambassadors.find(a => a.id === ambassadorId);
+                    
+                    if (ambassador) {
+                        document.getElementById('ambassadorName').value = ambassador.name || '';
+                        document.getElementById('ambassadorBirthDate').value = ambassador.birthDate || '';
+                        document.getElementById('ambassadorPhone').value = ambassador.phone || '';
+                        document.getElementById('ambassadorAddress').value = ambassador.address || '';
+                        document.getElementById('ambassadorEmail').value = ambassador.email || '';
+                        document.getElementById('ambassadorModal').dataset.ambassadorId = ambassadorId;
+                        document.getElementById('ambassadorModalTitle').textContent = '엠버서더 수정';
+                        document.getElementById('saveAmbassadorBtn').textContent = '수정';
+                    }
+                } catch (error) {
+                    console.error('엠버서더 정보 로드 실패:', error);
+                    showToast('엠버서더 정보를 불러오지 못했습니다.', 'error');
+                    return;
+                }
+            } else {
+                // 추가 모드
+                document.getElementById('ambassadorName').value = '';
+                document.getElementById('ambassadorBirthDate').value = '';
+                document.getElementById('ambassadorPhone').value = '';
+                document.getElementById('ambassadorAddress').value = '';
+                document.getElementById('ambassadorEmail').value = '';
+                document.getElementById('ambassadorModal').dataset.ambassadorId = '';
+                document.getElementById('ambassadorModalTitle').textContent = '엠버서더 추가';
+                document.getElementById('saveAmbassadorBtn').textContent = '저장';
+            }
+            
+            modal.style.display = 'flex';
+        }
+        
+        // 엠버서더 모달 생성
+        function createAmbassadorModal() {
+            const modal = document.createElement('div');
+            modal.id = 'ambassadorModal';
+            modal.className = 'modal';
+            modal.style.display = 'none';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 id="ambassadorModalTitle">엠버서더 추가</h3>
+                        <button class="modal-close" onclick="closeAmbassadorModal()">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="ambassadorName">이름 <span style="color: #ef4444;">*</span></label>
+                            <input type="text" id="ambassadorName" class="form-input" placeholder="엠버서더 이름을 입력하세요" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="ambassadorBirthDate">생년월일</label>
+                            <input type="date" id="ambassadorBirthDate" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label for="ambassadorPhone">전화번호</label>
+                            <input type="tel" id="ambassadorPhone" class="form-input" placeholder="010-1234-5678">
+                        </div>
+                        <div class="form-group">
+                            <label for="ambassadorEmail">이메일</label>
+                            <input type="email" id="ambassadorEmail" class="form-input" placeholder="example@email.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="ambassadorAddress">주소</label>
+                            <textarea id="ambassadorAddress" class="form-input" rows="2" placeholder="주소를 입력하세요"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="closeAmbassadorModal()">취소</button>
+                        <button id="saveAmbassadorBtn" class="btn btn-primary" onclick="saveAmbassador()">저장</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        
+        // 엠버서더 모달 닫기
+        function closeAmbassadorModal() {
+            const modal = document.getElementById('ambassadorModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        // 엠버서더 저장
+        async function saveAmbassador() {
+            try {
+                const currentStoreId = getCurrentStoreId();
+                if (!currentStoreId) {
+                    showToast('가게를 선택해주세요.', 'error');
+                    return;
+                }
+                
+                const modal = document.getElementById('ambassadorModal');
+                const ambassadorId = modal?.dataset?.ambassadorId || null;
+                
+                const name = document.getElementById('ambassadorName').value.trim();
+                if (!name) {
+                    showToast('이름을 입력해주세요.', 'error');
+                    return;
+                }
+                
+                const birthDate = document.getElementById('ambassadorBirthDate').value || null;
+                const phone = document.getElementById('ambassadorPhone').value.trim() || null;
+                const email = document.getElementById('ambassadorEmail').value.trim() || null;
+                const address = document.getElementById('ambassadorAddress').value.trim() || null;
+                
+                if (ambassadorId) {
+                    // 수정
+                    await apiRequest(`${API_BASE}/ambassadors/${ambassadorId}`, 'PUT', {
+                        name,
+                        birthDate,
+                        phone,
+                        email,
+                        address
+                    });
+                    showToast('엠버서더 정보가 수정되었습니다.', 'success');
+                } else {
+                    // 추가
+                    await apiRequest(`${API_BASE}/ambassadors`, 'POST', {
+                        storeId: currentStoreId,
+                        name,
+                        birthDate,
+                        phone,
+                        email,
+                        address
+                    });
+                    showToast('엠버서더가 추가되었습니다.', 'success');
+                }
+                
+                closeAmbassadorModal();
+                loadAmbassadors();
+            } catch (error) {
+                console.error('엠버서더 저장 실패:', error);
+                showToast(error.message || '엠버서더 저장에 실패했습니다.', 'error');
+            }
+        }
+        
+        // 엠버서더 삭제
+        async function deleteAmbassador(ambassadorId) {
+            if (!confirm('정말 이 엠버서더를 삭제하시겠습니까?')) {
+                return;
+            }
+            
+            try {
+                await apiRequest(`${API_BASE}/ambassadors/${ambassadorId}`, 'DELETE');
+                showToast('엠버서더가 삭제되었습니다.', 'success');
+                loadAmbassadors();
+            } catch (error) {
+                console.error('엠버서더 삭제 실패:', error);
+                showToast(error.message || '엠버서더 삭제에 실패했습니다.', 'error');
+            }
+        }
+        
+        // 엠버서더 링크 복사
+        function copyAmbassadorLink(ambassadorId) {
+            const linkInput = document.getElementById(`ambassadorLink_${ambassadorId}`);
+            if (!linkInput) return;
+            
+            linkInput.select();
+            document.execCommand('copy');
+            showToast('링크가 클립보드에 복사되었습니다.', 'success');
+        }
     </script>
 </body>
 </html>
