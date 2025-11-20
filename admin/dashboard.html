@@ -11922,7 +11922,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     }
                 };
                 
-                const response = await apiRequest(`${API_BASE}/settings?storeId=${currentStoreId}`, 'POST', updateData);
+                const response = await apiRequest(`${API_BASE}/store/${currentStoreId}/settings`, 'POST', updateData);
                     
                 
                 // 단계 3: 저장 완료 100% 표시
