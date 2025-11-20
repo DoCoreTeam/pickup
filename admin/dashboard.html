@@ -11424,13 +11424,10 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 }
                 
                 showToast(`${imageType === 'mainLogo' ? '로고' : '메뉴판'} 이미지가 업로드되어 저장되었습니다!`, 'success', '저장 완료');
-                } catch (error) {
-                    console.error('이미지 저장 오류:', error);
-                    showStatus('이미지 저장에 실패했습니다.', 'error');
-                }
-            };
-            
-            reader.readAsDataURL(file);
+            } catch (error) {
+                console.error('이미지 저장 오류:', error);
+                showStatus('이미지 저장에 실패했습니다.', 'error');
+            }
         }
 
         async function handleVideoUpload(inputId, videoType) {
