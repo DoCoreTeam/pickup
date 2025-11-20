@@ -642,7 +642,6 @@ class APIRouter {
     const parsedUrl = url.parse(req.url, true);
     const method = req.method;
     const pathname = parsedUrl.pathname;
-    const routeKey = `${method} ${pathname}`;
 
     try {
       // CORS 헤더 설정
@@ -655,25 +654,30 @@ class APIRouter {
         return;
       }
 
-      // 동적 API 라우트 처리
-      let handler = null;
+      // 정적 라우트 먼저 확인 (동적 라우트보다 우선)
+      const routeKey = `${method} ${pathname}`;
+      let handler = this.routes.get(routeKey);
       
-      if (pathname.startsWith('/api/ambassadors/')) {
-        const parts = pathname.split('/');
-        if (parts.length === 5 && parts[3] === 'key' && parts[4]) { // GET /api/ambassadors/key/:key
-          handler = (req, res, parsedUrl) => this.getAmbassadorByKey(req, res, parsedUrl);
-        } else if (parts.length === 4 && parts[3] && !parts[3].includes('?')) { // PUT/DELETE /api/ambassadors/:id
-          const ambassadorId = parseInt(parts[3], 10);
-          if (!isNaN(ambassadorId)) {
-            if (method === 'PUT') {
-              handler = (req, res, parsedUrl) => this.updateAmbassador(req, res, parsedUrl);
-            } else if (method === 'DELETE') {
-              handler = (req, res, parsedUrl) => this.deleteAmbassador(req, res, parsedUrl);
+      // 정적 라우트가 없으면 동적 라우트 처리
+      if (!handler) {
+        if (pathname.startsWith('/api/ambassadors/')) {
+          const parts = pathname.split('/');
+          // 정적 라우트는 이미 확인했으므로 동적 라우트만 처리
+          if (parts.length === 5 && parts[3] === 'key' && parts[4]) { // GET /api/ambassadors/key/:key
+            handler = (req, res, parsedUrl) => this.getAmbassadorByKey(req, res, parsedUrl);
+          } else if (parts.length === 4 && parts[3] && !parts[3].includes('?') && parts[3] !== 'visits' && parts[3] !== 'calls' && parts[3] !== 'stats') {
+            // PUT/DELETE /api/ambassadors/:id (visits, calls, stats는 정적 라우트로 처리됨)
+            const ambassadorId = parseInt(parts[3], 10);
+            if (!isNaN(ambassadorId)) {
+              if (method === 'PUT') {
+                handler = (req, res, parsedUrl) => this.updateAmbassador(req, res, parsedUrl);
+              } else if (method === 'DELETE') {
+                handler = (req, res, parsedUrl) => this.deleteAmbassador(req, res, parsedUrl);
+              }
             }
           }
-        }
-      } else if (pathname.startsWith('/api/stores/')) {
-        const parts = pathname.split('/');
+        } else if (pathname.startsWith('/api/stores/')) {
+          const parts = pathname.split('/');
         if (parts.length === 4 && parts[3]?.startsWith('bulk-')) {
           const bulkAction = parts[3];
           if (bulkAction === 'bulk-export' && method === 'GET') {
