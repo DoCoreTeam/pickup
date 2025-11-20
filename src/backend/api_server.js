@@ -117,9 +117,19 @@ function sendErrorResponse(res, statusCode, message) {
 function parseRequestBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
+    let bodySize = 0;
+    const maxSize = 50 * 1024 * 1024; // 50MB 제한
+    
     req.on('data', chunk => {
-      body += chunk.toString();
+      bodySize += chunk.length;
+      if (bodySize > maxSize) {
+        req.destroy();
+        reject(new Error('요청 본문이 너무 큽니다. 최대 50MB까지 허용됩니다.'));
+        return;
+      }
+      body += chunk.toString('utf8');
     });
+    
     req.on('end', () => {
       try {
         if (req.headers['content-type']?.includes('application/json')) {
@@ -131,6 +141,8 @@ function parseRequestBody(req) {
         reject(error);
       }
     });
+    
+    req.on('error', reject);
   });
 }
 
@@ -154,7 +166,16 @@ function parseMultipartFormData(req) {
     const boundaryBuffer = Buffer.from(`--${boundary}`);
 
     const chunks = [];
+    let totalSize = 0;
+    const maxSize = 50 * 1024 * 1024; // 50MB 제한
+    
     req.on('data', chunk => {
+      totalSize += chunk.length;
+      if (totalSize > maxSize) {
+        req.destroy();
+        reject(new Error('요청 본문이 너무 큽니다. 최대 50MB까지 허용됩니다.'));
+        return;
+      }
       chunks.push(chunk);
     });
 

@@ -11342,9 +11342,75 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
         }
 
-        // 이미지 파일 처리 (파일 업로드 방식)
+        // 이미지 압축 함수 (Canvas 사용)
+        async function compressImage(file, maxWidthOrHeight = 1920, maxSizeMB = 1) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        // Canvas 생성
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        // 크기 조정 (최대 크기 제한)
+                        if (width > maxWidthOrHeight || height > maxWidthOrHeight) {
+                            if (width > height) {
+                                height = (height * maxWidthOrHeight) / width;
+                                width = maxWidthOrHeight;
+                            } else {
+                                width = (width * maxWidthOrHeight) / height;
+                                height = maxWidthOrHeight;
+                            }
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        
+                        // 이미지 그리기 (고품질)
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // JPEG로 변환 (품질 조절)
+                        let quality = 0.9;
+                        const tryCompress = () => {
+                            canvas.toBlob((blob) => {
+                                const sizeMB = blob.size / (1024 * 1024);
+                                
+                                if (sizeMB > maxSizeMB && quality > 0.1) {
+                                    // 용량이 너무 크면 품질을 낮춰서 재시도
+                                    quality -= 0.1;
+                                    tryCompress();
+                                } else {
+                                    // File 객체로 변환
+                                    const compressedFile = new File([blob], file.name, {
+                                        type: 'image/jpeg',
+                                        lastModified: Date.now()
+                                    });
+                                    console.log('🔍 [DEBUG] 이미지 압축 완료:', {
+                                        originalSize: (file.size / (1024 * 1024)).toFixed(2) + 'MB',
+                                        compressedSize: (compressedFile.size / (1024 * 1024)).toFixed(2) + 'MB',
+                                        compressionRatio: ((1 - compressedFile.size / file.size) * 100).toFixed(1) + '%'
+                                    });
+                                    resolve(compressedFile);
+                                }
+                            }, 'image/jpeg', quality);
+                        };
+                        
+                        tryCompress();
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        // 이미지 파일 처리 (파일 업로드 방식 + 압축)
         async function processImageFile(file, imageType) {
-            console.log('🔍 [DEBUG] processImageFile 시작:', { file, imageType });
+            console.log('🔍 [DEBUG] processImageFile 시작:', { file, imageType, fileSize: (file.size / (1024 * 1024)).toFixed(2) + 'MB' });
             
             try {
                 const currentStoreId = await getCurrentStoreId();
@@ -11355,18 +11421,22 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     return;
                 }
                 
-                // 파일 크기 확인 (10MB 제한)
-                if (file.size > 10 * 1024 * 1024) {
-                    showStatus('이미지 파일 크기는 10MB 이하여야 합니다.', 'error');
+                // 파일 크기 확인 (50MB 제한 - 압축 전 원본 크기)
+                if (file.size > 50 * 1024 * 1024) {
+                    showStatus('이미지 파일 크기는 50MB 이하여야 합니다.', 'error');
                     return;
                 }
                 
+                // 이미지 압축 (최대 너비: 1920px, 최대 용량: 1MB)
+                showStatus('이미지를 압축하는 중...', 'info');
+                const compressedFile = await compressImage(file, 1920, 1);
+                
                 // FormData 생성 (multipart/form-data)
                 const formData = new FormData();
-                formData.append('image', file);
+                formData.append('image', compressedFile);
                 formData.append('imageType', imageType);
                 
-                console.log('🔍 [DEBUG] 이미지 업로드 시작:', { imageType, fileSize: file.size });
+                console.log('🔍 [DEBUG] 이미지 업로드 시작:', { imageType, originalSize: file.size, compressedSize: compressedFile.size });
                 
                 // 이미지 업로드 API 호출
                 const uploadResponse = await fetch(`${API_BASE}/store/${currentStoreId}/upload-image`, {
