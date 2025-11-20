@@ -658,6 +658,14 @@ class APIRouter {
       const routeKey = `${method} ${pathname}`;
       let handler = this.routes.get(routeKey);
       
+      // 엠버서더 관련 API는 상세 로깅
+      if (pathname.includes('/ambassadors/')) {
+        log('INFO', `엠버서더 API 라우팅 시도: ${routeKey}`, { 
+          hasStaticRoute: !!handler,
+          staticRoutes: Array.from(this.routes.keys()).filter(k => k.includes('ambassadors'))
+        });
+      }
+      
       // 정적 라우트가 없으면 동적 라우트 처리
       if (!handler) {
         if (pathname.startsWith('/api/ambassadors/')) {
@@ -939,6 +947,7 @@ class APIRouter {
 
       if (handler) {
         // API 핸들러 실행
+        log('INFO', `API 핸들러 실행 시작: ${method} ${pathname}`, { handler: handler.name || 'anonymous' });
         try {
           await handler(req, res, parsedUrl);
           const responseTime = Date.now() - startTime;
@@ -946,10 +955,11 @@ class APIRouter {
           if (responseTime > 500) {
             log('WARN', `느린 API 응답: ${method} ${pathname}`, { responseTime });
           }
+          log('INFO', `API 핸들러 실행 완료: ${method} ${pathname}`, { statusCode: res.statusCode || 200, responseTime });
           logRequest(method, pathname, res.statusCode || 200, responseTime);
         } catch (error) {
           const responseTime = Date.now() - startTime;
-          log('ERROR', `API 핸들러 실행 실패: ${method} ${pathname}`, { error: error.message, responseTime });
+          log('ERROR', `API 핸들러 실행 실패: ${method} ${pathname}`, { error: error.message, stack: error.stack, responseTime });
           if (!res.headersSent) {
             sendErrorResponse(res, 500, 'Internal Server Error');
           }

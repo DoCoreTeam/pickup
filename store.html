@@ -3166,11 +3166,14 @@
               callerPhone: visitorPhone.substring(0, 3) + '****'
             });
             // 비동기로 전화 연결 기록 (실제 연결 여부는 확인 불가, 버튼 클릭으로 추정)
-            apiRequest(`${API_BASE}/ambassadors/calls`, 'POST', {
-              ambassadorId: parseInt(ambassadorId, 10),
-              storeId: currentStoreId,
-              callerPhone: visitorPhone
-            }).then(response => {
+            apiRequest(`${API_BASE}/ambassadors/calls`, {
+              method: 'POST',
+              body: JSON.stringify({
+                ambassadorId: parseInt(ambassadorId, 10),
+                storeId: currentStoreId,
+                callerPhone: visitorPhone
+              })
+            }, false).then(response => { // showLoading: false
               console.log('[DEBUG] 전화 연결 기록 성공:', response);
             }).catch(err => {
               console.error('[DEBUG] 전화 연결 기록 실패:', {
@@ -3343,11 +3346,14 @@
             visitorPhone: visitorPhone.substring(0, 3) + '****'
           });
           try {
-            const visitResponse = await apiRequest(`${API_BASE}/ambassadors/visits`, 'POST', {
-              ambassadorId: ambassador.id,
-              storeId: ambassador.storeId,
-              visitorPhone: visitorPhone
-            }, 1, false, {}, 10000); // 타임아웃 10초, 재시도 1회
+            const visitResponse = await apiRequest(`${API_BASE}/ambassadors/visits`, {
+              method: 'POST',
+              body: JSON.stringify({
+                ambassadorId: ambassador.id,
+                storeId: ambassador.storeId,
+                visitorPhone: visitorPhone
+              })
+            }, false); // showLoading: false
             console.log('[DEBUG] 방문 기록 저장 성공:', visitResponse);
           } catch (error) {
             console.error('[DEBUG] 방문 기록 저장 실패:', {
