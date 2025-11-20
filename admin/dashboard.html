@@ -11386,52 +11386,44 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 if (!imageUrl) {
                     throw new Error('이미지 URL을 받지 못했습니다.');
                 }
-                    
-                    await apiRequest(`${API_BASE}/store/${currentStoreId}/settings`, 'POST', updatedSettings);
-                    
-                    // 캐시 무효화 (최신 데이터 반영)
-                    const cacheKey = `settings_${currentStoreId}`;
-                    if (window.sessionCache) {
-                        window.sessionCache.clear(cacheKey);
-                    }
-                    // 백엔드 캐시도 무효화
-                    if (window.dbServices && window.dbServices.clearCache) {
-                        window.dbServices.clearCache('storeSettings', currentStoreId);
-                    }
-                    
-                    // 현재 설정 업데이트 (즉시 반영)
-                    if (window.currentSettings) {
-                        window.currentSettings.images = window.currentSettings.images || {};
-                        window.currentSettings.images[imageType] = imageData;
-                    } else {
-                        window.currentSettings = updatedSettings;
-                    }
-                    
-                    // 이미지 미리보기 업데이트
-                    updateImagePreview(imageType, imageData);
-                    
-                    // 설정 가이드 자동 갱신
-                    await refreshSetupGuideIfVisible();
-                    
-                    // 사이드바 즉시 업데이트 (로고 변경 시 바로 반영)
-                    if (imageType === 'mainLogo') {
-                        // 즉시 사이드바 로고 업데이트 (API 호출 없이 현재 이미지 데이터 사용)
-                        const logoElement = document.getElementById('selectedStoreLogo');
-                        if (logoElement) {
-                            const logoImg = logoElement.querySelector('.store-logo-img');
-                            if (logoImg) {
-                                logoImg.src = imageData;
-                                logoImg.alt = `${document.getElementById('selectedStoreName')?.textContent || '가게'} 로고`;
-                            }
+                
+                // 캐시 무효화 (최신 데이터 반영)
+                const cacheKey = `settings_${currentStoreId}`;
+                if (window.sessionCache) {
+                    window.sessionCache.clear(cacheKey);
+                }
+                
+                // 현재 설정 업데이트 (즉시 반영)
+                if (window.currentSettings) {
+                    window.currentSettings.images = window.currentSettings.images || {};
+                    window.currentSettings.images[imageType] = imageUrl;
+                }
+                
+                // 이미지 미리보기 업데이트
+                updateImagePreview(imageType, imageUrl);
+                
+                // 설정 가이드 자동 갱신
+                await refreshSetupGuideIfVisible();
+                
+                // 사이드바 즉시 업데이트 (로고 변경 시 바로 반영)
+                if (imageType === 'mainLogo') {
+                    // 즉시 사이드바 로고 업데이트
+                    const logoElement = document.getElementById('selectedStoreLogo');
+                    if (logoElement) {
+                        const logoImg = logoElement.querySelector('.store-logo-img');
+                        if (logoImg) {
+                            logoImg.src = imageUrl;
+                            logoImg.alt = `${document.getElementById('selectedStoreName')?.textContent || '가게'} 로고`;
                         }
-                        
-                        // 백그라운드에서 최신 데이터로 사이드바 업데이트 (최신 상태 유지)
-                        updateSelectedStoreCard(currentStoreId).catch(err => 
-                            console.warn('사이드바 업데이트 실패 (백그라운드):', err)
-                        );
                     }
                     
-                    showToast(`${imageType === 'mainLogo' ? '로고' : '메뉴판'} 이미지가 업로드되어 저장되었습니다!`, 'success', '저장 완료');
+                    // 백그라운드에서 최신 데이터로 사이드바 업데이트 (최신 상태 유지)
+                    updateSelectedStoreCard(currentStoreId).catch(err => 
+                        console.warn('사이드바 업데이트 실패 (백그라운드):', err)
+                    );
+                }
+                
+                showToast(`${imageType === 'mainLogo' ? '로고' : '메뉴판'} 이미지가 업로드되어 저장되었습니다!`, 'success', '저장 완료');
                 } catch (error) {
                     console.error('이미지 저장 오류:', error);
                     showStatus('이미지 저장에 실패했습니다.', 'error');
