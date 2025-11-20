@@ -1132,8 +1132,9 @@ class APIRouter {
         });
       }
       
-      // 보안을 위해 상위 디렉토리 접근 방지
-      if (!filePath.startsWith(publicPath)) {
+      // 보안을 위해 상위 디렉토리 접근 방지 (업로드된 이미지는 예외)
+      const uploadsBasePath = path.join(__dirname, '../../assets/uploads');
+      if (!filePath.startsWith(publicPath) && !filePath.startsWith(uploadsBasePath)) {
         logRequest(method, pathname, 403);
         sendErrorResponse(res, 403, 'Forbidden');
         return;
