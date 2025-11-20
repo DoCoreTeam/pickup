@@ -3068,6 +3068,24 @@ async function getAmbassadors(storeId, options = {}) {
   }));
 }
 
+// 엠버서더 ID로 가게 ID 조회 (권한 확인용)
+async function getAmbassadorStoreId(ambassadorId) {
+  if (!ambassadorId) {
+    return null;
+  }
+  
+  const result = await db.query(
+    'SELECT store_id FROM store_ambassadors WHERE id = $1 LIMIT 1',
+    [ambassadorId]
+  );
+  
+  if (result.rows.length === 0) {
+    return null;
+  }
+  
+  return result.rows[0].store_id;
+}
+
 // 키로 엠버서더 조회
 async function getAmbassadorByKey(ambassadorKey) {
   if (!ambassadorKey) {
@@ -3251,37 +3269,51 @@ async function logAmbassadorCall(ambassadorId, storeId, callerPhone, userAgent =
 async function getAmbassadorStats(storeId = null, ambassadorId = null, options = {}) {
   const { startDate = null, endDate = null } = options;
   
-  let storeFilter = '';
-  let ambassadorFilter = '';
-  let dateFilter = '';
   const params = [];
+  const conditions = [];
   let paramIndex = 1;
   
+  // WHERE 조건 생성
   if (storeId) {
-    storeFilter = `WHERE a.store_id = $${paramIndex++}`;
+    conditions.push(`a.store_id = $${paramIndex++}`);
     params.push(storeId);
   }
   
   if (ambassadorId) {
-    ambassadorFilter = storeFilter ? ` AND a.id = $${paramIndex++}` : `WHERE a.id = $${paramIndex++}`;
+    conditions.push(`a.id = $${paramIndex++}`);
     params.push(ambassadorId);
   }
   
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  
+  // 날짜 필터 조건 (JOIN 조건에 추가)
+  let visitDateFilter = '';
+  let callDateFilter = '';
+  
   if (startDate || endDate) {
-    const dateClause = storeFilter || ambassadorFilter ? ' AND' : 'WHERE';
-    if (startDate && endDate) {
-      dateFilter = `${dateClause} (v.visited_at >= $${paramIndex++} OR c.called_at >= $${paramIndex}) 
-                     AND (v.visited_at <= $${paramIndex + 1} OR c.called_at <= $${paramIndex + 1})`;
-      params.push(startDate, endDate);
-      paramIndex += 2;
-    } else if (startDate) {
-      dateFilter = `${dateClause} (v.visited_at >= $${paramIndex++} OR c.called_at >= $${paramIndex})`;
+    const visitConditions = [];
+    const callConditions = [];
+    
+    if (startDate) {
+      visitConditions.push(`v.visited_at >= $${paramIndex}`);
+      callConditions.push(`c.called_at >= $${paramIndex}`);
       params.push(startDate);
       paramIndex++;
-    } else if (endDate) {
-      dateFilter = `${dateClause} (v.visited_at <= $${paramIndex++} OR c.called_at <= $${paramIndex})`;
+    }
+    
+    if (endDate) {
+      visitConditions.push(`v.visited_at <= $${paramIndex}`);
+      callConditions.push(`c.called_at <= $${paramIndex}`);
       params.push(endDate);
       paramIndex++;
+    }
+    
+    if (visitConditions.length > 0) {
+      visitDateFilter = ` AND ${visitConditions.join(' AND ')}`;
+    }
+    
+    if (callConditions.length > 0) {
+      callDateFilter = ` AND ${callConditions.join(' AND ')}`;
     }
   }
   
@@ -3297,9 +3329,9 @@ async function getAmbassadorStats(storeId = null, ambassadorId = null, options =
       COUNT(DISTINCT v.visitor_phone) AS unique_visitors,
       COUNT(DISTINCT c.caller_phone) AS unique_callers
     FROM store_ambassadors a
-    LEFT JOIN ambassador_visits v ON v.ambassador_id = a.id ${dateFilter ? `AND (v.visited_at >= '${startDate || '1970-01-01'}' AND v.visited_at <= '${endDate || '9999-12-31'}')` : ''}
-    LEFT JOIN ambassador_call_logs c ON c.ambassador_id = a.id ${dateFilter ? `AND (c.called_at >= '${startDate || '1970-01-01'}' AND c.called_at <= '${endDate || '9999-12-31'}')` : ''}
-    ${storeFilter}${ambassadorFilter}
+    LEFT JOIN ambassador_visits v ON v.ambassador_id = a.id${visitDateFilter}
+    LEFT JOIN ambassador_call_logs c ON c.ambassador_id = a.id${callDateFilter}
+    ${whereClause}
     GROUP BY a.id, a.name, a.ambassador_key, a.store_id
     ORDER BY a.created_at DESC
   `;
@@ -3307,6 +3339,53 @@ async function getAmbassadorStats(storeId = null, ambassadorId = null, options =
   const statsResult = await db.query(statsQuery, params);
   
   // 전화번호별 통계 (어떤 엠버서더를 통해 방문/전화했는지)
+  // 날짜 파라미터 재사용을 위해 파라미터 인덱스 재설정
+  const phoneParams = [];
+  const phoneConditions = [];
+  let phoneParamIndex = 1;
+  
+  if (storeId) {
+    phoneConditions.push(`a.store_id = $${phoneParamIndex++}`);
+    phoneParams.push(storeId);
+  }
+  
+  if (ambassadorId) {
+    phoneConditions.push(`a.id = $${phoneParamIndex++}`);
+    phoneParams.push(ambassadorId);
+  }
+  
+  const phoneWhereClause = phoneConditions.length > 0 ? `WHERE ${phoneConditions.join(' AND ')}` : '';
+  
+  let phoneVisitDateFilter = '';
+  let phoneCallDateFilter = '';
+  
+  if (startDate || endDate) {
+    const visitConditions = [];
+    const callConditions = [];
+    
+    if (startDate) {
+      visitConditions.push(`v.visited_at >= $${phoneParamIndex}`);
+      callConditions.push(`c.called_at >= $${phoneParamIndex}`);
+      phoneParams.push(startDate);
+      phoneParamIndex++;
+    }
+    
+    if (endDate) {
+      visitConditions.push(`v.visited_at <= $${phoneParamIndex}`);
+      callConditions.push(`c.called_at <= $${phoneParamIndex}`);
+      phoneParams.push(endDate);
+      phoneParamIndex++;
+    }
+    
+    if (visitConditions.length > 0) {
+      phoneVisitDateFilter = ` AND ${visitConditions.join(' AND ')}`;
+    }
+    
+    if (callConditions.length > 0) {
+      phoneCallDateFilter = ` AND ${callConditions.join(' AND ')}`;
+    }
+  }
+  
   const phoneStatsQuery = `
     SELECT 
       COALESCE(v.visitor_phone, c.caller_phone) AS phone,
@@ -3316,15 +3395,15 @@ async function getAmbassadorStats(storeId = null, ambassadorId = null, options =
       COUNT(DISTINCT c.id) AS call_count,
       MAX(COALESCE(v.visited_at, c.called_at)) AS last_activity
     FROM store_ambassadors a
-    LEFT JOIN ambassador_visits v ON v.ambassador_id = a.id ${dateFilter ? `AND (v.visited_at >= '${startDate || '1970-01-01'}' AND v.visited_at <= '${endDate || '9999-12-31'}')` : ''}
-    LEFT JOIN ambassador_call_logs c ON c.ambassador_id = a.id ${dateFilter ? `AND (c.called_at >= '${startDate || '1970-01-01'}' AND c.called_at <= '${endDate || '9999-12-31'}')` : ''}
-    ${storeFilter}${ambassadorFilter}
+    LEFT JOIN ambassador_visits v ON v.ambassador_id = a.id${phoneVisitDateFilter}
+    LEFT JOIN ambassador_call_logs c ON c.ambassador_id = a.id${phoneCallDateFilter}
+    ${phoneWhereClause}
     WHERE (v.visitor_phone IS NOT NULL OR c.caller_phone IS NOT NULL)
     GROUP BY phone, a.id, a.name
     ORDER BY last_activity DESC
   `;
   
-  const phoneStatsResult = await db.query(phoneStatsQuery, params);
+  const phoneStatsResult = await db.query(phoneStatsQuery, phoneParams);
   
   return {
     ambassadors: statsResult.rows.map(row => ({
@@ -4528,5 +4607,6 @@ module.exports = {
   deleteAmbassador,
   logAmbassadorVisit,
   logAmbassadorCall,
-  getAmbassadorStats
+  getAmbassadorStats,
+  getAmbassadorStoreId
 };

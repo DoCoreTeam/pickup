@@ -527,6 +527,24 @@ class APIRouter {
     // GET /api/users/ - 가게별 사용자 조회 (동적 라우팅)
     this.routes.set('GET /api/users/', this.getUsersByStore.bind(this));
     
+    // 엠버서더 관련 API
+    // GET /api/ambassadors - 엠버서더 목록 조회 (점주용)
+    this.routes.set('GET /api/ambassadors', this.getAmbassadors.bind(this));
+    // GET /api/ambassadors/stats - 통계 조회 (점주/슈퍼어드민)
+    this.routes.set('GET /api/ambassadors/stats', this.getAmbassadorStats.bind(this));
+    // GET /api/ambassadors/key/:key - 키로 엠버서더 조회 (공개, 가게 페이지용)
+    this.routes.set('GET /api/ambassadors/key/:key', this.getAmbassadorByKey.bind(this));
+    // POST /api/ambassadors - 엠버서더 생성
+    this.routes.set('POST /api/ambassadors', this.createAmbassador.bind(this));
+    // PUT /api/ambassadors/:id - 엠버서더 수정
+    this.routes.set('PUT /api/ambassadors/:id', this.updateAmbassador.bind(this));
+    // DELETE /api/ambassadors/:id - 엠버서더 삭제
+    this.routes.set('DELETE /api/ambassadors/:id', this.deleteAmbassador.bind(this));
+    // POST /api/ambassadors/visits - 방문 기록
+    this.routes.set('POST /api/ambassadors/visits', this.logAmbassadorVisit.bind(this));
+    // POST /api/ambassadors/calls - 전화 연결 기록
+    this.routes.set('POST /api/ambassadors/calls', this.logAmbassadorCall.bind(this));
+    
     // 점주 계정 및 입점 요청
     this.routes.set('POST /api/owners/request', this.requestOwnerAccount.bind(this));
     this.routes.set('GET /api/owners', this.getOwnerAccounts.bind(this));
@@ -640,7 +658,21 @@ class APIRouter {
       // 동적 API 라우트 처리
       let handler = null;
       
-      if (pathname.startsWith('/api/stores/')) {
+      if (pathname.startsWith('/api/ambassadors/')) {
+        const parts = pathname.split('/');
+        if (parts.length === 5 && parts[3] === 'key' && parts[4]) { // GET /api/ambassadors/key/:key
+          handler = (req, res, parsedUrl) => this.getAmbassadorByKey(req, res, parsedUrl);
+        } else if (parts.length === 4 && parts[3] && !parts[3].includes('?')) { // PUT/DELETE /api/ambassadors/:id
+          const ambassadorId = parseInt(parts[3], 10);
+          if (!isNaN(ambassadorId)) {
+            if (method === 'PUT') {
+              handler = (req, res, parsedUrl) => this.updateAmbassador(req, res, parsedUrl);
+            } else if (method === 'DELETE') {
+              handler = (req, res, parsedUrl) => this.deleteAmbassador(req, res, parsedUrl);
+            }
+          }
+        }
+      } else if (pathname.startsWith('/api/stores/')) {
         const parts = pathname.split('/');
         if (parts.length === 4 && parts[3]?.startsWith('bulk-')) {
           const bulkAction = parts[3];
@@ -4488,6 +4520,352 @@ class APIRouter {
     } catch (error) {
       log('ERROR', '점주 계정 재개 실패', error);
       sendErrorResponse(res, 500, error.message || '계정 재개에 실패했습니다.');
+    }
+  }
+
+  // ===== 엠버서더 관련 API 핸들러 =====
+  
+  // 엠버서더 목록 조회
+  async getAmbassadors(req, res, parsedUrl) {
+    if (this.dbConnected && !this.dbConnected()) {
+      sendErrorResponse(res, 503, '데이터베이스 연결이 실패했습니다.');
+      return;
+    }
+    
+    try {
+      const query = parsedUrl.query || {};
+      const storeId = query.storeId || '';
+      
+      if (!storeId) {
+        sendErrorResponse(res, 400, '가게 ID가 필요합니다.');
+        return;
+      }
+      
+      const status = query.status || null;
+      const ambassadors = await dbServices.getAmbassadors(storeId, { status });
+      
+      sendJsonResponse(res, 200, {
+        success: true,
+        data: ambassadors
+      });
+    } catch (error) {
+      log('ERROR', '엠버서더 목록 조회 실패', error);
+      sendErrorResponse(res, 500, error.message || '엠버서더 목록 조회에 실패했습니다.');
+    }
+  }
+  
+  // 엠버서더 통계 조회
+  async getAmbassadorStats(req, res, parsedUrl) {
+    if (this.dbConnected && !this.dbConnected()) {
+      sendErrorResponse(res, 503, '데이터베이스 연결이 실패했습니다.');
+      return;
+    }
+    
+    try {
+      const query = parsedUrl.query || {};
+      const storeId = query.storeId || null;
+      const ambassadorId = query.ambassadorId || null;
+      const startDate = query.startDate || null;
+      const endDate = query.endDate || null;
+      
+      // 권한 확인 (점주는 자신의 가게만 조회 가능)
+      const cookies = parseCookies(req.headers.cookie || '');
+      const isSuperAdmin = cookies.is_superadmin === 'true';
+      const requestOwnerId = cookies.owner_id || req.headers['x-owner-id'] || null;
+      
+      // 점주 계정이고 storeId가 없으면 에러
+      if (!isSuperAdmin && !storeId) {
+        sendErrorResponse(res, 400, '가게 ID가 필요합니다.');
+        return;
+      }
+      
+      // 점주 계정인 경우 자신의 가게인지 확인
+      if (!isSuperAdmin && requestOwnerId && storeId) {
+        const ownerStores = await dbServices.getStoresByOwner(requestOwnerId);
+        const hasAccess = ownerStores.some(store => store.id === storeId);
+        if (!hasAccess) {
+          sendErrorResponse(res, 403, '접근 권한이 없습니다.');
+          return;
+        }
+      }
+      
+      const stats = await dbServices.getAmbassadorStats(storeId, ambassadorId, {
+        startDate,
+        endDate
+      });
+      
+      sendJsonResponse(res, 200, {
+        success: true,
+        data: stats
+      });
+    } catch (error) {
+      log('ERROR', '엠버서더 통계 조회 실패', error);
+      sendErrorResponse(res, 500, error.message || '엠버서더 통계 조회에 실패했습니다.');
+    }
+  }
+  
+  // 키로 엠버서더 조회 (공개, 가게 페이지용)
+  async getAmbassadorByKey(req, res, parsedUrl) {
+    if (this.dbConnected && !this.dbConnected()) {
+      sendErrorResponse(res, 503, '데이터베이스 연결이 실패했습니다.');
+      return;
+    }
+    
+    try {
+      // URL 파라미터에서 키 추출 (/api/ambassadors/key/:key)
+      const parts = parsedUrl.pathname.split('/');
+      const key = parts[parts.length - 1]?.split('?')[0]; // 쿼리 파라미터 제거
+      
+      if (!key) {
+        sendErrorResponse(res, 400, '엠버서더 키가 필요합니다.');
+        return;
+      }
+      
+      const ambassador = await dbServices.getAmbassadorByKey(key);
+      
+      if (!ambassador) {
+        sendErrorResponse(res, 404, '엠버서더를 찾을 수 없습니다.');
+        return;
+      }
+      
+      sendJsonResponse(res, 200, {
+        success: true,
+        data: ambassador
+      });
+    } catch (error) {
+      log('ERROR', '엠버서더 조회 실패', error);
+      sendErrorResponse(res, 500, error.message || '엠버서더 조회에 실패했습니다.');
+    }
+  }
+  
+  // 엠버서더 생성
+  async createAmbassador(req, res, parsedUrl) {
+    if (this.dbConnected && !this.dbConnected()) {
+      sendErrorResponse(res, 503, '데이터베이스 연결이 실패했습니다.');
+      return;
+    }
+    
+    try {
+      const body = await parseRequestBody(req);
+      const { storeId, name, birthDate, phone, address, email } = body || {};
+      
+      if (!storeId) {
+        sendErrorResponse(res, 400, '가게 ID가 필요합니다.');
+        return;
+      }
+      
+      if (!name || !name.trim()) {
+        sendErrorResponse(res, 400, '엠버서더 이름은 필수입니다.');
+        return;
+      }
+      
+      // 권한 확인 (점주는 자신의 가게만 생성 가능)
+      const cookies = parseCookies(req.headers.cookie || '');
+      const isSuperAdmin = cookies.is_superadmin === 'true';
+      const requestOwnerId = cookies.owner_id || req.headers['x-owner-id'] || null;
+      
+      if (!isSuperAdmin && requestOwnerId) {
+        const ownerStores = await dbServices.getStoresByOwner(requestOwnerId);
+        const hasAccess = ownerStores.some(store => store.id === storeId);
+        if (!hasAccess) {
+          sendErrorResponse(res, 403, '접근 권한이 없습니다.');
+          return;
+        }
+      }
+      
+      const ambassador = await dbServices.createAmbassador(storeId, {
+        name,
+        birthDate,
+        phone,
+        address,
+        email
+      });
+      
+      sendJsonResponse(res, 201, {
+        success: true,
+        data: ambassador,
+        message: '엠버서더가 생성되었습니다.'
+      });
+    } catch (error) {
+      log('ERROR', '엠버서더 생성 실패', error);
+      sendErrorResponse(res, 500, error.message || '엠버서더 생성에 실패했습니다.');
+    }
+  }
+  
+  // 엠버서더 수정
+  async updateAmbassador(req, res, parsedUrl) {
+    if (this.dbConnected && !this.dbConnected()) {
+      sendErrorResponse(res, 503, '데이터베이스 연결이 실패했습니다.');
+      return;
+    }
+    
+    try {
+      const parts = parsedUrl.pathname.split('/');
+      const ambassadorId = parseInt(parts[parts.length - 1], 10);
+      
+      if (!ambassadorId || isNaN(ambassadorId)) {
+        sendErrorResponse(res, 400, '엠버서더 ID가 필요합니다.');
+        return;
+      }
+      
+      const body = await parseRequestBody(req);
+      const { name, birthDate, phone, address, email, status } = body || {};
+      
+      // 권한 확인 (점주는 자신의 가게 엠버서더만 수정 가능)
+      const cookies = parseCookies(req.headers.cookie || '');
+      const isSuperAdmin = cookies.is_superadmin === 'true';
+      const requestOwnerId = cookies.owner_id || req.headers['x-owner-id'] || null;
+      
+      if (!isSuperAdmin && requestOwnerId) {
+        // 엠버서더의 가게 ID 확인
+        const ambassadorStoreId = await dbServices.getAmbassadorStoreId(ambassadorId);
+        if (!ambassadorStoreId) {
+          sendErrorResponse(res, 404, '엠버서더를 찾을 수 없습니다.');
+          return;
+        }
+        
+        const ownerStores = await dbServices.getStoresByOwner(requestOwnerId);
+        const hasAccess = ownerStores.some(store => store.id === ambassadorStoreId);
+        if (!hasAccess) {
+          sendErrorResponse(res, 403, '접근 권한이 없습니다.');
+          return;
+        }
+      }
+      
+      const ambassador = await dbServices.updateAmbassador(ambassadorId, {
+        name,
+        birthDate,
+        phone,
+        address,
+        email,
+        status
+      });
+      
+      sendJsonResponse(res, 200, {
+        success: true,
+        data: ambassador,
+        message: '엠버서더 정보가 수정되었습니다.'
+      });
+    } catch (error) {
+      log('ERROR', '엠버서더 수정 실패', error);
+      sendErrorResponse(res, 500, error.message || '엠버서더 수정에 실패했습니다.');
+    }
+  }
+  
+  // 엠버서더 삭제
+  async deleteAmbassador(req, res, parsedUrl) {
+    if (this.dbConnected && !this.dbConnected()) {
+      sendErrorResponse(res, 503, '데이터베이스 연결이 실패했습니다.');
+      return;
+    }
+    
+    try {
+      const parts = parsedUrl.pathname.split('/');
+      const ambassadorId = parseInt(parts[parts.length - 1], 10);
+      
+      if (!ambassadorId || isNaN(ambassadorId)) {
+        sendErrorResponse(res, 400, '엠버서더 ID가 필요합니다.');
+        return;
+      }
+      
+      // 권한 확인 (점주는 자신의 가게 엠버서더만 삭제 가능)
+      const cookies = parseCookies(req.headers.cookie || '');
+      const isSuperAdmin = cookies.is_superadmin === 'true';
+      const requestOwnerId = cookies.owner_id || req.headers['x-owner-id'] || null;
+      
+      if (!isSuperAdmin && requestOwnerId) {
+        // 엠버서더의 가게 ID 확인
+        const ambassadorStoreId = await dbServices.getAmbassadorStoreId(ambassadorId);
+        if (!ambassadorStoreId) {
+          sendErrorResponse(res, 404, '엠버서더를 찾을 수 없습니다.');
+          return;
+        }
+        
+        const ownerStores = await dbServices.getStoresByOwner(requestOwnerId);
+        const hasAccess = ownerStores.some(store => store.id === ambassadorStoreId);
+        if (!hasAccess) {
+          sendErrorResponse(res, 403, '접근 권한이 없습니다.');
+          return;
+        }
+      }
+      
+      await dbServices.deleteAmbassador(ambassadorId);
+      
+      sendJsonResponse(res, 200, {
+        success: true,
+        message: '엠버서더가 삭제되었습니다.'
+      });
+    } catch (error) {
+      log('ERROR', '엠버서더 삭제 실패', error);
+      sendErrorResponse(res, 500, error.message || '엠버서더 삭제에 실패했습니다.');
+    }
+  }
+  
+  // 엠버서더 방문 기록
+  async logAmbassadorVisit(req, res, parsedUrl) {
+    if (this.dbConnected && !this.dbConnected()) {
+      sendErrorResponse(res, 503, '데이터베이스 연결이 실패했습니다.');
+      return;
+    }
+    
+    try {
+      const body = await parseRequestBody(req);
+      const { ambassadorId, storeId, visitorPhone } = body || {};
+      
+      if (!ambassadorId || !storeId || !visitorPhone) {
+        sendErrorResponse(res, 400, '필수 정보가 누락되었습니다.');
+        return;
+      }
+      
+      const userAgent = req.headers['user-agent'] || '';
+      const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+                       req.connection?.remoteAddress || 
+                       req.socket?.remoteAddress || 
+                       '';
+      
+      await dbServices.logAmbassadorVisit(ambassadorId, storeId, visitorPhone, userAgent, ipAddress);
+      
+      sendJsonResponse(res, 201, {
+        success: true,
+        message: '방문 기록이 저장되었습니다.'
+      });
+    } catch (error) {
+      log('ERROR', '엠버서더 방문 기록 실패', error);
+      sendErrorResponse(res, 500, error.message || '방문 기록 저장에 실패했습니다.');
+    }
+  }
+  
+  // 엠버서더 전화 연결 기록
+  async logAmbassadorCall(req, res, parsedUrl) {
+    if (this.dbConnected && !this.dbConnected()) {
+      sendErrorResponse(res, 503, '데이터베이스 연결이 실패했습니다.');
+      return;
+    }
+    
+    try {
+      const body = await parseRequestBody(req);
+      const { ambassadorId, storeId, callerPhone } = body || {};
+      
+      if (!ambassadorId || !storeId || !callerPhone) {
+        sendErrorResponse(res, 400, '필수 정보가 누락되었습니다.');
+        return;
+      }
+      
+      const userAgent = req.headers['user-agent'] || '';
+      const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+                       req.connection?.remoteAddress || 
+                       req.socket?.remoteAddress || 
+                       '';
+      
+      await dbServices.logAmbassadorCall(ambassadorId, storeId, callerPhone, userAgent, ipAddress);
+      
+      sendJsonResponse(res, 201, {
+        success: true,
+        message: '전화 연결 기록이 저장되었습니다.'
+      });
+    } catch (error) {
+      log('ERROR', '엠버서더 전화 연결 기록 실패', error);
+      sendErrorResponse(res, 500, error.message || '전화 연결 기록 저장에 실패했습니다.');
     }
   }
 
