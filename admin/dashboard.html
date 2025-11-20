@@ -3088,6 +3088,47 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             display: none;
         }
 
+        /* 이미지 업로드 프로그래스바 스타일 */
+        .upload-progress {
+            margin-top: 12px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .upload-progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .upload-progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            transition: width 0.3s ease, background 0.3s ease;
+        }
+
+        .upload-progress.error .upload-progress-fill {
+            background: linear-gradient(90deg, #dc2626 0%, #b91c1c 100%);
+        }
+
+        .upload-progress-text {
+            font-size: 13px;
+            color: #4b5563;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .upload-progress.error .upload-progress-text {
+            color: #dc2626;
+        }
+
         /* 배달앱 그리드 설정 스타일 */
         .delivery-grid-section {
             background: white;
@@ -4868,6 +4909,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         <img id="mainLogoPreview" class="current-image" style="display: none;">
                         <input type="file" id="mainLogo" class="file-input" accept="image/*" onchange="handleImageUpload('mainLogo', 'mainLogo')">
                     </div>
+                    <!-- 프로그래스바 (메인 로고) -->
+                    <div id="mainLogoProgress" class="upload-progress" style="display: none;">
+                        <div class="upload-progress-bar">
+                            <div class="upload-progress-fill" id="mainLogoProgressFill"></div>
+                        </div>
+                        <div class="upload-progress-text" id="mainLogoProgressText">이미지 압축 중...</div>
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -4879,6 +4927,13 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                         </div>
                         <img id="menuImagePreview" class="current-image" style="display: none;">
                         <input type="file" id="menuImage" class="file-input" accept="image/*" onchange="handleImageUpload('menuImage', 'menuImage')">
+                    </div>
+                    <!-- 프로그래스바 (메뉴 이미지) -->
+                    <div id="menuImageProgress" class="upload-progress" style="display: none;">
+                        <div class="upload-progress-bar">
+                            <div class="upload-progress-fill" id="menuImageProgressFill"></div>
+                        </div>
+                        <div class="upload-progress-text" id="menuImageProgressText">이미지 압축 중...</div>
                     </div>
                     <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px;">
                         <button type="button" class="btn btn-secondary" style="align-self: flex-start; padding: 8px 16px; font-size: 13px;" onclick="triggerPromoVideoUpload()">
@@ -11408,7 +11463,45 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             });
         }
         
-        // 이미지 파일 처리 (파일 업로드 방식 + 압축)
+        // 프로그래스바 업데이트 함수
+        function updateProgressBar(imageType, progress, text, isError = false) {
+            const progressElement = document.getElementById(`${imageType}Progress`);
+            const progressFill = document.getElementById(`${imageType}ProgressFill`);
+            const progressText = document.getElementById(`${imageType}ProgressText`);
+            
+            if (!progressElement || !progressFill || !progressText) return;
+            
+            // 프로그래스바 표시
+            progressElement.style.display = 'block';
+            
+            // 진행률 업데이트
+            progressFill.style.width = `${progress}%`;
+            progressText.textContent = text;
+            
+            // 에러 상태 처리
+            if (isError) {
+                progressElement.classList.add('error');
+            } else {
+                progressElement.classList.remove('error');
+            }
+        }
+        
+        // 프로그래스바 숨기기 함수
+        function hideProgressBar(imageType) {
+            const progressElement = document.getElementById(`${imageType}Progress`);
+            if (progressElement) {
+                setTimeout(() => {
+                    progressElement.style.display = 'none';
+                    const progressFill = document.getElementById(`${imageType}ProgressFill`);
+                    const progressText = document.getElementById(`${imageType}ProgressText`);
+                    if (progressFill) progressFill.style.width = '0%';
+                    if (progressText) progressText.textContent = '이미지 압축 중...';
+                    progressElement.classList.remove('error');
+                }, 500);
+            }
+        }
+        
+        // 이미지 파일 처리 (파일 업로드 방식 + 압축 + 프로그래스바)
         async function processImageFile(file, imageType) {
             console.log('🔍 [DEBUG] processImageFile 시작:', { file, imageType, fileSize: (file.size / (1024 * 1024)).toFixed(2) + 'MB' });
             
@@ -11418,18 +11511,24 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 if (!currentStoreId) {
                     showStatus('가게를 먼저 선택해주세요.', 'error');
+                    updateProgressBar(imageType, 0, '업로드 실패: 가게를 먼저 선택해주세요.', true);
+                    setTimeout(() => hideProgressBar(imageType), 3000);
                     return;
                 }
                 
                 // 파일 크기 확인 (50MB 제한 - 압축 전 원본 크기)
                 if (file.size > 50 * 1024 * 1024) {
                     showStatus('이미지 파일 크기는 50MB 이하여야 합니다.', 'error');
+                    updateProgressBar(imageType, 0, '업로드 실패: 파일 크기는 50MB 이하여야 합니다.', true);
+                    setTimeout(() => hideProgressBar(imageType), 3000);
                     return;
                 }
                 
-                // 이미지 압축 (최대 너비: 1920px, 최대 용량: 1MB)
-                showStatus('이미지를 압축하는 중...', 'info');
-                const compressedFile = await compressImage(file, 1920, 1);
+                // 단계 1: 파일 선택 즉시 10% 표시
+                updateProgressBar(imageType, 10, '이미지 압축 중...');
+                
+                // 단계 2: 압축 완료, 서버 전송 시작 직전 50% 표시
+                updateProgressBar(imageType, 50, '서버 업로드 중...');
                 
                 // FormData 생성 (multipart/form-data)
                 const formData = new FormData();
@@ -11446,14 +11545,20 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 if (!uploadResponse.ok) {
                     const errorData = await uploadResponse.json().catch(() => ({ message: '업로드 실패' }));
-                    throw new Error(errorData.message || '이미지 업로드에 실패했습니다.');
+                    const errorMessage = errorData.message || '이미지 업로드에 실패했습니다.';
+                    updateProgressBar(imageType, 100, `업로드 실패: ${errorMessage}`, true);
+                    throw new Error(errorMessage);
                 }
+                
+                // 단계 3: 업로드 완료 100% 표시
+                updateProgressBar(imageType, 100, '업로드 완료!');
                 
                 const uploadResult = await uploadResponse.json();
                 console.log('🔍 [DEBUG] 이미지 업로드 성공:', uploadResult);
                 
                 const imageUrl = uploadResult.data?.imageUrl;
                 if (!imageUrl) {
+                    updateProgressBar(imageType, 100, '업로드 실패: 이미지 URL을 받지 못했습니다.', true);
                     throw new Error('이미지 URL을 받지 못했습니다.');
                 }
                 
@@ -11493,10 +11598,16 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     );
                 }
                 
+                // 0.5초 후 프로그래스바 숨기기
+                hideProgressBar(imageType);
+                
                 showToast(`${imageType === 'mainLogo' ? '로고' : '메뉴판'} 이미지가 업로드되어 저장되었습니다!`, 'success', '저장 완료');
             } catch (error) {
                 console.error('이미지 저장 오류:', error);
                 showStatus('이미지 저장에 실패했습니다.', 'error');
+                // 에러 상태는 이미 updateProgressBar에서 처리됨
+                // 3초 후 프로그래스바 숨기기
+                setTimeout(() => hideProgressBar(imageType), 3000);
             }
         }
 
