@@ -2854,6 +2854,17 @@ async function ensureSingleOwnerConstraint() {
   }
 }
 
+// 고유 엠버서더 키 생성
+function generateAmbassadorKey() {
+  // 64자리 고유 키 생성 (영문 대소문자 + 숫자)
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let key = '';
+  for (let i = 0; i < 64; i++) {
+    key += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return key;
+}
+
 // 엠버서더 테이블 생성 및 인덱스 설정
 async function ensureAmbassadorTables() {
   if (ambassadorTablesEnsured || !ambassadorTablesAvailable) return;
@@ -2950,6 +2961,391 @@ async function ensureAmbassadorTables() {
     console.error('엠버서더 테이블 준비 실패:', error);
     throw error;
   }
+}
+
+// ===== 엠버서더 관련 함수 =====
+
+// 엠버서더 생성
+async function createAmbassador(storeId, ambassadorData) {
+  if (!storeId) {
+    throw new Error('가게 ID가 필요합니다.');
+  }
+  
+  const { name, birthDate, phone, address, email } = ambassadorData || {};
+  
+  if (!name || !name.trim()) {
+    throw new Error('엠버서더 이름은 필수입니다.');
+  }
+  
+  // 고유 키 생성 (중복 확인)
+  let ambassadorKey;
+  let keyExists = true;
+  let attempts = 0;
+  const maxAttempts = 10;
+  
+  while (keyExists && attempts < maxAttempts) {
+    ambassadorKey = generateAmbassadorKey();
+    const existing = await db.query(
+      'SELECT id FROM store_ambassadors WHERE ambassador_key = $1',
+      [ambassadorKey]
+    );
+    keyExists = existing.rows.length > 0;
+    attempts++;
+  }
+  
+  if (keyExists) {
+    throw new Error('고유 키 생성에 실패했습니다. 다시 시도해주세요.');
+  }
+  
+  const result = await db.query(`
+    INSERT INTO store_ambassadors (
+      store_id, name, birth_date, phone, address, email, ambassador_key, status, created_at, updated_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    RETURNING *
+  `, [
+    storeId,
+    name.trim(),
+    birthDate || null,
+    phone || null,
+    address || null,
+    email || null,
+    ambassadorKey
+  ]);
+  
+  const row = result.rows[0];
+  return {
+    id: row.id,
+    storeId: row.store_id,
+    name: row.name,
+    birthDate: row.birth_date ? row.birth_date.toISOString().split('T')[0] : null,
+    phone: row.phone,
+    address: row.address,
+    email: row.email,
+    ambassadorKey: row.ambassador_key,
+    status: row.status,
+    createdAt: row.created_at ? row.created_at.toISOString() : null,
+    updatedAt: row.updated_at ? row.updated_at.toISOString() : null
+  };
+}
+
+// 가게별 엠버서더 목록 조회
+async function getAmbassadors(storeId, options = {}) {
+  if (!storeId) {
+    return [];
+  }
+  
+  const { status = null } = options;
+  let query = `
+    SELECT 
+      id, store_id, name, birth_date, phone, address, email, 
+      ambassador_key, status, created_at, updated_at
+    FROM store_ambassadors
+    WHERE store_id = $1
+  `;
+  const params = [storeId];
+  
+  if (status) {
+    query += ` AND status = $2`;
+    params.push(status);
+  }
+  
+  query += ` ORDER BY created_at DESC`;
+  
+  const result = await db.query(query, params);
+  
+  return result.rows.map(row => ({
+    id: row.id,
+    storeId: row.store_id,
+    name: row.name,
+    birthDate: row.birth_date ? row.birth_date.toISOString().split('T')[0] : null,
+    phone: row.phone,
+    address: row.address,
+    email: row.email,
+    ambassadorKey: row.ambassador_key,
+    status: row.status,
+    createdAt: row.created_at ? row.created_at.toISOString() : null,
+    updatedAt: row.updated_at ? row.updated_at.toISOString() : null
+  }));
+}
+
+// 키로 엠버서더 조회
+async function getAmbassadorByKey(ambassadorKey) {
+  if (!ambassadorKey) {
+    return null;
+  }
+  
+  const result = await db.query(`
+    SELECT 
+      id, store_id, name, birth_date, phone, address, email, 
+      ambassador_key, status, created_at, updated_at
+    FROM store_ambassadors
+    WHERE ambassador_key = $1 AND status = 'active'
+    LIMIT 1
+  `, [ambassadorKey]);
+  
+  if (result.rows.length === 0) {
+    return null;
+  }
+  
+  const row = result.rows[0];
+  return {
+    id: row.id,
+    storeId: row.store_id,
+    name: row.name,
+    birthDate: row.birth_date ? row.birth_date.toISOString().split('T')[0] : null,
+    phone: row.phone,
+    address: row.address,
+    email: row.email,
+    ambassadorKey: row.ambassador_key,
+    status: row.status,
+    createdAt: row.created_at ? row.created_at.toISOString() : null,
+    updatedAt: row.updated_at ? row.updated_at.toISOString() : null
+  };
+}
+
+// 엠버서더 수정
+async function updateAmbassador(ambassadorId, ambassadorData) {
+  if (!ambassadorId) {
+    throw new Error('엠버서더 ID가 필요합니다.');
+  }
+  
+  const { name, birthDate, phone, address, email, status } = ambassadorData || {};
+  
+  const updates = [];
+  const params = [];
+  let paramIndex = 1;
+  
+  if (name !== undefined) {
+    if (!name || !name.trim()) {
+      throw new Error('엠버서더 이름은 필수입니다.');
+    }
+    updates.push(`name = $${paramIndex++}`);
+    params.push(name.trim());
+  }
+  
+  if (birthDate !== undefined) {
+    updates.push(`birth_date = $${paramIndex++}`);
+    params.push(birthDate || null);
+  }
+  
+  if (phone !== undefined) {
+    updates.push(`phone = $${paramIndex++}`);
+    params.push(phone || null);
+  }
+  
+  if (address !== undefined) {
+    updates.push(`address = $${paramIndex++}`);
+    params.push(address || null);
+  }
+  
+  if (email !== undefined) {
+    updates.push(`email = $${paramIndex++}`);
+    params.push(email || null);
+  }
+  
+  if (status !== undefined) {
+    if (!['active', 'inactive'].includes(status)) {
+      throw new Error('유효하지 않은 상태입니다.');
+    }
+    updates.push(`status = $${paramIndex++}`);
+    params.push(status);
+  }
+  
+  if (updates.length === 0) {
+    throw new Error('수정할 데이터가 없습니다.');
+  }
+  
+  updates.push(`updated_at = CURRENT_TIMESTAMP`);
+  params.push(ambassadorId);
+  
+  const result = await db.query(`
+    UPDATE store_ambassadors
+    SET ${updates.join(', ')}
+    WHERE id = $${paramIndex}
+    RETURNING *
+  `, params);
+  
+  if (result.rows.length === 0) {
+    throw new Error('엠버서더를 찾을 수 없습니다.');
+  }
+  
+  const row = result.rows[0];
+  return {
+    id: row.id,
+    storeId: row.store_id,
+    name: row.name,
+    birthDate: row.birth_date ? row.birth_date.toISOString().split('T')[0] : null,
+    phone: row.phone,
+    address: row.address,
+    email: row.email,
+    ambassadorKey: row.ambassador_key,
+    status: row.status,
+    createdAt: row.created_at ? row.created_at.toISOString() : null,
+    updatedAt: row.updated_at ? row.updated_at.toISOString() : null
+  };
+}
+
+// 엠버서더 삭제
+async function deleteAmbassador(ambassadorId) {
+  if (!ambassadorId) {
+    throw new Error('엠버서더 ID가 필요합니다.');
+  }
+  
+  const result = await db.query(
+    'DELETE FROM store_ambassadors WHERE id = $1 RETURNING id',
+    [ambassadorId]
+  );
+  
+  if (result.rows.length === 0) {
+    throw new Error('엠버서더를 찾을 수 없습니다.');
+  }
+  
+  return { success: true, id: result.rows[0].id };
+}
+
+// 엠버서더 방문 기록
+async function logAmbassadorVisit(ambassadorId, storeId, visitorPhone, userAgent = null, ipAddress = null) {
+  if (!ambassadorId || !storeId || !visitorPhone) {
+    throw new Error('필수 정보가 누락되었습니다.');
+  }
+  
+  const result = await db.query(`
+    INSERT INTO ambassador_visits (
+      ambassador_id, store_id, visitor_phone, visited_at, user_agent, ip_address
+    ) VALUES ($1, $2, $3, CURRENT_TIMESTAMP, $4, $5)
+    RETURNING *
+  `, [ambassadorId, storeId, visitorPhone, userAgent, ipAddress]);
+  
+  return {
+    id: result.rows[0].id,
+    ambassadorId: result.rows[0].ambassador_id,
+    storeId: result.rows[0].store_id,
+    visitorPhone: result.rows[0].visitor_phone,
+    visitedAt: result.rows[0].visited_at ? result.rows[0].visited_at.toISOString() : null
+  };
+}
+
+// 엠버서더 전화 연결 기록
+async function logAmbassadorCall(ambassadorId, storeId, callerPhone, userAgent = null, ipAddress = null) {
+  if (!ambassadorId || !storeId || !callerPhone) {
+    throw new Error('필수 정보가 누락되었습니다.');
+  }
+  
+  const result = await db.query(`
+    INSERT INTO ambassador_call_logs (
+      ambassador_id, store_id, caller_phone, called_at, user_agent, ip_address
+    ) VALUES ($1, $2, $3, CURRENT_TIMESTAMP, $4, $5)
+    RETURNING *
+  `, [ambassadorId, storeId, callerPhone, userAgent, ipAddress]);
+  
+  return {
+    id: result.rows[0].id,
+    ambassadorId: result.rows[0].ambassador_id,
+    storeId: result.rows[0].store_id,
+    callerPhone: result.rows[0].caller_phone,
+    calledAt: result.rows[0].called_at ? result.rows[0].called_at.toISOString() : null
+  };
+}
+
+// 엠버서더 통계 조회
+async function getAmbassadorStats(storeId = null, ambassadorId = null, options = {}) {
+  const { startDate = null, endDate = null } = options;
+  
+  let storeFilter = '';
+  let ambassadorFilter = '';
+  let dateFilter = '';
+  const params = [];
+  let paramIndex = 1;
+  
+  if (storeId) {
+    storeFilter = `WHERE a.store_id = $${paramIndex++}`;
+    params.push(storeId);
+  }
+  
+  if (ambassadorId) {
+    ambassadorFilter = storeFilter ? ` AND a.id = $${paramIndex++}` : `WHERE a.id = $${paramIndex++}`;
+    params.push(ambassadorId);
+  }
+  
+  if (startDate || endDate) {
+    const dateClause = storeFilter || ambassadorFilter ? ' AND' : 'WHERE';
+    if (startDate && endDate) {
+      dateFilter = `${dateClause} (v.visited_at >= $${paramIndex++} OR c.called_at >= $${paramIndex}) 
+                     AND (v.visited_at <= $${paramIndex + 1} OR c.called_at <= $${paramIndex + 1})`;
+      params.push(startDate, endDate);
+      paramIndex += 2;
+    } else if (startDate) {
+      dateFilter = `${dateClause} (v.visited_at >= $${paramIndex++} OR c.called_at >= $${paramIndex})`;
+      params.push(startDate);
+      paramIndex++;
+    } else if (endDate) {
+      dateFilter = `${dateClause} (v.visited_at <= $${paramIndex++} OR c.called_at <= $${paramIndex})`;
+      params.push(endDate);
+      paramIndex++;
+    }
+  }
+  
+  // 엠버서더별 통계 (방문 수, 전화 연결 수)
+  const statsQuery = `
+    SELECT 
+      a.id AS ambassador_id,
+      a.name AS ambassador_name,
+      a.ambassador_key,
+      a.store_id,
+      COUNT(DISTINCT v.id) AS visit_count,
+      COUNT(DISTINCT c.id) AS call_count,
+      COUNT(DISTINCT v.visitor_phone) AS unique_visitors,
+      COUNT(DISTINCT c.caller_phone) AS unique_callers
+    FROM store_ambassadors a
+    LEFT JOIN ambassador_visits v ON v.ambassador_id = a.id ${dateFilter ? `AND (v.visited_at >= '${startDate || '1970-01-01'}' AND v.visited_at <= '${endDate || '9999-12-31'}')` : ''}
+    LEFT JOIN ambassador_call_logs c ON c.ambassador_id = a.id ${dateFilter ? `AND (c.called_at >= '${startDate || '1970-01-01'}' AND c.called_at <= '${endDate || '9999-12-31'}')` : ''}
+    ${storeFilter}${ambassadorFilter}
+    GROUP BY a.id, a.name, a.ambassador_key, a.store_id
+    ORDER BY a.created_at DESC
+  `;
+  
+  const statsResult = await db.query(statsQuery, params);
+  
+  // 전화번호별 통계 (어떤 엠버서더를 통해 방문/전화했는지)
+  const phoneStatsQuery = `
+    SELECT 
+      COALESCE(v.visitor_phone, c.caller_phone) AS phone,
+      a.id AS ambassador_id,
+      a.name AS ambassador_name,
+      COUNT(DISTINCT v.id) AS visit_count,
+      COUNT(DISTINCT c.id) AS call_count,
+      MAX(COALESCE(v.visited_at, c.called_at)) AS last_activity
+    FROM store_ambassadors a
+    LEFT JOIN ambassador_visits v ON v.ambassador_id = a.id ${dateFilter ? `AND (v.visited_at >= '${startDate || '1970-01-01'}' AND v.visited_at <= '${endDate || '9999-12-31'}')` : ''}
+    LEFT JOIN ambassador_call_logs c ON c.ambassador_id = a.id ${dateFilter ? `AND (c.called_at >= '${startDate || '1970-01-01'}' AND c.called_at <= '${endDate || '9999-12-31'}')` : ''}
+    ${storeFilter}${ambassadorFilter}
+    WHERE (v.visitor_phone IS NOT NULL OR c.caller_phone IS NOT NULL)
+    GROUP BY phone, a.id, a.name
+    ORDER BY last_activity DESC
+  `;
+  
+  const phoneStatsResult = await db.query(phoneStatsQuery, params);
+  
+  return {
+    ambassadors: statsResult.rows.map(row => ({
+      ambassadorId: row.ambassador_id,
+      ambassadorName: row.ambassador_name,
+      ambassadorKey: row.ambassador_key,
+      storeId: row.store_id,
+      visitCount: parseInt(row.visit_count) || 0,
+      callCount: parseInt(row.call_count) || 0,
+      uniqueVisitors: parseInt(row.unique_visitors) || 0,
+      uniqueCallers: parseInt(row.unique_callers) || 0
+    })),
+    phoneStats: phoneStatsResult.rows.map(row => ({
+      phone: row.phone,
+      ambassadorId: row.ambassador_id,
+      ambassadorName: row.ambassador_name,
+      visitCount: parseInt(row.visit_count) || 0,
+      callCount: parseInt(row.call_count) || 0,
+      lastActivity: row.last_activity ? row.last_activity.toISOString() : null
+    }))
+  };
 }
 
 function buildSeoHistorySummary(settings = {}) {
@@ -4124,5 +4520,13 @@ module.exports = {
   getEventTotalsByStore,
   loadAllStoreSettingsToMemory,
   explainAnalyzeQuery,
-  ensureAmbassadorTables
+  ensureAmbassadorTables,
+  createAmbassador,
+  getAmbassadors,
+  getAmbassadorByKey,
+  updateAmbassador,
+  deleteAmbassador,
+  logAmbassadorVisit,
+  logAmbassadorCall,
+  getAmbassadorStats
 };
