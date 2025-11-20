@@ -10042,20 +10042,15 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 }
                 
                 // 캐시에 없으면 API 호출 (비동기, 백그라운드)
-                if (!subdomainValue && currentStoreId) {
-                    // 중복 호출 방지: 이미 로드되었으면 건너뛰기
-                    if (!domainSettingsLoaded) {
-                        loadDomainSettings().then(() => {
-                            // 도메인 설정 로드 완료 후 요약 다시 렌더링 (loadDomainSettings 호출 제거)
-                            renderBasicSummary();
-                        }).catch(err => {
-                            console.warn('도메인 설정 로드 실패 (백그라운드):', err);
-                            // 에러 발생 시 즉시 재시도하지 않음
-                        });
-                    } else {
-                        // 이미 로드되었으면 요약만 업데이트
-                        renderBasicSummary();
-                    }
+                // 무한 루프 방지: 이미 로드되었거나 로딩 중이면 건너뛰기
+                if (!subdomainValue && currentStoreId && !domainSettingsLoaded && !isLoadingDomainSettings) {
+                    loadDomainSettings().then(() => {
+                        // 도메인 설정 로드 완료 후 요약 다시 렌더링 (renderBasicSummary 재호출하지 않음)
+                        // renderBasicSummary()는 loadDomainSettings 내부에서 이미 호출됨
+                    }).catch(err => {
+                        console.warn('도메인 설정 로드 실패 (백그라운드):', err);
+                        // 에러 발생 시 즉시 재시도하지 않음
+                    });
                 }
             }
 
