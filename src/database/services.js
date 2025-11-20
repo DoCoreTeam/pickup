@@ -3386,6 +3386,18 @@ async function getAmbassadorStats(storeId = null, ambassadorId = null, options =
     }
   }
   
+  // WHERE 절 조합 (기존 조건 + 전화번호 조건)
+  const phoneWhereConditions = [];
+  if (phoneWhereClause) {
+    // phoneWhereClause에서 "WHERE " 제거하고 조건만 추출
+    const whereConditions = phoneWhereClause.replace(/^WHERE\s+/i, '');
+    phoneWhereConditions.push(whereConditions);
+  }
+  phoneWhereConditions.push('(v.visitor_phone IS NOT NULL OR c.caller_phone IS NOT NULL)');
+  const finalPhoneWhereClause = phoneWhereConditions.length > 0 
+    ? `WHERE ${phoneWhereConditions.join(' AND ')}` 
+    : '';
+  
   const phoneStatsQuery = `
     SELECT 
       COALESCE(v.visitor_phone, c.caller_phone) AS phone,
@@ -3397,8 +3409,7 @@ async function getAmbassadorStats(storeId = null, ambassadorId = null, options =
     FROM store_ambassadors a
     LEFT JOIN ambassador_visits v ON v.ambassador_id = a.id${phoneVisitDateFilter}
     LEFT JOIN ambassador_call_logs c ON c.ambassador_id = a.id${phoneCallDateFilter}
-    ${phoneWhereClause}
-    WHERE (v.visitor_phone IS NOT NULL OR c.caller_phone IS NOT NULL)
+    ${finalPhoneWhereClause}
     GROUP BY phone, a.id, a.name
     ORDER BY last_activity DESC
   `;
