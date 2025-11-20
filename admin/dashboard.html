@@ -8267,7 +8267,19 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 }
 
                 // 필터가 적용된 목록 가져오기 (테이블 표시용)
-                const storesResponse = await apiRequest(`${API_BASE}/stores?${query.toString()}`);
+                let storesResponse;
+                try {
+                    storesResponse = await apiRequest(`${API_BASE}/stores?${query.toString()}`, 'GET', null, 3, false);
+                } catch (error) {
+                    console.error('가게 목록 로드 실패:', error);
+                    // 에러 발생 시 빈 목록으로 처리하여 UI가 멈추지 않도록 함
+                    allStores = [];
+                    filteredStores = [];
+                    document.getElementById('filteredStoresCount').textContent = '0';
+                    await renderStoreView();
+                    showToast('가게 목록을 불러오지 못했습니다. 페이지를 새로고침해주세요.', 'error');
+                    return;
+                }
                 const stores = normalizeStoreListResponse(storesResponse);
                 filteredStores = [...stores];
                 populateOwnerFilterOptions(stores);
