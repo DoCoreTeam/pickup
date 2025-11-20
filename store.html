@@ -1449,8 +1449,21 @@
           return storeIdFromParam;
         }
         
+        // 엠버서더 키 확인 (URL 파라미터)
+        const ambassadorKey = urlParams.get('ambassador');
+        if (ambassadorKey) {
+          return { type: 'ambassador', key: ambassadorKey };
+        }
+        
         // 서브도메인 기반 접근 확인
         const path = window.location.pathname;
+        
+        // 엠버서더 경로 확인 (/ambassador/:key)
+        const ambassadorMatch = path.match(/\/ambassador\/([^\/\?]+)/);
+        if (ambassadorMatch) {
+          return { type: 'ambassador', key: ambassadorMatch[1] };
+        }
+        
         if (path && path !== '/' && !path.includes('.')) {
           const subdomain = path.substring(1); // '/' 제거
           return subdomain; // 서브도메인을 반환하여 나중에 getStoreBySubdomain에서 사용
@@ -2833,6 +2846,13 @@
           const initialData = getInitialStoreData();
           
           let storeId = getStoreIdFromUrl();
+          
+          // 엠버서더 키로 접근한 경우 전화번호 입력 페이지 표시
+          if (storeId && typeof storeId === 'object' && storeId.type === 'ambassador') {
+            await showAmbassadorPhoneInput(storeId.key);
+            return; // 전화번호 입력 후 가게 페이지로 이동하므로 여기서 종료
+          }
+          
           if (!storeId && !initialData) {
             throw new Error('가게 ID가 없습니다');
           }
@@ -3099,10 +3119,171 @@
       // 전화하기 함수
       function callStore() {
         if (currentStore && currentStore.phone) {
+          // 엠버서더 정보 확인 (세션 스토리지에서)
+          const ambassadorId = sessionStorage.getItem('currentAmbassadorId');
+          const visitorPhone = sessionStorage.getItem('currentVisitorPhone');
+          
+          // 전화 연결 이벤트 로깅
           logEvent('call_click', { phone: currentStore.phone });
+          
+          // 엠버서더를 통해 접근한 경우 전화 연결 기록
+          if (ambassadorId && visitorPhone && currentStoreId) {
+            // 비동기로 전화 연결 기록 (실제 연결 여부는 확인 불가, 버튼 클릭으로 추정)
+            apiRequest(`${API_BASE}/ambassadors/calls`, 'POST', {
+              ambassadorId: parseInt(ambassadorId, 10),
+              storeId: currentStoreId,
+              callerPhone: visitorPhone
+            }).catch(err => {
+              console.error('전화 연결 기록 실패:', err);
+            });
+          }
+          
           window.location.href = `tel:${currentStore.phone}`;
         } else {
           alert('전화번호가 등록되지 않았습니다.');
+        }
+      }
+
+      // ===== 엠버서더 관련 함수 =====
+      
+      // 엠버서더 전화번호 입력 페이지 표시
+      async function showAmbassadorPhoneInput(ambassadorKey) {
+        try {
+          // 로딩 오버레이 숨기기
+          hideLoadingOverlay();
+          
+          // 엠버서더 정보 조회
+          const response = await apiRequest(`${API_BASE}/ambassadors/key/${ambassadorKey}`, 'GET');
+          const ambassador = response?.data;
+          
+          if (!ambassador || !ambassador.storeId) {
+            document.getElementById('content').innerHTML = `
+              <div class="error" style="text-align: center; padding: 40px 20px;">
+                <div class="error-icon" style="font-size: 48px; margin-bottom: 16px;">❌</div>
+                <h3 style="margin: 0 0 8px 0; font-size: 20px; font-weight: 600;">엠버서더를 찾을 수 없습니다</h3>
+                <p style="margin: 0; color: var(--muted); font-size: 14px;">유효하지 않은 링크입니다.</p>
+              </div>
+            `;
+            return;
+          }
+          
+          // 전화번호 입력 페이지 표시
+          document.getElementById('content').innerHTML = `
+            <div style="max-width: 480px; margin: 0 auto; padding: 40px 20px;">
+              <div style="background: var(--card); border-radius: var(--radius-lg); padding: 32px 24px; box-shadow: var(--shadow-lg); border: 1px solid rgba(0, 0, 0, 0.05);">
+                <div style="text-align: center; margin-bottom: 32px;">
+                  <div style="font-size: 48px; margin-bottom: 16px;">📱</div>
+                  <h2 style="margin: 0 0 12px 0; font-size: 24px; font-weight: 700; color: var(--fg);">주문 전화번호 입력</h2>
+                  <p style="margin: 0; color: var(--muted); font-size: 14px; line-height: 1.6;">
+                    주문하시는 전화번호를 입력하셔야<br>할인 혜택이 적용됩니다.
+                  </p>
+                </div>
+                
+                <form id="ambassadorPhoneForm" onsubmit="handleAmbassadorPhoneSubmit(event, '${ambassadorKey}')" style="display: flex; flex-direction: column; gap: 16px;">
+                  <div>
+                    <label for="visitorPhone" style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: var(--fg);">전화번호</label>
+                    <input 
+                      type="tel" 
+                      id="visitorPhone" 
+                      name="visitorPhone" 
+                      placeholder="010-1234-5678" 
+                      required
+                      pattern="[0-9-]+"
+                      maxlength="13"
+                      style="width: 100%; padding: 14px 16px; border: 2px solid var(--border); border-radius: var(--radius); font-size: 16px; background: white; box-sizing: border-box;"
+                      oninput="formatPhoneNumber(this)"
+                    >
+                  </div>
+                  
+                  <button 
+                    type="submit" 
+                    class="phone-btn" 
+                    style="width: 100%; padding: 16px; font-size: 16px; font-weight: 600; background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; border: none; border-radius: var(--radius); cursor: pointer; transition: all 0.2s ease;"
+                  >
+                    가게 페이지로 이동
+                  </button>
+                </form>
+              </div>
+            </div>
+          `;
+          
+          // 전화번호 입력 필드에 포커스
+          setTimeout(() => {
+            const phoneInput = document.getElementById('visitorPhone');
+            if (phoneInput) {
+              phoneInput.focus();
+            }
+          }, 100);
+          
+        } catch (error) {
+          console.error('엠버서더 정보 조회 실패:', error);
+          document.getElementById('content').innerHTML = `
+            <div class="error" style="text-align: center; padding: 40px 20px;">
+              <div class="error-icon" style="font-size: 48px; margin-bottom: 16px;">❌</div>
+              <h3 style="margin: 0 0 8px 0; font-size: 20px; font-weight: 600;">엠버서더 정보를 불러올 수 없습니다</h3>
+              <p style="margin: 0; color: var(--muted); font-size: 14px;">잠시 후 다시 시도해주세요.</p>
+            </div>
+          `;
+        }
+      }
+      
+      // 전화번호 포맷팅 (하이픈 자동 추가)
+      function formatPhoneNumber(input) {
+        let value = input.value.replace(/[^0-9]/g, '');
+        if (value.length > 3 && value.length <= 7) {
+          value = value.slice(0, 3) + '-' + value.slice(3);
+        } else if (value.length > 7) {
+          value = value.slice(0, 3) + '-' + value.slice(3, 7) + '-' + value.slice(7, 11);
+        }
+        input.value = value;
+      }
+      
+      // 엠버서더 전화번호 제출 처리
+      async function handleAmbassadorPhoneSubmit(event, ambassadorKey) {
+        event.preventDefault();
+        
+        const phoneInput = document.getElementById('visitorPhone');
+        const visitorPhone = phoneInput?.value.trim().replace(/[^0-9]/g, '');
+        
+        if (!visitorPhone || visitorPhone.length < 10) {
+          alert('올바른 전화번호를 입력해주세요.');
+          phoneInput?.focus();
+          return;
+        }
+        
+        try {
+          // 엠버서더 정보 재조회 (storeId 확인용)
+          const response = await apiRequest(`${API_BASE}/ambassadors/key/${ambassadorKey}`, 'GET');
+          const ambassador = response?.data;
+          
+          if (!ambassador || !ambassador.storeId) {
+            alert('엠버서더 정보를 찾을 수 없습니다.');
+            return;
+          }
+          
+          // 방문 기록 저장
+          try {
+            await apiRequest(`${API_BASE}/ambassadors/visits`, 'POST', {
+              ambassadorId: ambassador.id,
+              storeId: ambassador.storeId,
+              visitorPhone: visitorPhone
+            });
+          } catch (error) {
+            console.error('방문 기록 저장 실패:', error);
+            // 방문 기록 저장 실패해도 계속 진행
+          }
+          
+          // 세션 스토리지에 엠버서더 정보 저장 (전화 연결 기록용)
+          sessionStorage.setItem('currentAmbassadorId', ambassador.id.toString());
+          sessionStorage.setItem('currentVisitorPhone', visitorPhone);
+          sessionStorage.setItem('currentAmbassadorKey', ambassadorKey);
+          
+          // 가게 페이지로 이동 (storeId 파라미터 포함)
+          window.location.href = `store.html?storeId=${ambassador.storeId}`;
+          
+        } catch (error) {
+          console.error('엠버서더 처리 실패:', error);
+          alert('처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
         }
       }
     </script>
