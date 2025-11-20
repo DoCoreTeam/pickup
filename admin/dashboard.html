@@ -7978,10 +7978,18 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 console.log('🔍 [DEBUG] 가게 상태:', { storeId: store.id, status: store.status });
                 
-                // 일시정지/재개 버튼
-                const pauseResumeBtn = store.status === 'paused'
-                    ? `<button onclick="event.stopPropagation(); resumeStore('${store.id}')" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">재개</button>`
-                    : `<button onclick="event.stopPropagation(); pauseStore('${store.id}')" style="padding: 6px 12px; background: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">일시정지</button>`;
+                // 상태별 버튼 분기 처리
+                let statusActionBtn = '';
+                if (store.status === 'pending') {
+                    // 'pending' (입점 대기) 상태: 파란색 '입점 승인' 버튼
+                    statusActionBtn = `<button onclick="event.stopPropagation(); approveStore('${store.id}')" style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">입점 승인</button>`;
+                } else if (store.status === 'active') {
+                    // 'active' (활성) 상태: '일시정지' 버튼
+                    statusActionBtn = `<button onclick="event.stopPropagation(); pauseStore('${store.id}')" style="padding: 6px 12px; background: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">일시정지</button>`;
+                } else if (store.status === 'paused') {
+                    // 'paused' (정지) 상태: '재개(활성화)' 버튼
+                    statusActionBtn = `<button onclick="event.stopPropagation(); resumeStore('${store.id}')" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">재개(활성화)</button>`;
+                }
 
                 const actionButtons = IS_STORE_OWNER
                     ? `
@@ -7989,7 +7997,7 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             <button onclick="event.stopPropagation(); copyStoreUrl('${storeUrl}')" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">URL 복사</button>
                     `
                     : `
-                            ${pauseResumeBtn}
+                            ${statusActionBtn}
                             <button onclick="event.stopPropagation(); openStoreOwnerManageModal('${store.id}')" style="padding: 6px 12px; background: #6366f1; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">점주 관리</button>
                             <button onclick="event.stopPropagation(); viewStorePage('${store.id}')" style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">페이지보기</button>
                             <button onclick="event.stopPropagation(); copyStoreUrl('${storeUrl}')" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">URL 복사</button>
@@ -8000,9 +8008,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     <td style="padding: 16px 12px;">
                         <code style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-size: 12px; color: #475569;">${shortId}</code>
                     </td>
-                    <td style="padding: 16px 12px; font-weight: 600; color: #1e293b;">${store.basic?.storeName || '이름 없음'}</td>
+                    <td style="padding: 16px 12px; font-weight: 600; color: #1e293b;">${escapeHtml(store.basic?.storeName || store.name || '이름 없음')}</td>
                     <td style="padding: 16px 12px;">${ownersCell}</td>
-                    <td style="padding: 16px 12px; color: #64748b;">${store.basic?.storePhone || '-'}</td>
+                    <td style="padding: 16px 12px; color: #64748b;">${escapeHtml(store.basic?.storePhone || store.phone || '-')}</td>
                     <td style="padding: 16px 12px;">${statusBadge}</td>
                     <td style="padding: 16px 12px; text-align: center;">
                         <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
@@ -9262,16 +9270,41 @@ body:not(.owner-mode) .menu-section-title.owner-only {
             }
         }
 
+        // 가게 입점 승인
+        async function approveStore(storeId) {
+            try {
+                GlobalLoader.show('가게 입점을 승인하는 중...', false);
+                
+                const response = await apiRequest(`${API_BASE}/stores/${storeId}/approve`, 'POST');
+                
+                GlobalLoader.hide();
+                alert(response?.message || '가게 입점 요청이 승인되었습니다.');
+                
+                // 전체 목록을 다시 가져와서 통계 재계산
+                window.shouldReloadAllStores = true;
+                await loadStoreList();
+            } catch (error) {
+                GlobalLoader.hide();
+                console.error('가게 승인 실패:', error);
+                alert(error.message || '가게 승인에 실패했습니다.');
+            }
+        }
+
         // 가게 일시정지
         async function pauseStore(storeId) {
             try {
+                GlobalLoader.show('가게를 일시정지하는 중...', false);
+                
                 await apiRequest(`${API_BASE}/stores/${storeId}/pause`, 'POST');
+                
+                GlobalLoader.hide();
                 showToast('가게가 일시정지되었습니다.', 'success', '성공');
                 
                 // 전체 목록을 다시 가져와서 통계 재계산
                 window.shouldReloadAllStores = true;
                 await loadStoreList();
             } catch (error) {
+                GlobalLoader.hide();
                 console.error('가게 일시정지 실패:', error);
                 showToast('가게 일시정지에 실패했습니다.', 'error', '오류');
             }
