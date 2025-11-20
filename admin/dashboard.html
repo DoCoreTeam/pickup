@@ -11527,6 +11527,17 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 // 단계 1: 파일 선택 즉시 10% 표시
                 updateProgressBar(imageType, 10, '이미지 압축 중...');
                 
+                // 이미지 압축 (최대 너비: 1920px, 최대 용량: 1MB)
+                // 기본값은 원본 파일 (압축 실패 시 원본 사용)
+                let compressedFile = file;
+                
+                try {
+                    compressedFile = await compressImage(file, 1920, 1);
+                } catch (error) {
+                    console.warn('이미지 압축 실패, 원본 사용:', error);
+                    // 압축 실패해도 원본 파일로 계속 진행
+                }
+                
                 // 단계 2: 압축 완료, 서버 전송 시작 직전 50% 표시
                 updateProgressBar(imageType, 50, '서버 업로드 중...');
                 
