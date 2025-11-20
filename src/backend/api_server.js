@@ -2329,6 +2329,24 @@ class APIRouter {
         settingsType: typeof settings,
         settingsLength: JSON.stringify(settings || {}).length
       });
+
+      // 이미지 데이터 처리 (Base64 검증 및 로깅)
+      if (settings.images) {
+        for (const [key, value] of Object.entries(settings.images)) {
+          if (typeof value === 'string' && value.startsWith('data:image/')) {
+            // Base64 크기 검증 (500KB 제한)
+            const sizeKB = Math.round((value.length * 3) / 4 / 1024);
+            if (sizeKB > 500) {
+              log('ERROR', `이미지 크기 초과: ${key} (${sizeKB}KB > 500KB)`);
+              sendErrorResponse(res, 400, `이미지 크기가 너무 큽니다: ${sizeKB}KB (최대 500KB)`);
+              return;
+            }
+            log('INFO', `✅ Base64 이미지 저장: ${key} (${sizeKB}KB) - Railway 안전`);
+          } else if (typeof value === 'string' && value.startsWith('/assets/uploads/')) {
+            log('WARN', `⚠️ 파일 경로 저장: ${key} - Railway에서 삭제될 수 있음`);
+          }
+        }
+      }
       
       // 설정 업데이트
       await dbServices.updateStoreSettings(storeId, settings);
