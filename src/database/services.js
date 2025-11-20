@@ -3267,9 +3267,10 @@ async function logAmbassadorCall(ambassadorId, storeId, callerPhone, userAgent =
 
 // 엠버서더 통계 조회
 async function getAmbassadorStats(storeId = null, ambassadorId = null, options = {}) {
-  const { startDate = null, endDate = null } = options;
-  
-  const params = [];
+  try {
+    const { startDate = null, endDate = null } = options;
+    
+    const params = [];
   const conditions = [];
   let paramIndex = 1;
   
@@ -3414,10 +3415,10 @@ async function getAmbassadorStats(storeId = null, ambassadorId = null, options =
     ORDER BY last_activity DESC
   `;
   
-  const phoneStatsResult = await db.query(phoneStatsQuery, phoneParams);
-  
-  return {
-    ambassadors: statsResult.rows.map(row => ({
+    const phoneStatsResult = await db.query(phoneStatsQuery, phoneParams);
+    
+    return {
+      ambassadors: statsResult.rows.map(row => ({
       ambassadorId: row.ambassador_id,
       ambassadorName: row.ambassador_name,
       ambassadorKey: row.ambassador_key,
