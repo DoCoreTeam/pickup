@@ -6307,9 +6307,9 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                             // 타임아웃으로 인한 취소인 경우
                             if (attempt === retries) {
                                 console.warn('API 요청이 타임아웃되었습니다:', url);
-                                // 타임아웃이 발생하면 세션 만료로 간주하고 로그인 페이지로 리다이렉트
-                                clearSessionAndRedirect('요청 시간이 초과되었습니다. 다시 로그인해주세요.');
-                                throw new Error('요청 시간이 초과되었습니다. 다시 로그인해주세요.');
+                                // 타임아웃은 네트워크 문제일 수 있으므로 세션을 끊지 않음
+                                // 대신 에러를 throw하여 호출자가 처리하도록 함
+                                throw new Error('요청 시간이 초과되었습니다. 네트워크 연결을 확인해주세요.');
                             }
                             // 중간 시도에서 취소된 경우 (의도적인 취소일 수 있음)
                             console.debug(`API 요청 취소됨 (시도 ${attempt}/${retries}):`, url);
