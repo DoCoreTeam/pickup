@@ -15861,15 +15861,40 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                 
                 // 통계는 백그라운드에서 비동기로 로드 (성능 개선)
                 // 목록이 먼저 표시되고, 통계는 나중에 업데이트됨
-                Promise.all(ambassadors.map(amb => 
-                    apiRequest(`${API_BASE}/ambassadors/stats?storeId=${currentStoreId}&ambassadorId=${amb.id}`, 'GET', null, 1, false, {}, 5000)
-                        .then(res => ({ id: amb.id, stats: res?.data || null }))
-                        .catch(err => {
-                            // 타임아웃 등 에러는 무시하고 기본값 반환
-                            console.warn(`엠버서더 ${amb.id} 통계 조회 실패:`, err.message);
+                // 통계 조회는 optional이므로 실패해도 세션에 영향 없음
+                Promise.all(ambassadors.map(amb => {
+                    // 통계 조회는 별도의 fetch로 처리하여 세션 체크와 분리
+                    return fetch(`${API_BASE}/ambassadors/stats?storeId=${currentStoreId}&ambassadorId=${amb.id}`, {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' },
+                        signal: AbortSignal.timeout(5000) // 5초 타임아웃
+                    })
+                    .then(async response => {
+                        if (!response.ok) {
+                            // 401, 403이 아니면 통계 조회 실패로만 처리
+                            if (response.status === 401 || response.status === 403) {
+                                // 세션 만료는 상위에서 처리
+                                throw new Error('세션 만료');
+                            }
                             return { id: amb.id, stats: null };
-                        })
-                )).then(statsResults => {
+                        }
+                        const res = await response.json();
+                        return { id: amb.id, stats: res?.data || null };
+                    })
+                    .catch(err => {
+                        // 타임아웃, 네트워크 에러, 세션 만료 모두 무시하고 기본값 반환
+                        // 통계 조회 실패는 중요한 작업이 아니므로 세션에 영향 없음
+                        if (err.name === 'AbortError' || err.message.includes('timeout')) {
+                            console.warn(`엠버서더 ${amb.id} 통계 조회 타임아웃 (무시)`);
+                        } else if (err.message === '세션 만료') {
+                            // 세션 만료는 상위에서만 처리 (여기서는 무시)
+                            console.warn(`엠버서더 ${amb.id} 통계 조회 시 세션 만료 감지 (무시)`);
+                        } else {
+                            console.warn(`엠버서더 ${amb.id} 통계 조회 실패 (무시):`, err.message);
+                        }
+                        return { id: amb.id, stats: null };
+                    });
+                })).then(statsResults => {
                     const statsMap = {};
                     statsResults.forEach(result => {
                         if (result.stats && result.stats.ambassadors && result.stats.ambassadors.length > 0) {
