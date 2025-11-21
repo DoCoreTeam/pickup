@@ -11934,8 +11934,18 @@ body:not(.owner-mode) .menu-section-title.owner-only {
                     throw new Error(response.message || response.error?.message || '알 수 없는 저장 오류가 발생했습니다.');
                 }
                 
-                // 즉시 미리보기 업데이트 (Base64 데이터 사용)
-                updateImagePreview(imageType, base64Data);
+                // 즉시 미리보기 업데이트 (Base64 데이터 직접 사용)
+                console.log(`🔍 [DEBUG] 미리보기 업데이트 시작:`, { imageType, base64Length: base64Data.length });
+                const preview = document.getElementById(`${imageType}Preview`);
+                if (preview) {
+                    preview.src = base64Data;
+                    preview.style.display = 'block';
+                    preview.style.visibility = 'visible';
+                    preview.style.opacity = '1';
+                    console.log(`✅ [DEBUG] 미리보기 직접 업데이트 완료: ${imageType}`);
+                } else {
+                    console.warn(`❌ [DEBUG] 미리보기 요소 없음: ${imageType}Preview`);
+                }
                 
                 // 사이드바 즉시 업데이트 (로고 변경 시 바로 반영)
                 if (imageType === 'mainLogo') {
